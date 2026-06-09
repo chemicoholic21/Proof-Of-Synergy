@@ -3,6 +3,8 @@
 
 const SARVAM_BASE = "https://api.sarvam.ai";
 const KEY = process.env.SARVAM_API_KEY || "";
+// Chat model is configurable so a key without 105b access can fall back to the stable `sarvam-m`.
+const CHAT_MODEL = process.env.SARVAM_CHAT_MODEL || "sarvam-m";
 
 export function sarvamConfigured(): boolean {
   return KEY.length > 0;
@@ -12,11 +14,22 @@ function authHeaders(extra: Record<string, string> = {}) {
   return { "api-subscription-key": KEY, ...extra };
 }
 
-async function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+/** fetch() that actually aborts on timeout — the AbortController signal is wired into the request
+ *  (the previous helper created a controller but never passed its signal, so it never timed out). */
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+  ms: number
+): Promise<Response> {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), ms);
   try {
-    return await p;
+    return await fetch(url, { ...init, signal: ctrl.signal });
+  } catch (e) {
+    if (e instanceof Error && e.name === "AbortError") {
+      throw new Error(`Sarvam request timed out after ${ms}ms`);
+    }
+    throw e;
   } finally {
     clearTimeout(t);
   }
@@ -28,15 +41,16 @@ async function sarvamChatOnce(
   user: string,
   opts: { temperature?: number; maxTokens?: number; timeoutMs?: number }
 ): Promise<string> {
-  const res = await withTimeout(
-    fetch(`${SARVAM_BASE}/v1/chat/completions`, {
+  const res = await fetchWithTimeout(
+    `${SARVAM_BASE}/v1/chat/completions`,
+    {
       method: "POST",
       headers: authHeaders({ "content-type": "application/json" }),
       body: JSON.stringify({
-        // sarvam-105b is a reasoning model; "/no_think" disables chain-of-thought so the
+        // sarvam-m/105b are reasoning models; "/no_think" disables chain-of-thought so the
         // assistant returns the answer directly in `content` (otherwise it burns the whole
         // token budget on reasoning and `content` comes back null).
-        model: "sarvam-105b",
+        model: CHAT_MODEL,
         messages: [
           { role: "system", content: `${system} /no_think` },
           { role: "user", content: `${user} /no_think` },
@@ -44,7 +58,7 @@ async function sarvamChatOnce(
         temperature: opts.temperature ?? 0.4,
         max_tokens: opts.maxTokens ?? 2500,
       }),
-    }),
+    },
     opts.timeoutMs ?? 45000
   );
   if (!res.ok) throw new Error(`Sarvam chat ${res.status}: ${await res.text()}`);
@@ -86,12 +100,13 @@ export async function sarvamTranscribe(
   form.append("file", audio, filename);
   form.append("model", "saarika:v2.5");
   form.append("language_code", "unknown"); // auto-detect + code-mixing
-  const res = await withTimeout(
-    fetch(`${SARVAM_BASE}/speech-to-text`, {
+  const res = await fetchWithTimeout(
+    `${SARVAM_BASE}/speech-to-text`,
+    {
       method: "POST",
       headers: authHeaders(),
       body: form,
-    }),
+    },
     timeoutMs
   );
   if (!res.ok) throw new Error(`Sarvam STT ${res.status}: ${await res.text()}`);
@@ -102,6 +117,38 @@ export async function sarvamTranscribe(
   };
 }
 
+/** Bulbul TTS. Synthesizes `text` into speech and returns base64-encoded WAV audio. */
+export async function sarvamTTS(
+  text: string,
+  targetLanguageCode = "en-IN",
+  timeoutMs = 20000
+): Promise<string> {
+  if (!KEY) throw new Error("SARVAM_API_KEY not set");
+  const model = process.env.SARVAM_TTS_MODEL || "bulbul:v2";
+  const speaker = process.env.SARVAM_TTS_SPEAKER || "anushka"; // default v2 speaker
+  const res = await fetchWithTimeout(
+    `${SARVAM_BASE}/text-to-speech`,
+    {
+      method: "POST",
+      headers: authHeaders({ "content-type": "application/json" }),
+      body: JSON.stringify({
+        // bulbul:v2 caps input at 1500 chars; trim defensively so long questions still speak.
+        text: text.slice(0, 1450),
+        target_language_code: targetLanguageCode,
+        model,
+        speaker,
+        pace: 1.0,
+      }),
+    },
+    timeoutMs
+  );
+  if (!res.ok) throw new Error(`Sarvam TTS ${res.status}: ${await res.text()}`);
+  const data = await res.json();
+  const audio = data?.audios?.[0] as string | undefined;
+  if (!audio) throw new Error("Sarvam TTS: empty audio");
+  return audio; // base64 WAV
+}
+
 /** Sarvam Parse (OCR). Returns extracted text/markdown from a document. */
 export async function sarvamParse(file: Blob, filename: string, timeoutMs = 25000): Promise<string> {
   if (!KEY) throw new Error("SARVAM_API_KEY not set");
@@ -109,12 +156,13 @@ export async function sarvamParse(file: Blob, filename: string, timeoutMs = 2500
   form.append("file", file, filename);
   form.append("page_number", "1");
   form.append("sarvam_mode", "small");
-  const res = await withTimeout(
-    fetch(`${SARVAM_BASE}/parse/parsepdf`, {
+  const res = await fetchWithTimeout(
+    `${SARVAM_BASE}/parse/parsepdf`,
+    {
       method: "POST",
       headers: authHeaders(),
       body: form,
-    }),
+    },
     timeoutMs
   );
   if (!res.ok) throw new Error(`Sarvam Parse ${res.status}: ${await res.text()}`);

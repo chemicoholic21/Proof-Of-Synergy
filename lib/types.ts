@@ -13,6 +13,9 @@ export interface ParsedResume {
   experience: { role: string; company: string; years: number }[];
   education: { degree: string; institution: string; year: number | null }[];
   source: "sarvam" | "fallback";
+  // When source === "fallback", explains why the real parse was not used (e.g. missing API key,
+  // timeout, parse error). Surfaced in the UI so demo mode is never silent/confusing.
+  reason?: string;
 }
 
 export interface InterviewQuestion {

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import VoiceRecorder from "@/components/VoiceRecorder";
+import QuestionPlayer from "@/components/QuestionPlayer";
 import { aggregateConfidence, buildVerdicts, overallScore } from "@/lib/verify";
 import {
   ParsedResume,
@@ -225,6 +226,18 @@ export default function Home() {
 
         {step === "interview" && resume && (
           <div className="step-container flex flex-col gap-6">
+            {resume.source === "fallback" && (
+              <div className="flex items-start gap-3 rounded-2xl border border-amber-500/30 bg-amber-950/20 px-5 py-4 text-amber-200">
+                <svg className="h-5 w-5 shrink-0 mt-0.5 text-amber-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+                </svg>
+                <div className="text-sm leading-relaxed">
+                  <span className="font-bold text-amber-300">Demo mode — your uploaded document was not parsed.</span>{" "}
+                  {resume.reason ?? "The AI parsing service is unavailable, so a sample profile is shown instead."}{" "}
+                  Showing the sample profile (Aarav Sharma) below.
+                </div>
+              </div>
+            )}
             <Card>
               <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                 <div>
@@ -279,7 +292,12 @@ export default function Home() {
                         Q{q.id}
                       </span>
                       <div className="flex-1">
-                        <p className="font-medium text-[15px] leading-relaxed text-zinc-100">{q.text}</p>
+                        <div className="flex items-start justify-between gap-3">
+                          <p className="font-medium text-[15px] leading-relaxed text-zinc-100">{q.text}</p>
+                          <div className="shrink-0">
+                            <QuestionPlayer text={q.text} />
+                          </div>
+                        </div>
                         <div className="mt-2 flex items-center gap-1.5 text-xs text-zinc-500">
                           <span>Target Attribute ·</span>
                           <span className="rounded-full bg-zinc-900 px-2.5 py-0.5 font-medium text-zinc-400 border border-zinc-800">{q.targetSkill}</span>
