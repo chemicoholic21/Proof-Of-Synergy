@@ -1,0 +1,34 @@
+# env / secrets
+.env
+.env*.local
+contracts/.env
+
+# node
+node_modules/
+.next/
+out/
+dist/
+npm-debug.log*
+
+# foundry
+contracts/out/
+contracts/cache/
+contracts/broadcast/
+
+# contract library clutter
+contracts/lib/**/.git/
+contracts/lib/**/.github/
+contracts/lib/**/test/
+contracts/lib/**/tests/
+contracts/lib/**/docs/
+contracts/lib/**/scripts/
+contracts/lib/**/audits/
+contracts/lib/**/fv/
+contracts/lib/**/hardhat/
+contracts/lib/**/mocks/
+contracts/lib/**/.changeset/
+contracts/lib/**/package-lock.json
+
+# misc
+.DS_Store
+*.log
