@@ -32,3 +32,6 @@ contracts/lib/**/package-lock.json
 # misc
 .DS_Store
 *.log
+
+# typescript incremental build info
+*.tsbuildinfo

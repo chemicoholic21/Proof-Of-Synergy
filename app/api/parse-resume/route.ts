@@ -3,6 +3,7 @@ import { extractText, getDocumentProxy } from "unpdf";
 import { sarvamParse, sarvamChat, extractJson } from "@/lib/sarvam";
 import { RESUME_PARSE_SYSTEM, resumeParseUser } from "@/lib/prompts";
 import { FALLBACK_RESUME } from "@/lib/fallbackData";
+import { sarvamConfigured } from "@/lib/sarvam";
 import { ParsedResume } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -43,8 +44,12 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ...parsed, source: "sarvam" } satisfies ParsedResume);
   } catch (e) {
-    // Silent graceful degradation — judge never sees an error.
-    console.warn("[parse-resume] fallback:", (e as Error).message);
-    return NextResponse.json(FALLBACK_RESUME);
+    // Graceful degradation, but NOT silent: the reason is returned so the UI can explain why
+    // the uploaded document was not used (most commonly: SARVAM_API_KEY is not configured).
+    const reason = sarvamConfigured()
+      ? `Resume parsing failed: ${(e as Error).message}`
+      : "SARVAM_API_KEY is not configured — set it in .env.local to parse your real document.";
+    console.warn("[parse-resume] fallback:", reason);
+    return NextResponse.json({ ...FALLBACK_RESUME, reason } satisfies ParsedResume);
   }
 }
