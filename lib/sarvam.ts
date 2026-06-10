@@ -3,8 +3,12 @@
 
 const SARVAM_BASE = "https://api.sarvam.ai";
 const KEY = process.env.SARVAM_API_KEY || "";
-// Chat model is configurable so a key without 105b access can fall back to the stable `sarvam-m`.
-const CHAT_MODEL = process.env.SARVAM_CHAT_MODEL || "sarvam-m";
+// The hosted chat endpoint only accepts `sarvam-30b` / `sarvam-105b` (NOT the HuggingFace name
+// `sarvam-m`, which 400s). Configurable in case the account only has 30b access.
+const CHAT_MODEL = process.env.SARVAM_CHAT_MODEL || "sarvam-105b";
+// Sarvam reasoning models default to "medium" effort and will burn the whole token budget
+// thinking, leaving `content` empty (the bug behind the silent fallback). Keep it low.
+const REASONING_EFFORT = process.env.SARVAM_REASONING_EFFORT || "low";
 
 export function sarvamConfigured(): boolean {
   return KEY.length > 0;
@@ -35,7 +39,7 @@ async function fetchWithTimeout(
   }
 }
 
-/** Sarvam-M chat completion. Returns the assistant message content. */
+/** Sarvam chat completion. Returns the assistant message content. */
 async function sarvamChatOnce(
   system: string,
   user: string,
@@ -47,30 +51,36 @@ async function sarvamChatOnce(
       method: "POST",
       headers: authHeaders({ "content-type": "application/json" }),
       body: JSON.stringify({
-        // sarvam-m/105b are reasoning models; "/no_think" disables chain-of-thought so the
-        // assistant returns the answer directly in `content` (otherwise it burns the whole
-        // token budget on reasoning and `content` comes back null).
         model: CHAT_MODEL,
         messages: [
-          { role: "system", content: `${system} /no_think` },
-          { role: "user", content: `${user} /no_think` },
+          { role: "system", content: system },
+          { role: "user", content: user },
         ],
-        temperature: opts.temperature ?? 0.4,
-        max_tokens: opts.maxTokens ?? 2500,
+        temperature: opts.temperature ?? 0.2,
+        // Generous budget so the JSON answer is never truncated after the (low) reasoning step.
+        max_tokens: opts.maxTokens ?? 4000,
+        // First-class param to keep reasoning minimal so `content` is actually populated.
+        reasoning_effort: REASONING_EFFORT,
       }),
     },
     opts.timeoutMs ?? 45000
   );
   if (!res.ok) throw new Error(`Sarvam chat ${res.status}: ${await res.text()}`);
   const data = await res.json();
-  let content = data?.choices?.[0]?.message?.content as string | null | undefined;
+  const message = data?.choices?.[0]?.message ?? {};
+  // The answer is in `content`; reasoning (if any) goes to `reasoning_content`. Some deployments
+  // also inline <think>…</think> into content — strip it defensively.
+  let content = (message.content ?? "") as string;
   if (content) content = content.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
-  if (!content) throw new Error("Sarvam chat: empty content");
+  if (!content) {
+    const finish = data?.choices?.[0]?.finish_reason ?? "unknown";
+    throw new Error(`Sarvam chat returned empty content (model=${CHAT_MODEL}, finish_reason=${finish})`);
+  }
   return content;
 }
 
-/** Sarvam-M chat completion with one retry — the reasoning model occasionally ignores
- *  /no_think and returns empty content; a single retry makes it reliable. */
+/** Sarvam chat completion with one retry — the reasoning model occasionally returns empty
+ *  content; a single retry makes it reliable. */
 export async function sarvamChat(
   system: string,
   user: string,
@@ -80,11 +90,13 @@ export async function sarvamChat(
   try {
     return await sarvamChatOnce(system, user, opts);
   } catch (e) {
+    // Log the real cause — otherwise a misconfigured model/key looks like a generic fallback.
+    console.warn("[sarvam] chat attempt 1 failed, retrying:", (e as Error).message);
     // Retry once at lower temperature with a larger budget.
     return await sarvamChatOnce(system, user, {
       ...opts,
-      temperature: Math.min(opts.temperature ?? 0.4, 0.3),
-      maxTokens: Math.max(opts.maxTokens ?? 2500, 3000),
+      temperature: Math.min(opts.temperature ?? 0.2, 0.2),
+      maxTokens: Math.max(opts.maxTokens ?? 4000, 4000),
     });
   }
 }
