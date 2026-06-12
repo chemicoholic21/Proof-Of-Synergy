@@ -108,6 +108,8 @@ export const MintBody = z.object({
   verdicts: z.array(SkillVerdictSchema).min(1).max(20),
   overall: z.coerce.number().int().min(0).max(100).default(0),
   name: z.string().max(200).default("Anonymous"),
+  // Explicit candidate consent is required before anything is published publicly on-chain.
+  consent: z.boolean().default(false),
 });
 
 // ---- Gate check ----

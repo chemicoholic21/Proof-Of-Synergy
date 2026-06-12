@@ -60,6 +60,21 @@ describe("MintBody", () => {
     });
     expect(b.name).toBe("Anonymous");
   });
+
+  it("defaults consent to false when omitted (opt-in, never assumed)", () => {
+    const b = MintBody.parse({
+      verdicts: [{ skill: "Go", claimedLevel: "expert", observedConfidence: 90, status: "strong" }],
+    });
+    expect(b.consent).toBe(false);
+  });
+
+  it("accepts explicit consent", () => {
+    const b = MintBody.parse({
+      verdicts: [{ skill: "Go", claimedLevel: "expert", observedConfidence: 90, status: "strong" }],
+      consent: true,
+    });
+    expect(b.consent).toBe(true);
+  });
 });
 
 describe("GateCheckBody", () => {

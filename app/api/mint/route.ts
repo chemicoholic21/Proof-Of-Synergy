@@ -62,7 +62,19 @@ export async function POST(req: NextRequest) {
     }
     throw e;
   }
-  const { verdicts, overall, name: candidateName } = body;
+  const { verdicts, overall, name: candidateName, consent } = body;
+
+  // CONSENT GATE: publishing makes the candidate's results public and permanent on-chain.
+  // Refuse to mint unless the candidate has explicitly opted in.
+  if (!consent) {
+    log.warn("mint refused: candidate consent not granted");
+    return errorResponse(
+      403,
+      "consent_required",
+      "Candidate consent is required before publishing results on-chain.",
+      requestId
+    );
+  }
 
   try {
     // A fresh subject wallet per interview (server attests about it — no candidate key needed).
@@ -72,6 +84,7 @@ export async function POST(req: NextRequest) {
     const metadata = {
       candidate: { wallet: subject, name: candidateName },
       evaluator: "ProofOfSynergy AI v1.0 (Sarvam-M)",
+      consent: { granted: true, recordedAt: new Date().toISOString() },
       overall,
       skills: verdicts.map((v) => ({
         name: v.skill,

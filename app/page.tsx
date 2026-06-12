@@ -13,7 +13,7 @@ import {
   MintResult,
 } from "@/lib/types";
 
-type Step = "intro" | "upload" | "interview" | "results" | "passport";
+type Step = "intro" | "upload" | "interview" | "results" | "passport" | "private";
 
 /** Parse a JSON response, throwing a readable error when the API returns a non-2xx status. */
 async function readJsonOrThrow(res: Response): Promise<any> {
@@ -70,6 +70,7 @@ export default function Home() {
   const [evaluations, setEvaluations] = useState<QuestionEvaluation[]>([]);
   const [verdicts, setVerdicts] = useState<SkillVerdict[]>([]);
   const [mint, setMint] = useState<MintResult | null>(null);
+  const [consent, setConsent] = useState(false);
 
   const overall = useMemo(
     () => (evaluations.length ? overallScore(aggregateConfidence(evaluations)) : 0),
@@ -147,13 +148,18 @@ export default function Home() {
   }
 
   async function handleMint() {
+    // The candidate must explicitly opt in before anything is published publicly on-chain.
+    if (!consent) {
+      setError("Please confirm your consent before publishing results on the blockchain.");
+      return;
+    }
     setError(null);
     setBusy("Publishing proofs to IPFS & minting SBT on Monad Sandbox…");
     try {
       const mRes = await fetch("/api/mint", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ verdicts, overall, name: resume?.name ?? "Anonymous" }),
+        body: JSON.stringify({ verdicts, overall, name: resume?.name ?? "Anonymous", consent: true }),
       });
       const m: MintResult = await readJsonOrThrow(mRes);
       setMint(m);
@@ -164,6 +170,13 @@ export default function Home() {
       setBusy(null);
       setError(errMessage(err));
     }
+  }
+
+  // Candidate opts out of publishing — keep the report private, nothing is written on-chain.
+  function keepPrivate() {
+    setError(null);
+    setMint(null);
+    setStep("private");
   }
 
   const allRecorded = questions.length > 0 && questions.every((q) => answers[q.id]);
@@ -526,22 +539,109 @@ export default function Home() {
               </div>
             </details>
 
-            <button
-              onClick={handleMint}
-              disabled={!!busy}
-              className="btn-primary w-full py-4 text-base font-bold tracking-wider hover:brightness-110 active:scale-[0.99] flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(131,110,249,0.4)]"
-            >
-              <span>Mint Skill Passport on Monad Network</span>
-              <svg className="h-5 w-5 animate-pulse" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.57-.598-3.75h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
-              </svg>
-            </button>
+            {/* Consent gate — the candidate chooses whether to publish publicly on-chain */}
+            <Card>
+              <div className="flex flex-col gap-4">
+                <div>
+                  <h3 className="heading-font text-lg font-bold text-white flex items-center gap-2">
+                    <span>🔐</span> Your data, your choice
+                  </h3>
+                  <p className="mt-2 text-[13px] leading-relaxed text-zinc-400">
+                    Publishing mints a soulbound Skill Passport on the Monad blockchain. This makes your{" "}
+                    <span className="text-zinc-200">skill names and verified confidence scores</span> public,
+                    portable and permanent — anyone can verify them without going through us. Your{" "}
+                    <span className="text-zinc-200">raw resume and voice recordings are never published</span>;
+                    only the summarized results leave this session. Publishing is optional — you can keep your
+                    report private instead.
+                  </p>
+                </div>
+
+                <label className="flex items-start gap-3 cursor-pointer rounded-xl border border-zinc-800 bg-zinc-950/40 p-4 hover:border-purple-500/30 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={consent}
+                    onChange={(e) => setConsent(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 shrink-0 accent-[#836ef9]"
+                  />
+                  <span className="text-[13px] leading-relaxed text-zinc-300">
+                    I consent to publishing my verified skill results publicly and permanently on the Monad
+                    blockchain. I understand this action cannot be undone.
+                  </span>
+                </label>
+
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <button
+                    onClick={handleMint}
+                    disabled={!!busy || !consent}
+                    className="btn-primary flex-1 py-4 text-base font-bold tracking-wider hover:brightness-110 active:scale-[0.99] flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(131,110,249,0.4)] disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none"
+                  >
+                    <span>Publish on Blockchain</span>
+                    <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.57-.598-3.75h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={keepPrivate}
+                    disabled={!!busy}
+                    className="flex-1 py-4 text-base font-semibold tracking-wide rounded-xl border border-zinc-700 text-zinc-300 hover:bg-zinc-900/60 hover:text-white active:scale-[0.99] transition-colors flex items-center justify-center gap-2 disabled:opacity-40"
+                  >
+                    <span>Keep Private</span>
+                  </button>
+                </div>
+              </div>
+            </Card>
           </div>
         )}
 
         {step === "passport" && mint && (
           <div className="step-container">
             <Passport mint={mint} verdicts={verdicts} overall={overall} name={resume?.name ?? "Anonymous"} />
+          </div>
+        )}
+
+        {step === "private" && (
+          <div className="step-container">
+            <Card>
+              <div className="flex flex-col items-center text-center gap-5 py-4">
+                <div className="flex h-16 w-16 items-center justify-center rounded-full border border-zinc-700 bg-zinc-950/60 text-3xl">
+                  🔒
+                </div>
+                <div>
+                  <h2 className="heading-font text-2xl font-bold text-white">Kept Private</h2>
+                  <p className="mt-2 max-w-md text-[14px] leading-relaxed text-zinc-400">
+                    Nothing was published. Your verification report stays private to this session — no
+                    attestation was written on-chain and no passport was minted. You can review your results
+                    below, or change your mind and publish them whenever you're ready.
+                  </p>
+                </div>
+
+                <div className="w-full max-w-sm rounded-xl border border-zinc-800 bg-zinc-950/40 p-4 text-left">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs uppercase tracking-wide text-zinc-500">Overall confidence</span>
+                    <span className="font-mono text-lg font-bold text-white">{overall}/100</span>
+                  </div>
+                  <div className="mt-3 flex flex-col gap-1.5">
+                    {verdicts.map((v) => (
+                      <div key={v.skill} className="flex items-center justify-between text-[13px]">
+                        <span className="text-zinc-300">{v.skill}</span>
+                        <span className={STATUS_STYLE[v.status]?.text ?? "text-zinc-400"}>
+                          {v.observedConfidence}% · {STATUS_STYLE[v.status]?.label ?? v.status}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-3 w-full max-w-sm">
+                  <button
+                    onClick={() => setStep("results")}
+                    className="btn-primary flex-1 py-3.5 text-sm font-bold tracking-wider hover:brightness-110 active:scale-[0.99]"
+                  >
+                    Reconsider & Publish
+                  </button>
+                </div>
+              </div>
+            </Card>
           </div>
         )}
 
