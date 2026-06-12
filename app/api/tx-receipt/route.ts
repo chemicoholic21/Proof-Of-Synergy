@@ -7,7 +7,7 @@ import { newRequestId, errorResponse, enforceRateLimit, parseJsonBody, Validatio
 export const runtime = "nodejs";
 
 // Reads a transaction back from the chain and decodes its ProofOfSynergy events, so a judge can
-// verify on-chain data IN the app — no dependency on an external block explorer being available
+// verify on-chain data IN the app, no dependency on an external block explorer being available
 // for this network.
 const ATTESTED = parseAbiItem(
   "event Attested(address indexed subject, bytes32 indexed skill, address indexed attester, uint8 confidence, string evidenceURI, uint64 timestamp)"

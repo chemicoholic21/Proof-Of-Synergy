@@ -18,7 +18,7 @@ function authHeaders(extra: Record<string, string> = {}) {
   return { "api-subscription-key": KEY, ...extra };
 }
 
-/** fetch() that actually aborts on timeout — the AbortController signal is wired into the request
+/** fetch() that actually aborts on timeout, the AbortController signal is wired into the request
  *  (the previous helper created a controller but never passed its signal, so it never timed out). */
 async function fetchWithTimeout(
   url: string,
@@ -69,7 +69,7 @@ async function sarvamChatOnce(
   const data = await res.json();
   const message = data?.choices?.[0]?.message ?? {};
   // The answer is in `content`; reasoning (if any) goes to `reasoning_content`. Some deployments
-  // also inline <think>…</think> into content — strip it defensively.
+  // also inline <think>…</think> into content, strip it defensively.
   let content = (message.content ?? "") as string;
   if (content) content = content.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
   if (!content) {
@@ -79,7 +79,7 @@ async function sarvamChatOnce(
   return content;
 }
 
-/** Sarvam chat completion with one retry — the reasoning model occasionally returns empty
+/** Sarvam chat completion with one retry, the reasoning model occasionally returns empty
  *  content; a single retry makes it reliable. */
 export async function sarvamChat(
   system: string,
@@ -90,7 +90,7 @@ export async function sarvamChat(
   try {
     return await sarvamChatOnce(system, user, opts);
   } catch (e) {
-    // Log the real cause — otherwise a misconfigured model/key looks like a generic fallback.
+    // Log the real cause, otherwise a misconfigured model/key looks like a generic fallback.
     console.warn("[sarvam] chat attempt 1 failed, retrying:", (e as Error).message);
     // Retry once at lower temperature with a larger budget.
     return await sarvamChatOnce(system, user, {

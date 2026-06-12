@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    // A fresh subject wallet per interview (server attests about it — no candidate key needed).
+    // A fresh subject wallet per interview (server attests about it, no candidate key needed).
     const subject = privateKeyToAccount(generatePrivateKey()).address;
 
     // Build evidence metadata (kept off-chain; only skills/scores, never raw resume/audio).
@@ -99,7 +99,7 @@ export async function POST(req: NextRequest) {
       if (!env.DEMO_MODE) {
         return errorResponse(503, "chain_unconfigured", "On-chain minting is unavailable: chain is not configured.", requestId);
       }
-      // DEMO_MODE: contracts not deployed — return a clearly-labelled mock (no IPFS write required).
+      // DEMO_MODE: contracts not deployed, return a clearly-labelled mock (no IPFS write required).
       const { uri: demoUri } = await uploadMetadata({ ...metadata, interviewHash: hash });
       return NextResponse.json({
         subject,

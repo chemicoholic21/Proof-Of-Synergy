@@ -7,7 +7,7 @@ import { logger } from "./logger";
  *
  * When Pinata is configured the returned URI points at a real, resolvable IPFS object. When it is
  * NOT configured we only fall back to a deterministic, clearly-labelled `source: "mock"` URI in
- * DEMO_MODE — that URI is NOT resolvable and must never be written on-chain as if it were real
+ * DEMO_MODE, that URI is NOT resolvable and must never be written on-chain as if it were real
  * evidence. Outside demo mode a missing/failing Pinata config throws so the caller fails honestly.
  */
 export async function uploadMetadata(
@@ -30,9 +30,9 @@ export async function uploadMetadata(
   }
 
   if (!env.DEMO_MODE) {
-    throw new Error("PINATA_JWT is not configured — cannot pin evidence to IPFS");
+    throw new Error("PINATA_JWT is not configured, cannot pin evidence to IPFS");
   }
-  logger.warn("IPFS not configured — returning a non-resolvable mock CID (DEMO_MODE only)");
+  logger.warn("IPFS not configured, returning a non-resolvable mock CID (DEMO_MODE only)");
   const hash = crypto.createHash("sha256").update(body).digest("hex").slice(0, 46);
   return { uri: `ipfs://Qm${hash}`, source: "mock" };
 }

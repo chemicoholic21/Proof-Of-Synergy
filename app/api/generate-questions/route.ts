@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
     });
     const out = extractValidatedJson(raw, QuestionsLLMSchema);
 
-    // Normalize targetSkill back to an exact resume skill name — the reasoning model sometimes
+    // Normalize targetSkill back to an exact resume skill name, the reasoning model sometimes
     // echoes the full "Spark (Data, claimed advanced)" descriptor, which would break the
     // fraud-detector's skill matching downstream.
     const normalize = (value: string): string => {

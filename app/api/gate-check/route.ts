@@ -17,7 +17,7 @@ import { newRequestId, errorResponse, enforceRateLimit, parseJsonBody, Validatio
 export const runtime = "nodejs";
 
 // Demonstrates third-party composability: an unrelated contract reads on-chain reputation
-// and decides access — no permission from the subject required.
+// and decides access, no permission from the subject required.
 export async function POST(req: NextRequest) {
   const requestId = newRequestId();
   const log = logger.child({ requestId, route: "gate-check" });
@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
       confidence: 0,
       exists: false,
       source: "fallback",
-      note: "Contracts not deployed yet — showing logic locally (DEMO_MODE).",
+      note: "Contracts not deployed yet, showing logic locally (DEMO_MODE).",
     });
   }
 }
