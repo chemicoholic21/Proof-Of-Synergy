@@ -10,7 +10,7 @@ import {
 import { privateKeyToAccount } from "viem/accounts";
 import { env, chainConfigured } from "./env";
 
-// Public Monad testnet RPC. NEVER hardcode a tokenized/private RPC URL here — configure it via
+// Public Monad testnet RPC. NEVER hardcode a tokenized/private RPC URL here, configure it via
 // the MONAD_RPC_URL environment variable. The default below is a public, unauthenticated endpoint.
 const DEFAULT_RPC_URL = "https://testnet-rpc.monad.xyz";
 const RPC_URL = env.MONAD_RPC_URL || DEFAULT_RPC_URL;

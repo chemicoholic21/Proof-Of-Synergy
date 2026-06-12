@@ -8,7 +8,7 @@ describe("extractJson", () => {
   });
 
   it("parses JSON wrapped in prose", () => {
-    expect(extractJson('Here is your result: {"score": 90} — done.')).toEqual({ score: 90 });
+    expect(extractJson('Here is your result: {"score": 90}, done.')).toEqual({ score: 90 });
   });
 
   it("parses JSON inside a ```json code fence", () => {

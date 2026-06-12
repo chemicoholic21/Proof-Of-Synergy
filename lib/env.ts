@@ -48,7 +48,7 @@ const EnvSchema = z.object({
   // IPFS
   PINATA_JWT: z.string().optional(),
 
-  // Auth — required to call the wallet-spending mint endpoint outside demo mode.
+  // Auth, required to call the wallet-spending mint endpoint outside demo mode.
   MINT_API_SECRET: z.string().min(16).optional(),
 
   // Limits / tuning (all optional with safe defaults)

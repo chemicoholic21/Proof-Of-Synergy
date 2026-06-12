@@ -90,7 +90,7 @@ export async function POST(req: NextRequest) {
     if (env.DEMO_MODE) {
       const reason = sarvamConfigured()
         ? `Resume parsing failed: ${message}`
-        : "SARVAM_API_KEY is not configured — showing sample data (DEMO_MODE).";
+        : "SARVAM_API_KEY is not configured, showing sample data (DEMO_MODE).";
       return NextResponse.json({ ...FALLBACK_RESUME, reason } satisfies ParsedResume);
     }
 

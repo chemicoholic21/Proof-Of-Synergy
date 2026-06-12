@@ -1,6 +1,6 @@
 import { ParsedResume, InterviewQuestion, Transcript, QuestionEvaluation } from "./types";
 
-// Centralized mock data so every external call degrades silently — a judge never sees an error.
+// Centralized mock data so every external call degrades silently, a judge never sees an error.
 // Values are realistic and deliberately include one exaggerated skill (Kubernetes) to power the
 // fraud-detector demo moment.
 

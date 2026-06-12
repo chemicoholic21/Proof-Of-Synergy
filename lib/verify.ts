@@ -46,7 +46,7 @@ export function buildVerdicts(
     let flag: string | null = null;
     if (observed < 70 || observed < expected - 25) {
       status = "exaggerated";
-      flag = `⚠️ Claimed ${s.claimedLevel}, observed ${observed}% — potentially exaggerated`;
+      flag = `⚠️ Claimed ${s.claimedLevel}, observed ${observed}%: potentially exaggerated`;
     } else if (observed >= 85) {
       status = "strong";
     } else {

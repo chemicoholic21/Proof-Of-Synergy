@@ -3,7 +3,7 @@ import { z } from "zod";
 /**
  * Zod schemas for every trust boundary: incoming API request bodies AND the JSON the LLM returns.
  *
- * The LLM is an untrusted source — "parseable JSON" is not the same as "valid data". Validating its
+ * The LLM is an untrusted source, "parseable JSON" is not the same as "valid data". Validating its
  * output here means a malformed or adversarial response is rejected instead of silently flowing into
  * scores and, ultimately, an on-chain attestation.
  */

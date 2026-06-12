@@ -52,8 +52,8 @@ export async function POST(req: NextRequest) {
             improvements: out.improvements,
           };
         } catch (e) {
-          // INTEGRITY: a failed evaluation must never become a fabricated score in production —
-          // that score drives an on-chain attestation. Only DEMO_MODE substitutes sample data.
+          // INTEGRITY: a failed evaluation must never become a fabricated score in production,
+          // because that score drives an on-chain attestation. Only DEMO_MODE substitutes samples.
           if (!env.DEMO_MODE) throw e;
           log.warn("evaluation fallback (DEMO_MODE)", { questionId: question.id, error: (e as Error).message });
           const fb = FALLBACK_EVALUATIONS[question.id] || {

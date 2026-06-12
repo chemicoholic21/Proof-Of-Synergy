@@ -172,7 +172,7 @@ export default function Home() {
     }
   }
 
-  // Candidate opts out of publishing — keep the report private, nothing is written on-chain.
+  // Candidate opts out of publishing, keep the report private, nothing is written on-chain.
   function keepPrivate() {
     setError(null);
     setMint(null);
@@ -290,7 +290,7 @@ export default function Home() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
                 </svg>
                 <div className="text-sm leading-relaxed">
-                  <span className="font-bold text-amber-300">Demo mode — your uploaded document was not parsed.</span>{" "}
+                  <span className="font-bold text-amber-300">Demo mode: your uploaded document was not parsed.</span>{" "}
                   {resume.reason ?? "The AI parsing service is unavailable, so a sample profile is shown instead."}{" "}
                   Showing the sample profile (Aarav Sharma) below.
                 </div>
@@ -539,7 +539,7 @@ export default function Home() {
               </div>
             </details>
 
-            {/* Consent gate — the candidate chooses whether to publish publicly on-chain */}
+            {/* Consent gate, the candidate chooses whether to publish publicly on-chain */}
             <Card>
               <div className="flex flex-col gap-4">
                 <div>
@@ -549,9 +549,9 @@ export default function Home() {
                   <p className="mt-2 text-[13px] leading-relaxed text-zinc-400">
                     Publishing mints a soulbound Skill Passport on the Monad blockchain. This makes your{" "}
                     <span className="text-zinc-200">skill names and verified confidence scores</span> public,
-                    portable and permanent — anyone can verify them without going through us. Your{" "}
+                    portable and permanent. Anyone can verify them without going through us. Your{" "}
                     <span className="text-zinc-200">raw resume and voice recordings are never published</span>;
-                    only the summarized results leave this session. Publishing is optional — you can keep your
+                    only the summarized results leave this session. Publishing is optional; you can keep your
                     report private instead.
                   </p>
                 </div>
@@ -609,7 +609,7 @@ export default function Home() {
                 <div>
                   <h2 className="heading-font text-2xl font-bold text-white">Kept Private</h2>
                   <p className="mt-2 max-w-md text-[14px] leading-relaxed text-zinc-400">
-                    Nothing was published. Your verification report stays private to this session — no
+                    Nothing was published. Your verification report stays private to this session. No
                     attestation was written on-chain and no passport was minted. You can review your results
                     below, or change your mind and publish them whenever you're ready.
                   </p>
@@ -680,7 +680,7 @@ function Header({ step }: { step: Step }) {
       </div>
 
       <p className="mt-3 text-[14px] leading-relaxed text-zinc-400 max-w-xl">
-        Portable, on-chain skill reputation on Monad — verified by AI interview nodes, not self-claimed.
+        Portable, on-chain skill reputation on Monad, verified by AI interview nodes, not self-claimed.
       </p>
 
       {/* Futuristic Timeline Stepper */}
@@ -740,7 +740,7 @@ function Intro({ onStart }: { onStart: () => void }) {
         </h2>
         
         <p className="mt-5 text-[15px] leading-relaxed text-zinc-400">
-          Upload your resume credentials, undergo a secure voice-based smart interview in any Indian language, and turn your demonstrated expertise into <b className="text-zinc-200">soulbound skill attestations</b> written directly to Monad — trustlessly queryable by any recruitment app or decentralized agent.
+          Upload your resume credentials, undergo a secure voice-based smart interview in any Indian language, and turn your demonstrated expertise into <b className="text-zinc-200">soulbound skill attestations</b> written directly to Monad, trustlessly queryable by any recruitment app or decentralized agent.
         </p>
 
         {/* Feature Grid */}
@@ -1091,13 +1091,13 @@ function WhyMonad() {
       </div>
       
       <p className="text-sm leading-relaxed text-zinc-400">
-        AI-driven skill evaluation is only the mechanism; the <b className="text-zinc-200">proof is the trustless on-chain product</b>. Attested attributes live directly on the high-speed Monad L1. This allows any third party—including DAOs, other recruitment platforms, or AI agents—to permissionlessly read and compose with a wallet&apos;s verified skill score (as simulated in the SkillGate demo above).
+        AI-driven skill evaluation is only the mechanism; the <b className="text-zinc-200">proof is the trustless on-chain product</b>. Attested attributes live directly on the high-speed Monad L1. This allows any third party, including DAOs, other recruitment platforms, or AI agents, to permissionlessly read and compose with a wallet&apos;s verified skill score (as simulated in the SkillGate demo above).
       </p>
     </section>
   );
 }
 
-const SAMPLE_RESUME_TEXT = `Aarav Sharma — aarav.sharma@example.com
+const SAMPLE_RESUME_TEXT = `Aarav Sharma | aarav.sharma@example.com
 Senior Backend Engineer, FinStack (3 yrs); Software Engineer, Razorpay (2 yrs)
 B.Tech Computer Science, IIT Bombay, 2019
 Skills: Python (expert), AWS (advanced), React (advanced), Kubernetes (advanced)
