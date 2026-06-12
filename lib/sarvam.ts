@@ -1,18 +1,18 @@
-// Thin Sarvam-native client. All callers wrap these in try/catch and fall back to mock data,
-// so a missing key or a timeout never reaches the judge.
+// Thin Sarvam-native client. Callers decide how to handle failures: in production they surface an
+// honest error; in DEMO_MODE they may fall back to clearly-labelled mock data.
+
+import { env, sarvamConfigured } from "./env";
 
 const SARVAM_BASE = "https://api.sarvam.ai";
-const KEY = process.env.SARVAM_API_KEY || "";
+const KEY = env.SARVAM_API_KEY || "";
 // The hosted chat endpoint only accepts `sarvam-30b` / `sarvam-105b` (NOT the HuggingFace name
 // `sarvam-m`, which 400s). Configurable in case the account only has 30b access.
-const CHAT_MODEL = process.env.SARVAM_CHAT_MODEL || "sarvam-105b";
+const CHAT_MODEL = env.SARVAM_CHAT_MODEL;
 // Sarvam reasoning models default to "medium" effort and will burn the whole token budget
 // thinking, leaving `content` empty (the bug behind the silent fallback). Keep it low.
-const REASONING_EFFORT = process.env.SARVAM_REASONING_EFFORT || "low";
+const REASONING_EFFORT = env.SARVAM_REASONING_EFFORT;
 
-export function sarvamConfigured(): boolean {
-  return KEY.length > 0;
-}
+export { sarvamConfigured };
 
 function authHeaders(extra: Record<string, string> = {}) {
   return { "api-subscription-key": KEY, ...extra };
@@ -136,8 +136,8 @@ export async function sarvamTTS(
   timeoutMs = 20000
 ): Promise<string> {
   if (!KEY) throw new Error("SARVAM_API_KEY not set");
-  const model = process.env.SARVAM_TTS_MODEL || "bulbul:v2";
-  const speaker = process.env.SARVAM_TTS_SPEAKER || "anushka"; // default v2 speaker
+  const model = env.SARVAM_TTS_MODEL;
+  const speaker = env.SARVAM_TTS_SPEAKER; // default v2 speaker
   const res = await fetchWithTimeout(
     `${SARVAM_BASE}/text-to-speech`,
     {
@@ -188,17 +188,59 @@ export async function sarvamParse(file: Blob, filename: string, timeoutMs = 2500
   }
 }
 
-/** Robustly pull a JSON object out of an LLM response that may include prose or code fences. */
-export function extractJson<T>(raw: string): T {
+/**
+ * Scan from `start` and return the index just past the balanced JSON value that begins there,
+ * correctly skipping braces/brackets that appear inside string literals (and their escapes).
+ * Returns -1 if no balanced value is found.
+ */
+function matchBalanced(s: string, start: number): number {
+  const open = s[start];
+  const close = open === "{" ? "}" : "]";
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let i = start; i < s.length; i++) {
+    const c = s[i];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (c === "\\") escaped = true;
+      else if (c === '"') inString = false;
+      continue;
+    }
+    if (c === '"') inString = true;
+    else if (c === open) depth++;
+    else if (c === close) {
+      depth--;
+      if (depth === 0) return i + 1;
+    }
+  }
+  return -1;
+}
+
+/**
+ * Robustly pull the first balanced JSON value out of an LLM response that may include prose or
+ * code fences. Uses brace-matching that respects string literals, so braces inside string values
+ * (or a trailing second object) do not corrupt the extracted slice.
+ */
+export function extractJson<T = unknown>(raw: string): T {
   const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
   const candidate = fenced ? fenced[1] : raw;
-  const start = candidate.indexOf("{");
-  const startArr = candidate.indexOf("[");
-  const begin =
-    startArr !== -1 && (startArr < start || start === -1) ? startArr : start;
-  const lastObj = candidate.lastIndexOf("}");
-  const lastArr = candidate.lastIndexOf("]");
-  const end = Math.max(lastObj, lastArr);
-  if (begin === -1 || end === -1) throw new Error("No JSON found in LLM output");
-  return JSON.parse(candidate.slice(begin, end + 1)) as T;
+  const objStart = candidate.indexOf("{");
+  const arrStart = candidate.indexOf("[");
+  let begin = -1;
+  if (objStart !== -1 && arrStart !== -1) begin = Math.min(objStart, arrStart);
+  else begin = Math.max(objStart, arrStart);
+  if (begin === -1) throw new Error("No JSON found in LLM output");
+  const end = matchBalanced(candidate, begin);
+  const slice = end === -1 ? candidate.slice(begin) : candidate.slice(begin, end);
+  return JSON.parse(slice) as T;
+}
+
+/**
+ * Extract JSON from an LLM response and validate it against a Zod schema. The schema is the
+ * contract: a structurally-valid-but-semantically-wrong response is rejected here rather than
+ * flowing downstream into scores and on-chain attestations.
+ */
+export function extractValidatedJson<T>(raw: string, schema: { parse: (v: unknown) => T }): T {
+  return schema.parse(extractJson(raw));
 }

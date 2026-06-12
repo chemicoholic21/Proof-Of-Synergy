@@ -15,6 +15,25 @@ import {
 
 type Step = "intro" | "upload" | "interview" | "results" | "passport";
 
+/** Parse a JSON response, throwing a readable error when the API returns a non-2xx status. */
+async function readJsonOrThrow(res: Response): Promise<any> {
+  let data: any = null;
+  try {
+    data = await res.json();
+  } catch {
+    /* non-JSON body */
+  }
+  if (!res.ok) {
+    const msg = data?.error || `Request failed (${res.status})`;
+    throw new Error(data?.requestId ? `${msg} [${data.requestId}]` : msg);
+  }
+  return data;
+}
+
+function errMessage(err: unknown): string {
+  return err instanceof Error ? err.message : "Something went wrong. Please try again.";
+}
+
 const STATUS_STYLE: Record<string, { border: string; bg: string; text: string; label: string; glow: string }> = {
   strong: {
     border: "border-emerald-500/30",
@@ -42,6 +61,7 @@ const STATUS_STYLE: Record<string, { border: string; bg: string; text: string; l
 export default function Home() {
   const [step, setStep] = useState<Step>("intro");
   const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const [resume, setResume] = useState<ParsedResume | null>(null);
   const [questions, setQuestions] = useState<InterviewQuestion[]>([]);
@@ -57,27 +77,29 @@ export default function Home() {
   );
 
   async function handleUpload(file: File) {
+    setError(null);
     setBusy("Extracting resume skills with Sarvam AI…");
     const fd = new FormData();
     fd.append("file", file);
     try {
       const res = await fetch("/api/parse-resume", { method: "POST", body: fd });
-      const r: ParsedResume = await res.json();
+      const r: ParsedResume = await readJsonOrThrow(res);
       setResume(r);
-      
+
       setBusy("Analyzing skill vectors & generating questions…");
       const qRes = await fetch("/api/generate-questions", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ skills: r.skills }),
       });
-      const q = await qRes.json();
+      const q = await readJsonOrThrow(qRes);
       setQuestions(q.questions);
       setBusy(null);
       setStep("interview");
     } catch (err) {
       console.error(err);
       setBusy(null);
+      setError(errMessage(err));
     }
   }
 
@@ -87,6 +109,7 @@ export default function Home() {
   }
 
   async function finishInterview() {
+    setError(null);
     setBusy("Transcribing responses with Saarika ASR…");
     try {
       const newTranscripts: Record<number, Transcript> = {};
@@ -96,7 +119,7 @@ export default function Home() {
         const blob = answers[q.id];
         if (blob) fd.append("audio", blob, `answer-${q.id}.webm`);
         const tRes = await fetch("/api/transcribe", { method: "POST", body: fd });
-        const t: Transcript = await tRes.json();
+        const t: Transcript = await readJsonOrThrow(tRes);
         newTranscripts[q.id] = t;
       }
       setTranscripts(newTranscripts);
@@ -108,7 +131,7 @@ export default function Home() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ items }),
       });
-      const ev = await evRes.json();
+      const ev = await readJsonOrThrow(evRes);
       const evals: QuestionEvaluation[] = ev.evaluations;
       setEvaluations(evals);
 
@@ -119,10 +142,12 @@ export default function Home() {
     } catch (err) {
       console.error(err);
       setBusy(null);
+      setError(errMessage(err));
     }
   }
 
   async function handleMint() {
+    setError(null);
     setBusy("Publishing proofs to IPFS & minting SBT on Monad Sandbox…");
     try {
       const mRes = await fetch("/api/mint", {
@@ -130,13 +155,14 @@ export default function Home() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ verdicts, overall, name: resume?.name ?? "Anonymous" }),
       });
-      const m: MintResult = await mRes.json();
+      const m: MintResult = await readJsonOrThrow(mRes);
       setMint(m);
       setBusy(null);
       setStep("passport");
     } catch (err) {
       console.error(err);
       setBusy(null);
+      setError(errMessage(err));
     }
   }
 
@@ -160,6 +186,25 @@ export default function Home() {
               <span className="relative inline-flex rounded-full h-4.5 w-4.5 bg-[#836ef9]"></span>
             </span>
             <span className="font-mono tracking-wide font-medium">{busy}</span>
+          </div>
+        )}
+
+        {error && !busy && (
+          <div
+            role="alert"
+            className="mb-8 flex items-start gap-4 glass-card px-6 py-4.5 text-[15px] border-red-500/30 bg-red-950/20 text-red-200 rounded-2xl"
+          >
+            <span className="mt-0.5 text-lg">⚠️</span>
+            <div className="flex-1">
+              <p className="font-mono tracking-wide font-medium">{error}</p>
+            </div>
+            <button
+              onClick={() => setError(null)}
+              className="text-red-300/70 hover:text-red-200 transition-colors"
+              aria-label="Dismiss error"
+            >
+              ✕
+            </button>
           </div>
         )}
 
@@ -680,7 +725,7 @@ function Passport({
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ subject: mint.subject, skill: strongSkill.skill, minConfidence: 80 }),
       });
-      const r = await res.json();
+      const r = await readJsonOrThrow(res);
       setGate(r);
     } catch (err) {
       console.error(err);

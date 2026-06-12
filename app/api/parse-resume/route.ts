@@ -1,13 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { extractText, getDocumentProxy } from "unpdf";
-import { sarvamParse, sarvamChat, extractJson } from "@/lib/sarvam";
+import { sarvamParse, sarvamChat, extractValidatedJson, sarvamConfigured } from "@/lib/sarvam";
 import { RESUME_PARSE_SYSTEM, resumeParseUser } from "@/lib/prompts";
 import { FALLBACK_RESUME } from "@/lib/fallbackData";
-import { sarvamConfigured } from "@/lib/sarvam";
 import { ParsedResume } from "@/lib/types";
+import { ParsedResumeLLMSchema } from "@/lib/schemas";
+import { env } from "@/lib/env";
+import { logger } from "@/lib/logger";
+import { newRequestId, errorResponse, enforceRateLimit } from "@/lib/http";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
+
+const ACCEPTED = [".pdf", ".txt", ".png", ".jpg", ".jpeg", ".webp"];
 
 async function extractPdfText(file: File): Promise<string> {
   const buf = new Uint8Array(await file.arrayBuffer());
@@ -17,39 +22,82 @@ async function extractPdfText(file: File): Promise<string> {
 }
 
 export async function POST(req: NextRequest) {
+  const requestId = newRequestId();
+  const log = logger.child({ requestId, route: "parse-resume" });
+
+  const limited = enforceRateLimit(req, "parse-resume", requestId);
+  if (limited) return limited;
+
+  let file: File | null = null;
   try {
     const form = await req.formData();
-    const file = form.get("file") as File | null;
-    if (!file) throw new Error("no file");
+    file = form.get("file") as File | null;
+  } catch {
+    return errorResponse(400, "bad_request", "Expected multipart/form-data with a file.", requestId);
+  }
 
+  // ---- Input validation: presence, size, type ----
+  if (!file) {
+    return errorResponse(400, "no_file", "No file was uploaded.", requestId);
+  }
+  if (file.size === 0) {
+    return errorResponse(400, "empty_file", "The uploaded file is empty.", requestId);
+  }
+  if (file.size > env.MAX_RESUME_BYTES) {
+    return errorResponse(
+      413,
+      "file_too_large",
+      `File exceeds the ${Math.round(env.MAX_RESUME_BYTES / (1024 * 1024))} MB limit.`,
+      requestId
+    );
+  }
+  const name = (file.name || "").toLowerCase();
+  if (!ACCEPTED.some((ext) => name.endsWith(ext)) && !file.type.match(/^(text\/plain|application\/pdf|image\/)/)) {
+    return errorResponse(
+      415,
+      "unsupported_type",
+      `Unsupported file type. Accepted: ${ACCEPTED.join(", ")}.`,
+      requestId
+    );
+  }
+
+  try {
     // 1) Get raw text out of the uploaded file.
-    const name = (file.name || "").toLowerCase();
     let text: string;
     if (file.type === "text/plain" || name.endsWith(".txt")) {
       text = await file.text();
     } else if (file.type === "application/pdf" || name.endsWith(".pdf")) {
       text = await extractPdfText(file); // reliable local PDF text extraction
     } else {
-      text = await sarvamParse(file, file.name); // images/other: Sarvam OCR (else falls back)
+      text = await sarvamParse(file, file.name); // images/other: Sarvam OCR
     }
-    if (!text || text.trim().length < 20) throw new Error("empty extracted text");
+    if (!text || text.trim().length < 20) throw new Error("Could not extract readable text from the document.");
 
-    // 2) Sarvam-105b structures the raw text into the resume schema (Prompt 1).
+    // 2) Sarvam structures the raw text into the resume schema, validated against ParsedResumeLLMSchema.
     const raw = await sarvamChat(RESUME_PARSE_SYSTEM, resumeParseUser(text), {
       temperature: 0.2,
       maxTokens: 2000,
     });
-    const parsed = extractJson<Omit<ParsedResume, "source">>(raw);
-    if (!parsed.skills?.length) throw new Error("no skills parsed");
+    const parsed = extractValidatedJson(raw, ParsedResumeLLMSchema);
 
+    log.info("resume parsed", { skills: parsed.skills.length });
     return NextResponse.json({ ...parsed, source: "sarvam" } satisfies ParsedResume);
   } catch (e) {
-    // Graceful degradation, but NOT silent: the reason is returned so the UI can explain why
-    // the uploaded document was not used (most commonly: SARVAM_API_KEY is not configured).
-    const reason = sarvamConfigured()
-      ? `Resume parsing failed: ${(e as Error).message}`
-      : "SARVAM_API_KEY is not configured — set it in .env.local to parse your real document.";
-    console.warn("[parse-resume] fallback:", reason);
-    return NextResponse.json({ ...FALLBACK_RESUME, reason } satisfies ParsedResume);
+    const message = (e as Error).message;
+    log.error("resume parse failed", { error: e });
+
+    // DEMO_MODE: degrade to clearly-labelled sample data so the app is demoable without a key.
+    if (env.DEMO_MODE) {
+      const reason = sarvamConfigured()
+        ? `Resume parsing failed: ${message}`
+        : "SARVAM_API_KEY is not configured — showing sample data (DEMO_MODE).";
+      return NextResponse.json({ ...FALLBACK_RESUME, reason } satisfies ParsedResume);
+    }
+
+    // Production: fail honestly.
+    if (!sarvamConfigured()) {
+      return errorResponse(503, "service_unconfigured", "Resume parsing is unavailable: SARVAM_API_KEY is not configured.", requestId);
+    }
+    return errorResponse(502, "parse_failed", `Resume parsing failed: ${message}`, requestId);
   }
 }
