@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { parseAbiItem, decodeEventLog } from "viem";
 import { publicClient } from "@/lib/chain";
+import { TxReceiptBody } from "@/lib/schemas";
+import { newRequestId, errorResponse, enforceRateLimit, parseJsonBody, ValidationError } from "@/lib/http";
 
 export const runtime = "nodejs";
 
@@ -15,7 +17,20 @@ const MINTED = parseAbiItem(
 );
 
 export async function POST(req: NextRequest) {
-  const { hash } = await req.json();
+  const requestId = newRequestId();
+  const limited = enforceRateLimit(req, "tx-receipt", requestId);
+  if (limited) return limited;
+
+  let hash: `0x${string}`;
+  try {
+    ({ hash } = (await parseJsonBody(req, TxReceiptBody)) as { hash: `0x${string}` });
+  } catch (e) {
+    if (e instanceof ValidationError) {
+      return errorResponse(400, "invalid_body", "Invalid request body.", requestId, { details: e.details });
+    }
+    throw e;
+  }
+
   try {
     const pub = publicClient();
     const receipt = await pub.getTransactionReceipt({ hash });

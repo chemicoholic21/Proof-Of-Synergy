@@ -8,34 +8,32 @@ import {
   type Address,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
+import { env, chainConfigured } from "./env";
+
+// Public Monad testnet RPC. NEVER hardcode a tokenized/private RPC URL here — configure it via
+// the MONAD_RPC_URL environment variable. The default below is a public, unauthenticated endpoint.
+const DEFAULT_RPC_URL = "https://testnet-rpc.monad.xyz";
+const RPC_URL = env.MONAD_RPC_URL || DEFAULT_RPC_URL;
+
+export { chainConfigured };
 
 export const monadTestnet = defineChain({
-  id: Number(process.env.NEXT_PUBLIC_CHAIN_ID || 143),
-  name: "Monad (contract.dev sandbox)",
+  id: env.NEXT_PUBLIC_CHAIN_ID,
+  name: "Monad Testnet",
   nativeCurrency: { name: "Monad", symbol: "MON", decimals: 18 },
   rpcUrls: {
-    default: {
-      http: [process.env.MONAD_RPC_URL || "https://rpc.contract.dev/616bd30af2461a6935c5998c029bfe36"],
-    },
+    default: { http: [RPC_URL] },
   },
   blockExplorers: {
-    default: {
-      name: "Explorer",
-      url: process.env.NEXT_PUBLIC_EXPLORER_URL || "https://testnet.monadexplorer.com",
-    },
+    default: { name: "Explorer", url: env.NEXT_PUBLIC_EXPLORER_URL },
   },
   testnet: true,
 });
 
-export const REGISTRY_ADDRESS = (process.env.NEXT_PUBLIC_REGISTRY_ADDRESS || "") as Address;
-export const PASSPORT_ADDRESS = (process.env.NEXT_PUBLIC_PASSPORT_ADDRESS || "") as Address;
-export const GATE_ADDRESS = (process.env.NEXT_PUBLIC_GATE_ADDRESS || "") as Address;
-export const EXPLORER_URL =
-  process.env.NEXT_PUBLIC_EXPLORER_URL || "https://testnet.monadexplorer.com";
-
-export function chainConfigured(): boolean {
-  return Boolean(process.env.DEPLOYER_PRIVATE_KEY && REGISTRY_ADDRESS && PASSPORT_ADDRESS);
-}
+export const REGISTRY_ADDRESS = (env.NEXT_PUBLIC_REGISTRY_ADDRESS || "") as Address;
+export const PASSPORT_ADDRESS = (env.NEXT_PUBLIC_PASSPORT_ADDRESS || "") as Address;
+export const GATE_ADDRESS = (env.NEXT_PUBLIC_GATE_ADDRESS || "") as Address;
+export const EXPLORER_URL = env.NEXT_PUBLIC_EXPLORER_URL;
 
 export const registryAbi = [
   {
@@ -128,8 +126,9 @@ export function publicClient() {
 }
 
 export function serverWallet() {
-  const pk = process.env.DEPLOYER_PRIVATE_KEY as `0x${string}`;
-  const account = privateKeyToAccount(pk);
+  const pk = env.DEPLOYER_PRIVATE_KEY;
+  if (!pk) throw new Error("DEPLOYER_PRIVATE_KEY is not configured");
+  const account = privateKeyToAccount(pk as `0x${string}`);
   return {
     account,
     client: createWalletClient({ account, chain: monadTestnet, transport: http() }),
