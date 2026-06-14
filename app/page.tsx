@@ -65,6 +65,7 @@ export default function Home() {
 
   const [resume, setResume] = useState<ParsedResume | null>(null);
   const [questions, setQuestions] = useState<InterviewQuestion[]>([]);
+  const [questionsNotice, setQuestionsNotice] = useState<string | null>(null);
   const [answers, setAnswers] = useState<Record<number, Blob>>({});
   const [transcripts, setTranscripts] = useState<Record<number, Transcript>>({});
   const [evaluations, setEvaluations] = useState<QuestionEvaluation[]>([]);
@@ -95,6 +96,11 @@ export default function Home() {
       });
       const q = await readJsonOrThrow(qRes);
       setQuestions(q.questions);
+      setQuestionsNotice(
+        q.source === "fallback"
+          ? q.reason ?? "Live question generation is unavailable, so these were generated from your resume skills in demo mode."
+          : null
+      );
       setBusy(null);
       setStep("interview");
     } catch (err) {
@@ -293,6 +299,18 @@ export default function Home() {
                   <span className="font-bold text-amber-300">Demo mode: your uploaded document was not parsed.</span>{" "}
                   {resume.reason ?? "The AI parsing service is unavailable, so a sample profile is shown instead."}{" "}
                   Showing the sample profile (Aarav Sharma) below.
+                </div>
+              </div>
+            )}
+            {resume.source !== "fallback" && questionsNotice && (
+              <div className="flex items-start gap-3 rounded-2xl border border-amber-500/30 bg-amber-950/20 px-5 py-4 text-amber-200">
+                <svg className="h-5 w-5 shrink-0 mt-0.5 text-amber-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+                </svg>
+                <div className="text-sm leading-relaxed">
+                  <span className="font-bold text-amber-300">Questions generated in demo mode.</span>{" "}
+                  Your resume was parsed, but live question generation was unavailable, so these
+                  questions were derived from your listed skills. {questionsNotice}
                 </div>
               </div>
             )}

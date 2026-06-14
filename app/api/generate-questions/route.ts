@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sarvamChat, extractValidatedJson, sarvamConfigured } from "@/lib/sarvam";
 import { QUESTION_GEN_SYSTEM, questionGenUser } from "@/lib/prompts";
-import { FALLBACK_QUESTIONS } from "@/lib/fallbackData";
+import { buildFallbackQuestions } from "@/lib/fallbackData";
 import { InterviewQuestion } from "@/lib/types";
 import { GenerateQuestionsBody, QuestionsLLMSchema } from "@/lib/schemas";
 import { env } from "@/lib/env";
@@ -49,16 +49,19 @@ export async function POST(req: NextRequest) {
     if (!questions.length) throw new Error("Model returned no usable questions.");
 
     log.info("questions generated", { count: questions.length });
-    return NextResponse.json({ questions });
+    return NextResponse.json({ questions, source: "sarvam" });
   } catch (e) {
     const message = (e as Error).message;
     log.error("question generation failed", { error: e });
 
     if (env.DEMO_MODE) {
-      const names = new Set(skills.map((s) => s.name.toLowerCase()));
-      let qs = FALLBACK_QUESTIONS.filter((q) => names.has(q.targetSkill.toLowerCase()));
-      if (qs.length < 2) qs = FALLBACK_QUESTIONS;
-      return NextResponse.json({ questions: qs.map((q, i) => ({ ...q, id: i + 1 })) });
+      // Build questions from the candidate's REAL skills so the interview still reflects the
+      // uploaded resume, and flag it as a fallback so the UI can say generation degraded.
+      const questions = buildFallbackQuestions(skills);
+      const reason = sarvamConfigured()
+        ? `Question generation failed, using resume-derived demo questions: ${message}`
+        : "SARVAM_API_KEY is not configured, using resume-derived demo questions (DEMO_MODE).";
+      return NextResponse.json({ questions, source: "fallback", reason });
     }
 
     if (!sarvamConfigured()) {
