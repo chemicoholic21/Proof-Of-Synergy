@@ -48,6 +48,51 @@ export const FALLBACK_QUESTIONS: InterviewQuestion[] = [
   },
 ];
 
+// Per-skill question templates used when the LLM question generator is unavailable (DEMO_MODE).
+// Unlike the static FALLBACK_QUESTIONS above, these are built from the candidate's ACTUAL parsed
+// skills, so the interview always reflects the uploaded resume instead of a fixed fictional one.
+const QUESTION_TEMPLATES: Record<string, string> = {
+  python:
+    "Walk me through a non-trivial system you built in Python. What was the hardest reliability or performance problem you hit, and how did you solve it?",
+  javascript:
+    "Describe a tricky bug or performance issue you debugged in a JavaScript codebase. How did you isolate the root cause and what was the fix?",
+  typescript:
+    "Tell me about a time TypeScript's type system either saved you or got in your way. How did you model the problem?",
+  react:
+    "How do you keep a data-heavy React UI responsive? Talk about a specific rendering or state bottleneck you hit and how you fixed it.",
+  aws: "Walk me through an AWS architecture you designed. How did you decide between the services you used, and what failure modes did you plan for?",
+  kubernetes:
+    "Explain a real Kubernetes problem you debugged in production. What primitives were involved and how did you reason about it?",
+  docker:
+    "Describe how you containerized and shipped a real service. What trade-offs did you make around image size, build speed, or security?",
+  sql: "Tell me about a slow query or schema design problem you solved. How did you diagnose it and what changed?",
+  java: "Walk me through a concurrency or memory problem you solved in Java. How did you reason about it and verify the fix?",
+  go: "Describe a system you built in Go. How did you use goroutines/channels, and what concurrency pitfalls did you have to design around?",
+  node: "Describe a backend you built on Node.js. How did you handle async failure modes and keep the event loop healthy under load?",
+};
+
+/**
+ * Build interview questions from the candidate's ACTUAL skills, deterministically. Used as the
+ * DEMO_MODE fallback when the Sarvam question generator is unavailable, so the questions always
+ * reflect the uploaded resume rather than a fixed set tied to a fictional profile.
+ */
+export function buildFallbackQuestions(
+  skills: { name: string; category: string; claimedLevel: string }[]
+): InterviewQuestion[] {
+  return skills.slice(0, 7).map((s, i) => {
+    const key = s.name.toLowerCase().trim();
+    const text =
+      QUESTION_TEMPLATES[key] ??
+      `You list ${s.name} as ${s.claimedLevel}. Describe a specific, real problem you solved with ${s.name}, the trade-offs you weighed, and what you would do differently today.`;
+    return {
+      id: i + 1,
+      text,
+      targetSkill: s.name,
+      rubric: `Looks for concrete, lived experience with ${s.name} rather than memorized definitions.`,
+    };
+  });
+}
+
 export const FALLBACK_TRANSCRIPTS: Record<number, Transcript> = {
   1: {
     text: "So for the trading service I used idempotency keys on every order request so retries wouldn't double-execute, and I put a circuit breaker in front of the broker API. If traffic grew ten times I'd move from synchronous calls to an event queue and shard by instrument.",
