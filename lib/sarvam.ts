@@ -22,6 +22,25 @@ function reasoningWireValue(effort: string | undefined): "low" | "medium" | "hig
   return v === "low" || v === "medium" || v === "high" ? v : null;
 }
 
+// Lightweight FIFO semaphore bounding concurrent Sarvam chat calls. The judge panel multiplies
+// outbound requests (3 per answer x parallel answers), which easily exceeds the tier's request
+// rate limit; this caps total in-flight calls without changing any caller's code.
+let activeChatCalls = 0;
+const chatQueue: Array<() => void> = [];
+
+async function withChatSlot<T>(fn: () => Promise<T>): Promise<T> {
+  if (activeChatCalls >= env.SARVAM_MAX_CONCURRENCY) {
+    await new Promise<void>((resolve) => chatQueue.push(resolve));
+  }
+  activeChatCalls++;
+  try {
+    return await fn();
+  } finally {
+    activeChatCalls--;
+    chatQueue.shift()?.();
+  }
+}
+
 export { sarvamConfigured };
 
 function authHeaders(extra: Record<string, string> = {}) {
@@ -108,28 +127,32 @@ export async function sarvamChat(
   opts: { temperature?: number; maxTokens?: number; timeoutMs?: number; reasoningEffort?: string } = {}
 ): Promise<string> {
   if (!KEY) throw new Error("SARVAM_API_KEY not set");
-  try {
-    return await sarvamChatOnce(system, user, opts);
-  } catch (e) {
-    const finishReason = (e as Error & { finishReason?: string }).finishReason;
-    // Log the real cause, otherwise a misconfigured model/key looks like a generic fallback.
-    console.warn(
-      `[sarvam] chat attempt 1 failed (finish_reason=${finishReason ?? "n/a"}), retrying:`,
-      (e as Error).message
-    );
-    // On a `length` truncation the previous budget was too small for the reasoning model: jump to
-    // the tier ceiling (sarvamChatOnce clamps it to SARVAM_MAX_TOKENS, so this can never 400).
-    // Otherwise just retry at a calmer temperature with at least the default budget.
-    const retryMaxTokens =
-      finishReason === "length"
-        ? env.SARVAM_MAX_TOKENS
-        : Math.max(opts.maxTokens ?? 4000, 4000);
-    return await sarvamChatOnce(system, user, {
-      ...opts,
-      temperature: Math.min(opts.temperature ?? 0.2, 0.2),
-      maxTokens: retryMaxTokens,
-    });
-  }
+  // One slot covers both the attempt and its retry, so the bound is on concurrent answers/judges
+  // rather than individual HTTP calls.
+  return withChatSlot(async () => {
+    try {
+      return await sarvamChatOnce(system, user, opts);
+    } catch (e) {
+      const finishReason = (e as Error & { finishReason?: string }).finishReason;
+      // Log the real cause, otherwise a misconfigured model/key looks like a generic fallback.
+      console.warn(
+        `[sarvam] chat attempt 1 failed (finish_reason=${finishReason ?? "n/a"}), retrying:`,
+        (e as Error).message
+      );
+      // On a `length` truncation the previous budget was too small for the reasoning model: jump to
+      // the tier ceiling (sarvamChatOnce clamps it to SARVAM_MAX_TOKENS, so this can never 400).
+      // Otherwise just retry at a calmer temperature with at least the default budget.
+      const retryMaxTokens =
+        finishReason === "length"
+          ? env.SARVAM_MAX_TOKENS
+          : Math.max(opts.maxTokens ?? 4000, 4000);
+      return await sarvamChatOnce(system, user, {
+        ...opts,
+        temperature: Math.min(opts.temperature ?? 0.2, 0.2),
+        maxTokens: retryMaxTokens,
+      });
+    }
+  });
 }
 
 /** Saarika STT. Returns transcript + detected language. */
@@ -160,6 +183,20 @@ export async function sarvamTranscribe(
   };
 }
 
+/**
+ * Trim `text` to at most `limit` characters at a natural boundary (sentence end, else last space)
+ * so speech is never cut mid-word. Returns the text unchanged when it already fits.
+ */
+export function clampSpeech(text: string, limit: number): string {
+  const t = text.trim();
+  if (t.length <= limit) return t;
+  const window = t.slice(0, limit);
+  const lastSentence = Math.max(window.lastIndexOf(". "), window.lastIndexOf("? "), window.lastIndexOf("! "));
+  if (lastSentence >= limit * 0.6) return window.slice(0, lastSentence + 1).trim();
+  const lastSpace = window.lastIndexOf(" ");
+  return (lastSpace > 0 ? window.slice(0, lastSpace) : window).trim();
+}
+
 /** Bulbul TTS. Synthesizes `text` into speech and returns base64-encoded WAV audio. */
 export async function sarvamTTS(
   text: string,
@@ -175,8 +212,9 @@ export async function sarvamTTS(
       method: "POST",
       headers: authHeaders({ "content-type": "application/json" }),
       body: JSON.stringify({
-        // bulbul:v2 caps input at 1500 chars; trim defensively so long questions still speak.
-        text: text.slice(0, 1450),
+        // bulbul:v2 caps input at 1500 chars; trim at a clause/word boundary so a long question
+        // is never cut mid-word.
+        text: clampSpeech(text, 1450),
         target_language_code: targetLanguageCode,
         model,
         speaker,

@@ -37,6 +37,10 @@ const EnvSchema = z.object({
   // caps sarvam-105b at 4096 and 400s any request above it, so every chat call is clamped to this
   // value. Raise it (or set it from the dashboard limit) after upgrading the plan.
   SARVAM_MAX_TOKENS: z.coerce.number().int().positive().default(4096),
+  // Max simultaneous Sarvam chat calls. The judge panel issues 3 calls per answer and the evaluate
+  // route processes answers in parallel, which can burst well past the tier's request rate limit
+  // (HTTP 429). This bounds total in-flight chat requests across all routes.
+  SARVAM_MAX_CONCURRENCY: z.coerce.number().int().min(1).max(32).default(4),
   SARVAM_TTS_MODEL: z.string().default("bulbul:v2"),
   SARVAM_TTS_SPEAKER: z.string().default("anushka"),
 
