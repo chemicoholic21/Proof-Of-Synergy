@@ -45,6 +45,9 @@ async function sarvamChatOnce(
   user: string,
   opts: { temperature?: number; maxTokens?: number; timeoutMs?: number }
 ): Promise<string> {
+  // Clamp to the subscription tier ceiling: Sarvam 400s any request whose max_tokens exceeds the
+  // plan limit (starter = 4096 for sarvam-105b), so never ask for more than the tier allows.
+  const maxTokens = Math.min(opts.maxTokens ?? 4000, env.SARVAM_MAX_TOKENS);
   const res = await fetchWithTimeout(
     `${SARVAM_BASE}/v1/chat/completions`,
     {
@@ -57,8 +60,8 @@ async function sarvamChatOnce(
           { role: "user", content: user },
         ],
         temperature: opts.temperature ?? 0.2,
-        // Generous budget so the JSON answer is never truncated after the (low) reasoning step.
-        max_tokens: opts.maxTokens ?? 4000,
+        // Budget for the JSON answer after the (low) reasoning step, capped at the tier ceiling.
+        max_tokens: maxTokens,
         // First-class param to keep reasoning minimal so `content` is actually populated.
         reasoning_effort: REASONING_EFFORT,
       }),
@@ -85,10 +88,6 @@ async function sarvamChatOnce(
   return content;
 }
 
-// Hard ceiling for the escalated retry. Reasoning models can spend a few thousand tokens
-// thinking before emitting any content; 8000 leaves ample room for the JSON answer afterwards.
-const MAX_TOKENS_CEILING = 8000;
-
 /** Sarvam chat completion with one retry. The reasoning model occasionally returns empty
  *  content (all tokens consumed by the reasoning phase -> finish_reason=length); the retry
  *  escalates the token budget so the answer actually fits. */
@@ -107,12 +106,12 @@ export async function sarvamChat(
       `[sarvam] chat attempt 1 failed (finish_reason=${finishReason ?? "n/a"}), retrying:`,
       (e as Error).message
     );
-    // On a `length` truncation the previous budget was simply too small for the reasoning
-    // model: jump straight to the ceiling rather than nudging it. Otherwise just retry at a
-    // calmer temperature with at least the default budget.
+    // On a `length` truncation the previous budget was too small for the reasoning model: jump to
+    // the tier ceiling (sarvamChatOnce clamps it to SARVAM_MAX_TOKENS, so this can never 400).
+    // Otherwise just retry at a calmer temperature with at least the default budget.
     const retryMaxTokens =
       finishReason === "length"
-        ? MAX_TOKENS_CEILING
+        ? env.SARVAM_MAX_TOKENS
         : Math.max(opts.maxTokens ?? 4000, 4000);
     return await sarvamChatOnce(system, user, {
       ...opts,

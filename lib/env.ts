@@ -30,6 +30,10 @@ const EnvSchema = z.object({
   SARVAM_API_KEY: z.string().optional(),
   SARVAM_CHAT_MODEL: z.string().default("sarvam-105b"),
   SARVAM_REASONING_EFFORT: z.string().default("low"),
+  // Per-request max_tokens ceiling enforced by the Sarvam subscription tier. The starter tier
+  // caps sarvam-105b at 4096 and 400s any request above it, so every chat call is clamped to this
+  // value. Raise it (or set it from the dashboard limit) after upgrading the plan.
+  SARVAM_MAX_TOKENS: z.coerce.number().int().positive().default(4096),
   SARVAM_TTS_MODEL: z.string().default("bulbul:v2"),
   SARVAM_TTS_SPEAKER: z.string().default("anushka"),
 

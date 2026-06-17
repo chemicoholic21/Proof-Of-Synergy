@@ -75,12 +75,13 @@ export async function POST(req: NextRequest) {
     if (!text || text.trim().length < 20) throw new Error("Could not extract readable text from the document.");
 
     // 2) Sarvam structures the raw text into the resume schema, validated against ParsedResumeLLMSchema.
-    // sarvam-105b is a reasoning model: the reasoning phase and the JSON answer share one
-    // token budget. 2000 was too small (reasoning alone exhausted it -> finish_reason=length,
-    // empty content). 5000 leaves room for the answer after the model finishes thinking.
+    // sarvam-105b is a reasoning model: the reasoning phase and the JSON answer share one token
+    // budget. 2000 was too small (reasoning alone exhausted it -> finish_reason=length). Ask for
+    // the most the tier allows; sarvamChat clamps this to SARVAM_MAX_TOKENS (starter cap 4096) so
+    // it can never exceed the plan limit and 400.
     const raw = await sarvamChat(RESUME_PARSE_SYSTEM, resumeParseUser(text), {
       temperature: 0.2,
-      maxTokens: 5000,
+      maxTokens: env.SARVAM_MAX_TOKENS,
     });
     const parsed = extractValidatedJson(raw, ParsedResumeLLMSchema);
 
