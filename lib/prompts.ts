@@ -26,9 +26,12 @@ export const QUESTION_GEN_SYSTEM =
   "You are an expert technical interviewer. Generate questions that test THINKING and COMMUNICATION, not facts. Reference the candidate's actual skills. Avoid yes/no and 'what is X' questions. Output ONLY valid JSON.";
 
 export function questionGenUser(skills: { name: string; category: string; claimedLevel: string }[]) {
-  return `For each skill below, generate ONE practical, real-world interview question that is hard to fake and reveals true depth. Output JSON:
+  return `For each skill below, generate EXACTLY ONE practical, real-world interview question that is hard to fake and reveals true depth. Output compact JSON (no markdown, no extra prose):
 { "questions": [ { "id": number, "text": string, "targetSkill": string, "rubric": string } ] }
-The "targetSkill" MUST exactly equal one of the provided skill names.
+Constraints to keep the response short enough to return in full:
+- Output exactly ${skills.length} question(s), one per skill, in the same order.
+- "text" <= 280 characters; "rubric" <= 200 characters (a brief scoring guide, not a model answer).
+- "targetSkill" MUST exactly equal one of the provided skill names.
 
 Skills:
 ${skills.map((s) => `- ${s.name} (${s.category}, claimed ${s.claimedLevel})`).join("\n")}`;
