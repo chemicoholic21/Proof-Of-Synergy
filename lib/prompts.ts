@@ -48,3 +48,101 @@ Candidate's spoken answer (transcribed): "${answer}"
 Output JSON:
 { "score": number, "feedback": string, "strengths": string[], "improvements": string[] }`;
 }
+
+// ---------------------------------------------------------------------------
+// MULTI-AGENT LAYERS
+//
+// Research-grounded extension of the single-prompt pipeline. Each layer is a separate
+// agent with its OWN narrow role and a typed (Zod-validated) output contract, because the
+// dominant failure mode of multi-agent systems is under-specified roles and missing
+// verification, not weak models (Why Do Multi-Agent LLM Systems Fail?, MAST, arXiv:2503.13657).
+// Verification is always EXTERNAL (a different agent / a deterministic check), never a model
+// grading its own output, since intrinsic self-correction without an external signal can
+// degrade results (Huang et al., "LLMs Cannot Self-Correct Reasoning Yet", ICLR 2024).
+// ---------------------------------------------------------------------------
+
+// ---- L1: Extraction verifier (grounds the parsed resume against the source text) ----
+export const EXTRACTION_VERIFY_SYSTEM =
+  "You are a strict grounding auditor. You verify that extracted resume fields are DIRECTLY supported by the source text. Never infer or invent. Output ONLY valid JSON.";
+
+export function extractionVerifyUser(sourceText: string, extractedSkills: { name: string }[]) {
+  return `For each extracted skill, decide whether it is directly supported by the source resume text.
+Mark "unsupported" any skill that does not literally appear or is not clearly evidenced.
+Also list up to 3 important skills that ARE evidenced in the text but were missed.
+
+Extracted skills:
+${extractedSkills.map((s) => `- ${s.name}`).join("\n")}
+
+Source resume text:
+"""
+${sourceText}
+"""
+
+Output JSON:
+{ "unsupported": [{ "name": string, "reason": string }], "missed": [{ "name": string, "evidence": string }] }`;
+}
+
+// ---- L2: Question adversary (tries to break each generated interview question) ----
+export const QUESTION_ADVERSARY_SYSTEM =
+  "You are an adversarial question reviewer. You try to BREAK interview questions. Reject any question that is yes/no, answerable by reciting a definition, leaks its own answer, or does not require reasoning about real experience. Output ONLY valid JSON.";
+
+export function questionAdversaryUser(questions: { id?: number; text: string; targetSkill: string }[]) {
+  return `Review each interview question below. For each, return a verdict of "keep" or "revise".
+Reject (revise) if the question is: yes/no, a "what is X" definition lookup, self-answering, trivially Googleable, or does not probe real depth. When revising, provide an improved question that targets the SAME skill and is hard to fake.
+
+Questions:
+${questions.map((q) => `[${q.id ?? "?"}] (${q.targetSkill}) ${q.text}`).join("\n")}
+
+Output JSON:
+{ "reviews": [ { "id": number, "verdict": "keep"|"revise", "issues": string[], "improved_question": string|null } ] }`;
+}
+
+// ---- L3: Judge panel. Three DIVERSE lenses, not three identical judges, because panels only
+// help to the extent their errors are uncorrelated ("Nine Judges, Two Effective Votes",
+// arXiv:2605.29800; PoLL / Verga et al. 2024). Each judge gets explicit score anchors, which is
+// the single biggest reliability lever for LLM-as-a-judge (arXiv:2506.13639). ----
+
+export const JUDGE_TECHNICAL_SYSTEM =
+  "You are a senior technical interviewer scoring ONLY technical correctness and depth of reasoning. Ignore fluency, grammar, and length. Output ONLY valid JSON.";
+
+export function judgeTechnicalUser(question: string, targetSkill: string, rubric: string, answer: string) {
+  return `Score ONLY technical depth/correctness, 0-100.
+Anchors: 0 = incorrect or no understanding; 50 = correct but shallow/textbook; 100 = first-hand depth with tradeoffs and edge cases.
+A confident but wrong answer scores below 30. Ignore how fluent or long the answer is.
+
+Skill: ${targetSkill}
+Question: ${question}
+Rubric / ideal answer: ${rubric || "(none provided; judge against the skill)"}
+Candidate answer (transcribed): "${answer}"
+
+Output JSON: { "score": number, "justification": string }`;
+}
+
+export const JUDGE_COMMUNICATION_SYSTEM =
+  "You are an evaluator scoring ONLY communication clarity and authenticity (genuine lived experience vs memorized/vague). Reward specific, concrete detail; penalize buzzword recitation and hedging. Do NOT reward mere verbosity. Output ONLY valid JSON.";
+
+export function judgeCommunicationUser(question: string, targetSkill: string, answer: string) {
+  return `Score ONLY clarity and authenticity, 0-100.
+Anchors: 0 = incoherent or evasive; 50 = clear but generic/memorized; 100 = clear, specific, and clearly drawn from real experience.
+A longer answer is NOT automatically better.
+
+Skill: ${targetSkill}
+Question: ${question}
+Candidate answer (transcribed): "${answer}"
+
+Output JSON: { "score": number, "authenticity_flags": string[], "justification": string }`;
+}
+
+export const JUDGE_SKEPTIC_SYSTEM =
+  "You are a skeptical examiner. Your job is to argue the answer is WEAKER than it first appears: find gaps, unsupported claims, and signs of bluffing. Default to skepticism. Output ONLY valid JSON.";
+
+export function judgeSkepticUser(question: string, targetSkill: string, answer: string) {
+  return `Identify weaknesses in this answer and assign a point DEDUCTION 0-40 (0 = no real weaknesses; 40 = mostly bluffing/incorrect).
+Be concrete: cite the specific gaps or unsupported claims.
+
+Skill: ${targetSkill}
+Question: ${question}
+Candidate answer (transcribed): "${answer}"
+
+Output JSON: { "deduction": number, "reasons": string[] }`;
+}

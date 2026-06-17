@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sarvamChat, extractValidatedJson, sarvamConfigured } from "@/lib/sarvam";
 import { QUESTION_GEN_SYSTEM, questionGenUser } from "@/lib/prompts";
+import { refineQuestions } from "@/lib/refine";
 import { buildFallbackQuestions } from "@/lib/fallbackData";
 import { InterviewQuestion } from "@/lib/types";
 import { GenerateQuestionsBody, QuestionsLLMSchema } from "@/lib/schemas";
@@ -43,12 +44,17 @@ export async function POST(req: NextRequest) {
       const hit = skills.find((s) => low.includes(s.name.toLowerCase()));
       return hit ? hit.name : skills[0]?.name ?? value;
     };
-    const questions: InterviewQuestion[] = out.questions
+    let questions: InterviewQuestion[] = out.questions
       .filter((q) => q.text && q.targetSkill)
       .map((q, i) => ({ id: i + 1, text: q.text, rubric: q.rubric ?? "", targetSkill: normalize(q.targetSkill) }));
     if (!questions.length) throw new Error("Model returned no usable questions.");
 
-    log.info("questions generated", { count: questions.length });
+    // L2: adversarial reviewer rewrites weak (yes/no, definition-lookup, self-answering) questions.
+    // Best-effort, so generation never fails because the reviewer did.
+    let revised = 0;
+    if (env.EVAL_VERIFY_LAYERS) ({ questions, revised } = await refineQuestions(questions));
+
+    log.info("questions generated", { count: questions.length, revised });
     return NextResponse.json({ questions, source: "sarvam" });
   } catch (e) {
     const message = (e as Error).message;

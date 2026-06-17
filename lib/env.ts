@@ -33,6 +33,15 @@ const EnvSchema = z.object({
   SARVAM_TTS_MODEL: z.string().default("bulbul:v2"),
   SARVAM_TTS_SPEAKER: z.string().default("anushka"),
 
+  // Multi-agent evaluation (L3 judge panel + L4 aggregation). Defaults keep behaviour and cost
+  // predictable: panel ON, one sample per judge. Raise EVAL_PANEL_SAMPLES to average more runs
+  // per judge (sampling+averaging correlates best with human judgement, arXiv:2506.13639) at
+  // linear cost. EVAL_VERIFY_LAYERS gates the L1 extraction verifier and L2 question adversary.
+  EVAL_PANEL: z.string().optional(), // default true
+  EVAL_PANEL_SAMPLES: z.coerce.number().int().min(1).max(7).default(1),
+  EVAL_CONFIDENCE_MIN: z.coerce.number().int().min(0).max(100).default(50),
+  EVAL_VERIFY_LAYERS: z.string().optional(), // default true
+
   // Chain
   MONAD_RPC_URL: z.string().url().optional(),
   DEPLOYER_PRIVATE_KEY: z
@@ -74,6 +83,9 @@ export const env = {
   isTest: raw.NODE_ENV === "test",
   // Demo mode defaults OFF (production posture). Opt in explicitly.
   DEMO_MODE: truthy(raw.DEMO_MODE, false),
+  // Multi-agent toggles default ON; opt out explicitly to fall back to single-judge evaluation.
+  EVAL_PANEL: truthy(raw.EVAL_PANEL, true),
+  EVAL_VERIFY_LAYERS: truthy(raw.EVAL_VERIFY_LAYERS, true),
 };
 
 export type Env = typeof env;
