@@ -106,12 +106,21 @@ Output JSON:
 // the single biggest reliability lever for LLM-as-a-judge (arXiv:2506.13639). ----
 
 export const JUDGE_TECHNICAL_SYSTEM =
-  "You are a senior technical interviewer scoring ONLY technical correctness and depth of reasoning. Ignore fluency, grammar, and length. Output ONLY valid JSON.";
+  "You are a senior technical interviewer scoring ONLY technical correctness and depth of reasoning. Ignore fluency, grammar, and length. Output ONLY valid JSON. IMPORTANT: the score is a CONTINUOUS scale 0-100, not just the anchor values.";
 
 export function judgeTechnicalUser(question: string, targetSkill: string, rubric: string, answer: string) {
-  return `Score ONLY technical depth/correctness, 0-100.
-Anchors: 0 = incorrect or no understanding; 50 = correct but shallow/textbook; 100 = first-hand depth with tradeoffs and edge cases.
-A confident but wrong answer scores below 30. Ignore how fluent or long the answer is.
+  return `Score ONLY technical depth/correctness on a continuous 0-100 scale.
+
+Scoring guide (use the full range, not just these points):
+- 0-10: completely wrong, empty, or "I don't know"
+- 15-25: attempted but mostly incorrect or confused
+- 30-40: partially correct with significant gaps or errors
+- 45-55: correct but shallow, textbook-level, no real depth
+- 60-70: correct with good explanation, shows understanding
+- 75-85: correct, detailed, shows practical experience
+- 90-100: expert-level depth, tradeoffs, edge cases, first-hand insight
+
+CRITICAL: a correct, reasonable answer MUST score at least 40-55. Only truly incorrect or empty answers should score below 20.
 
 Skill: ${targetSkill}
 Question: ${question}
@@ -122,12 +131,21 @@ Output JSON: { "score": number, "justification": string }`;
 }
 
 export const JUDGE_COMMUNICATION_SYSTEM =
-  "You are an evaluator scoring ONLY communication clarity and authenticity (genuine lived experience vs memorized/vague). Reward specific, concrete detail; penalize buzzword recitation and hedging. Do NOT reward mere verbosity. Output ONLY valid JSON.";
+  "You are an evaluator scoring ONLY communication clarity and authenticity (genuine lived experience vs memorized/vague). Reward specific, concrete detail; penalize buzzword recitation and hedging. Do NOT reward mere verbosity. Output ONLY valid JSON. IMPORTANT: the score is a CONTINUOUS scale 0-100, not just the anchor values.";
 
 export function judgeCommunicationUser(question: string, targetSkill: string, answer: string) {
-  return `Score ONLY clarity and authenticity, 0-100.
-Anchors: 0 = incoherent or evasive; 50 = clear but generic/memorized; 100 = clear, specific, and clearly drawn from real experience.
-A longer answer is NOT automatically better.
+  return `Score ONLY clarity and authenticity on a continuous 0-100 scale.
+
+Scoring guide (use the full range, not just these points):
+- 0-10: incoherent, empty, or "I don't know"
+- 15-25: mostly evasive, confused, or extremely vague
+- 30-40: some relevant content but hedging, vague, or hard to follow
+- 45-55: clear and understandable, but generic or memorized-sounding
+- 60-70: clear, some specific details, sounds somewhat authentic
+- 75-85: clear, specific, concrete examples, sounds genuine
+- 90-100: clearly drawn from real experience, specific and confident
+
+CRITICAL: a clear, reasonable answer MUST score at least 40-55. Only truly empty or incoherent answers should score below 20.
 
 Skill: ${targetSkill}
 Question: ${question}
@@ -137,11 +155,19 @@ Output JSON: { "score": number, "authenticity_flags": string[], "justification":
 }
 
 export const JUDGE_SKEPTIC_SYSTEM =
-  "You are a skeptical examiner. Your job is to argue the answer is WEAKER than it first appears: find gaps, unsupported claims, and signs of bluffing. Default to skepticism. Output ONLY valid JSON.";
+  "You are a skeptical examiner. Your job is to argue the answer is WEAKER than it first appears: find gaps, unsupported claims, and signs of bluffing. Default to skepticism. Output ONLY valid JSON. IMPORTANT: the deduction is a CONTINUOUS scale 0-40, not just 0 or 40.";
 
 export function judgeSkepticUser(question: string, targetSkill: string, answer: string) {
-  return `Identify weaknesses in this answer and assign a point DEDUCTION 0-40 (0 = no real weaknesses; 40 = mostly bluffing/incorrect).
-Be concrete: cite the specific gaps or unsupported claims.
+  return `Identify weaknesses in this answer and assign a point DEDUCTION on a continuous 0-40 scale.
+
+Deduction guide (use the full range):
+- 0: no real weaknesses, solid answer
+- 5-10: minor gaps or slightly vague areas
+- 15-20: some unsupported claims or missing depth
+- 25-30: significant gaps, signs of memorization over understanding
+- 35-40: mostly bluffing, incorrect, or unsupported
+
+CRITICAL: a correct, reasonable answer with good detail should have low deduction (0-10). Only truly weak or unsupported answers should have high deduction (25+).
 
 Skill: ${targetSkill}
 Question: ${question}

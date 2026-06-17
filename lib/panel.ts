@@ -73,7 +73,17 @@ export function aggregatePanel(
   // Confidence falls as the two scorers disagree and as the skeptic finds more to deduct while
   // the scorers stayed high (a high score the skeptic distrusts is itself a low-confidence signal).
   const disagreement = Math.abs(technical - communication); // 0-100
-  const confidence = clamp(Math.round(100 - disagreement - deduction * 0.5), 0, 100);
+  let confidence = clamp(Math.round(100 - disagreement - deduction * 0.5), 0, 100);
+
+  // Detect suspicious zero-scores: when both scorers return 0 on a non-empty answer, the model
+  // likely defaulted to the lowest anchor without evaluating. Force low confidence so the score
+  // is flagged for human review rather than written on-chain as-is.
+  const allZero = technical === 0 && communication === 0;
+  if (allZero) {
+    confidence = 0;
+    console.warn("[panel] suspicious: both judges returned 0 — likely model defaulting to lowest anchor");
+  }
+
   const confidenceMin = opts.confidenceMin ?? env.EVAL_CONFIDENCE_MIN;
   const lowConfidence = confidence < confidenceMin;
 
@@ -91,7 +101,11 @@ export function aggregatePanel(
   const feedbackParts = [parts.technical.justification, parts.communication.justification]
     .map((s) => s.trim())
     .filter(Boolean);
-  if (lowConfidence) {
+  if (allZero) {
+    feedbackParts.push(
+      "All judges returned 0 — this likely indicates the model defaulted to the lowest score without evaluating. Score is unreliable; human review recommended."
+    );
+  } else if (lowConfidence) {
     feedbackParts.push(
       "Judges disagreed on this answer (low confidence); flag for human review before relying on the score."
     );
@@ -115,18 +129,24 @@ async function judgeScore<T extends { score?: number; deduction?: number }>(
   user: string,
   schema: { parse: (v: unknown) => T },
   pick: (t: T) => number,
-  samples: number
+  samples: number,
+  label: string
 ): Promise<{ value: number; first: T }> {
   // Temperature > 0 because sampling+averaging tracks human judgement better than greedy decoding
   // (arXiv:2506.13639). Generous token budget: these are reasoning calls and must not truncate.
   const runs = await Promise.all(
     Array.from({ length: samples }, () =>
-      sarvamChat(system, user, { temperature: 0.4, maxTokens: 2500 }).then((raw) =>
-        extractValidatedJson(raw, schema)
-      )
+      sarvamChat(system, user, { temperature: 0.4, maxTokens: 2500 }).then((raw) => {
+        console.log(`[panel] ${label} raw response (first 500 chars):`, raw.slice(0, 500));
+        const parsed = extractValidatedJson(raw, schema);
+        console.log(`[panel] ${label} parsed:`, JSON.stringify(parsed));
+        return parsed;
+      })
     )
   );
-  return { value: mean(runs.map(pick)), first: runs[0] };
+  const values = runs.map(pick);
+  console.log(`[panel] ${label} values:`, values, "mean:", mean(values));
+  return { value: mean(values), first: runs[0] };
 }
 
 /**
@@ -146,21 +166,24 @@ export async function evaluateAnswerWithPanel(
       judgeTechnicalUser(question.text, question.targetSkill, question.rubric, answer),
       JudgeTechnicalLLMSchema,
       (t) => t.score,
-      samples
+      samples,
+      "technical"
     ),
     judgeScore(
       JUDGE_COMMUNICATION_SYSTEM,
       judgeCommunicationUser(question.text, question.targetSkill, answer),
       JudgeCommunicationLLMSchema,
       (t) => t.score,
-      samples
+      samples,
+      "communication"
     ),
     judgeScore(
       JUDGE_SKEPTIC_SYSTEM,
       judgeSkepticUser(question.text, question.targetSkill, answer),
       JudgeSkepticLLMSchema,
       (t) => t.deduction,
-      samples
+      samples,
+      "skeptic"
     ),
   ]);
 

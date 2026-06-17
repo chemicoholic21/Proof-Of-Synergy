@@ -71,4 +71,11 @@ describe("aggregatePanel", () => {
     expect(r.improvements).toContain("No mention of error handling");
     expect(r.improvements).toContain("Buzzword-heavy");
   });
+
+  it("flags zero confidence and adds warning when both judges return 0 (suspicious default)", () => {
+    const r = aggregatePanel(parts({ tech: 0, comm: 0, deduction: 0 }), { confidenceMin: 50 });
+    expect(r.confidence).toBe(0);
+    expect(r.lowConfidence).toBe(true);
+    expect(r.feedback).toMatch(/model defaulted/i);
+  });
 });
