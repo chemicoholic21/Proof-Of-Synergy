@@ -313,3 +313,32 @@ export function extractJson<T = unknown>(raw: string): T {
 export function extractValidatedJson<T>(raw: string, schema: { parse: (v: unknown) => T }): T {
   return schema.parse(extractJson(raw));
 }
+
+/**
+ * Salvage the complete `{...}` objects from the first JSON array in `raw`, tolerating a TRUNCATED
+ * response (e.g. the model hit max_tokens mid-object). Walks the array element by element using
+ * string-aware brace matching and stops at the first object that does not close, so a cut-off
+ * final element is dropped rather than failing the whole parse. Returns [] if no array is found.
+ */
+export function extractJsonArrayItems<T = unknown>(raw: string): T[] {
+  const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
+  const candidate = fenced ? fenced[1] : raw;
+  const arrStart = candidate.indexOf("[");
+  if (arrStart === -1) return [];
+  const items: T[] = [];
+  let i = arrStart + 1;
+  while (i < candidate.length) {
+    while (i < candidate.length && /[\s,]/.test(candidate[i])) i++; // skip whitespace/commas
+    if (i >= candidate.length || candidate[i] === "]") break;
+    if (candidate[i] !== "{") break; // not an object array, or trailing garbage
+    const end = matchBalanced(candidate, i);
+    if (end === -1) break; // final object was truncated -> stop, keep what we have
+    try {
+      items.push(JSON.parse(candidate.slice(i, end)) as T);
+    } catch {
+      break;
+    }
+    i = end;
+  }
+  return items;
+}

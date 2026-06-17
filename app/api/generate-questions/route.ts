@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { sarvamChat, extractValidatedJson, sarvamConfigured } from "@/lib/sarvam";
+import { sarvamChat, extractValidatedJson, extractJsonArrayItems, sarvamConfigured } from "@/lib/sarvam";
 import { QUESTION_GEN_SYSTEM, questionGenUser } from "@/lib/prompts";
 import { refineQuestions } from "@/lib/refine";
 import { buildFallbackQuestions } from "@/lib/fallbackData";
@@ -32,9 +32,21 @@ export async function POST(req: NextRequest) {
   try {
     const raw = await sarvamChat(QUESTION_GEN_SYSTEM, questionGenUser(skills), {
       temperature: 0.4,
-      maxTokens: 3000,
+      maxTokens: env.SARVAM_MAX_TOKENS, // ask for the tier max; clamped in sarvamChat
     });
-    const out = extractValidatedJson(raw, QuestionsLLMSchema);
+    // The questions array can be long enough to hit the token cap mid-object. Parse strictly first;
+    // if that fails on a truncated response, salvage the complete question objects instead of
+    // discarding the whole generation.
+    let out: { questions: { id?: number; text: string; targetSkill: string; rubric: string }[] };
+    try {
+      out = extractValidatedJson(raw, QuestionsLLMSchema);
+    } catch (parseErr) {
+      const salvaged = extractJsonArrayItems(raw);
+      const parsed = QuestionsLLMSchema.safeParse({ questions: salvaged });
+      if (!parsed.success || parsed.data.questions.length === 0) throw parseErr;
+      log.warn("question JSON truncated, salvaged complete items", { recovered: parsed.data.questions.length });
+      out = parsed.data;
+    }
 
     // Normalize targetSkill back to an exact resume skill name, the reasoning model sometimes
     // echoes the full "Spark (Data, claimed advanced)" descriptor, which would break the

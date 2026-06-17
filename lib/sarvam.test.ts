@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { extractJson, extractValidatedJson, clampSpeech } from "./sarvam";
+import { extractJson, extractValidatedJson, clampSpeech, extractJsonArrayItems } from "./sarvam";
 import { z } from "zod";
 
 describe("extractJson", () => {
@@ -37,6 +37,28 @@ describe("extractJson", () => {
 
   it("throws when no JSON is present", () => {
     expect(() => extractJson("no json here")).toThrow(/No JSON found/);
+  });
+});
+
+describe("extractJsonArrayItems (truncation salvage)", () => {
+  it("returns all items from a complete array", () => {
+    const raw = '{"questions":[{"id":1,"text":"a"},{"id":2,"text":"b"}]}';
+    expect(extractJsonArrayItems(raw)).toEqual([{ id: 1, text: "a" }, { id: 2, text: "b" }]);
+  });
+
+  it("salvages complete objects when the final one is truncated mid-string", () => {
+    // Array never closes; last object is cut off inside a string value.
+    const raw = '{"questions":[{"id":1,"text":"complete"},{"id":2,"text":"this got cut o';
+    expect(extractJsonArrayItems(raw)).toEqual([{ id: 1, text: "complete" }]);
+  });
+
+  it("does not get confused by braces/brackets inside string values", () => {
+    const raw = '{"questions":[{"id":1,"text":"use a map { } and a list [ ]"},{"id":2,"text":"trunc';
+    expect(extractJsonArrayItems(raw)).toEqual([{ id: 1, text: "use a map { } and a list [ ]" }]);
+  });
+
+  it("returns [] when there is no array", () => {
+    expect(extractJsonArrayItems("no json here")).toEqual([]);
   });
 });
 
