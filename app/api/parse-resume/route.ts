@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { extractText, getDocumentProxy } from "unpdf";
-import { sarvamParse, sarvamChat, extractValidatedJson, sarvamConfigured } from "@/lib/sarvam";
+import { z } from "zod";
+import { sarvamParse, sarvamChat, extractValidatedJson, extractJsonArrayItems, sarvamConfigured } from "@/lib/sarvam";
 import { RESUME_PARSE_SYSTEM, resumeParseUser } from "@/lib/prompts";
 import { verifyResumeSkills } from "@/lib/refine";
 import { FALLBACK_RESUME } from "@/lib/fallbackData";
 import { ParsedResume } from "@/lib/types";
-import { ParsedResumeLLMSchema } from "@/lib/schemas";
+import { ParsedResumeLLMSchema, ResumeSkillSchema } from "@/lib/schemas";
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { newRequestId, errorResponse, enforceRateLimit } from "@/lib/http";
@@ -20,6 +21,26 @@ async function extractPdfText(file: File): Promise<string> {
   const pdf = await getDocumentProxy(buf);
   const { text } = await extractText(pdf, { mergePages: true });
   return Array.isArray(text) ? text.join("\n") : text;
+}
+
+/**
+ * Recover a usable resume from a truncated/malformed LLM response. The first JSON array in the
+ * resume object is "skills" (the critical downstream data), so salvage its complete entries; name
+ * and contact are pulled from the leading string fields, which precede skills and survive a late
+ * truncation. Returns null when not even one valid skill can be recovered.
+ */
+function salvageResume(raw: string): z.infer<typeof ParsedResumeLLMSchema> | null {
+  const skills = z.array(ResumeSkillSchema).min(1).safeParse(extractJsonArrayItems(raw));
+  if (!skills.success) return null;
+  const leadingString = (key: string): string | null =>
+    raw.match(new RegExp(`"${key}"\\s*:\\s*"([^"\\\\]{0,300})"`))?.[1] ?? null;
+  return {
+    name: leadingString("name"),
+    contact: leadingString("contact"),
+    skills: skills.data,
+    experience: [], // dropped: anything after skills may be truncated, so do not trust it
+    education: [],
+  };
 }
 
 export async function POST(req: NextRequest) {
@@ -83,7 +104,17 @@ export async function POST(req: NextRequest) {
       temperature: 0.2,
       maxTokens: env.SARVAM_MAX_TOKENS,
     });
-    const parsed = extractValidatedJson(raw, ParsedResumeLLMSchema);
+    // Parse strictly first; if the JSON is truncated/malformed, salvage at least the skills array
+    // (the critical downstream data) rather than failing the whole upload.
+    let parsed: z.infer<typeof ParsedResumeLLMSchema>;
+    try {
+      parsed = extractValidatedJson(raw, ParsedResumeLLMSchema);
+    } catch (parseErr) {
+      const salvaged = salvageResume(raw);
+      if (!salvaged) throw parseErr;
+      log.warn("resume JSON malformed/truncated, salvaged skills", { skills: salvaged.skills.length });
+      parsed = salvaged;
+    }
 
     // L1: a second agent grounds the extracted skills against the source text and drops any that
     // were hallucinated. Best-effort and never empties the list (see verifyResumeSkills).
