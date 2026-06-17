@@ -29,7 +29,10 @@ const EnvSchema = z.object({
   // Sarvam AI
   SARVAM_API_KEY: z.string().optional(),
   SARVAM_CHAT_MODEL: z.string().default("sarvam-105b"),
-  SARVAM_REASONING_EFFORT: z.string().default("low"),
+  // "none" (default) disables reasoning entirely (reasoning_effort: null). Required on the starter
+  // tier: with max_tokens capped at 4096, even "low" effort exhausts the budget on the thinking
+  // phase and returns empty content. Set "low"/"medium"/"high" only on a tier with headroom.
+  SARVAM_REASONING_EFFORT: z.string().default("none"),
   // Per-request max_tokens ceiling enforced by the Sarvam subscription tier. The starter tier
   // caps sarvam-105b at 4096 and 400s any request above it, so every chat call is clamped to this
   // value. Raise it (or set it from the dashboard limit) after upgrading the plan.
