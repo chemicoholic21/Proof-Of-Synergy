@@ -5,7 +5,24 @@ import {
   MintBody,
   GateCheckBody,
   EvaluateBody,
+  QuestionsLLMSchema,
 } from "./schemas";
+
+describe("QuestionsLLMSchema", () => {
+  const q = { id: 1, text: "Explain a tradeoff you made", targetSkill: "Go", rubric: "depth" };
+
+  it("accepts the wrapped { questions: [...] } shape", () => {
+    expect(QuestionsLLMSchema.parse({ questions: [q] })).toEqual({ questions: [q] });
+  });
+
+  it("accepts a bare top-level array of questions", () => {
+    expect(QuestionsLLMSchema.parse([q])).toEqual({ questions: [q] });
+  });
+
+  it("rejects an empty question set", () => {
+    expect(() => QuestionsLLMSchema.parse([])).toThrow();
+  });
+});
 
 describe("ParsedResumeLLMSchema", () => {
   it("accepts a valid resume and requires at least one skill", () => {
