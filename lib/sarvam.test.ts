@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { extractJson, extractValidatedJson } from "./sarvam";
+import { extractJson, extractValidatedJson, clampSpeech } from "./sarvam";
 import { z } from "zod";
 
 describe("extractJson", () => {
@@ -37,6 +37,28 @@ describe("extractJson", () => {
 
   it("throws when no JSON is present", () => {
     expect(() => extractJson("no json here")).toThrow(/No JSON found/);
+  });
+});
+
+describe("clampSpeech", () => {
+  it("returns short text unchanged", () => {
+    expect(clampSpeech("Hello there.", 100)).toBe("Hello there.");
+  });
+
+  it("never exceeds the limit", () => {
+    const long = "word ".repeat(500);
+    expect(clampSpeech(long, 100).length).toBeLessThanOrEqual(100);
+  });
+
+  it("does not cut mid-word (breaks on whitespace)", () => {
+    const out = clampSpeech("alpha bravo charlie delta echo foxtrot", 20);
+    expect(out.endsWith(" ")).toBe(false);
+    expect(out.split(" ").every((w) => "alpha bravo charlie delta echo foxtrot".includes(w))).toBe(true);
+  });
+
+  it("prefers a sentence boundary when one is reasonably near the limit", () => {
+    const out = clampSpeech("First sentence here. Second sentence runs on and on and on.", 30);
+    expect(out).toBe("First sentence here.");
   });
 });
 

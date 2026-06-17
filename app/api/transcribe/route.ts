@@ -28,22 +28,25 @@ export async function POST(req: NextRequest) {
   if (limited) return limited;
 
   let qid = 0;
-  let audio: File | null = null;
+  // Saarika's real-time STT caps each clip at 30s, so a long answer arrives as several ordered
+  // <=25s segments (field name "audio", repeated). getAll handles both single and multi-segment.
+  let segments: File[] = [];
   try {
     const form = await req.formData();
     qid = Number(form.get("questionId") || 0);
-    audio = form.get("audio") as File | null;
+    segments = form.getAll("audio").filter((v): v is File => v instanceof File);
   } catch {
     return errorResponse(400, "bad_request", "Expected multipart/form-data with audio.", requestId);
   }
 
-  if (!audio) {
+  if (segments.length === 0) {
     return errorResponse(400, "no_audio", "No audio was provided.", requestId);
   }
-  if (audio.size === 0) {
+  const totalBytes = segments.reduce((n, s) => n + s.size, 0);
+  if (totalBytes === 0) {
     return errorResponse(400, "empty_audio", "The audio recording is empty.", requestId);
   }
-  if (audio.size > env.MAX_AUDIO_BYTES) {
+  if (totalBytes > env.MAX_AUDIO_BYTES) {
     return errorResponse(
       413,
       "audio_too_large",
@@ -53,14 +56,27 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { text, language } = await sarvamTranscribe(audio, audio.name || "answer.webm");
-    if (!text || text.trim().length < 2) throw new Error("Empty transcript returned.");
-    const label = LANG_LABEL[language] || language;
-    log.info("transcription complete", { questionId: qid, language: label });
+    // Transcribe each segment (skipping empties) and stitch the transcripts back in order.
+    const parts: string[] = [];
+    const languages: string[] = [];
+    for (let i = 0; i < segments.length; i++) {
+      const seg = segments[i];
+      if (seg.size === 0) continue;
+      const { text, language } = await sarvamTranscribe(seg, seg.name || `answer-${i}.webm`);
+      const trimmed = (text || "").trim();
+      if (trimmed) parts.push(trimmed);
+      const label = LANG_LABEL[language] || language;
+      if (label && !languages.includes(label)) languages.push(label);
+    }
+
+    const fullText = parts.join(" ").trim();
+    if (fullText.length < 2) throw new Error("Empty transcript returned.");
+    const primaryLanguage = languages[0] || "English";
+    log.info("transcription complete", { questionId: qid, segments: segments.length, languages });
     return NextResponse.json({
-      text,
-      language: label,
-      languagesDetected: [label],
+      text: fullText,
+      language: primaryLanguage,
+      languagesDetected: languages.length ? languages : [primaryLanguage],
       source: "sarvam",
     } satisfies Transcript);
   } catch (e) {

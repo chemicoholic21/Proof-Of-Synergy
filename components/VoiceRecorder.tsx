@@ -2,11 +2,16 @@
 
 import { useEffect, useRef, useState } from "react";
 
+// Saarika real-time STT rejects clips longer than 30s, so we rotate the recorder into discrete
+// <=25s segments. Each segment is a complete, independently-decodable WebM that transcribes on its
+// own; the server stitches the transcripts back together in order.
+const SEGMENT_MS = 25_000;
+
 export default function VoiceRecorder({
   onRecorded,
   disabled,
 }: {
-  onRecorded: (blob: Blob) => void;
+  onRecorded: (blobs: Blob[]) => void;
   disabled?: boolean;
 }) {
   const [recording, setRecording] = useState(false);
@@ -14,16 +19,50 @@ export default function VoiceRecorder({
   const [error, setError] = useState<string | null>(null);
   const [hasClip, setHasClip] = useState(false);
   const mediaRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
+  const chunksRef = useRef<Blob[]>([]); // chunks of the in-flight segment
+  const segmentsRef = useRef<Blob[]>([]); // completed segments for this answer
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const rotateRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const keepGoingRef = useRef(false); // true while the user is still recording (drives rotation)
   const streamRef = useRef<MediaStream | null>(null);
+
+  function clearTimers() {
+    if (timerRef.current) clearInterval(timerRef.current);
+    if (rotateRef.current) clearTimeout(rotateRef.current);
+  }
 
   useEffect(() => {
     return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
+      clearTimers();
       streamRef.current?.getTracks().forEach((t) => t.stop());
     };
   }, []);
+
+  // Start one recorder segment. On stop it banks the segment and either rotates into the next
+  // segment (still recording) or finalizes and hands all segments to the parent (user stopped).
+  function startSegment(stream: MediaStream) {
+    const mr = new MediaRecorder(stream);
+    chunksRef.current = [];
+    mr.ondataavailable = (e) => e.data.size > 0 && chunksRef.current.push(e.data);
+    mr.onstop = () => {
+      if (chunksRef.current.length) {
+        segmentsRef.current.push(new Blob(chunksRef.current, { type: "audio/webm" }));
+      }
+      if (keepGoingRef.current) {
+        startSegment(stream); // rotate to the next <=25s segment
+      } else {
+        streamRef.current?.getTracks().forEach((t) => t.stop());
+        setHasClip(true);
+        onRecorded(segmentsRef.current.slice());
+      }
+    };
+    mr.start();
+    mediaRef.current = mr;
+    // Auto-rotate: stopping triggers onstop, which starts the next segment.
+    rotateRef.current = setTimeout(() => {
+      if (mr.state === "recording") mr.stop();
+    }, SEGMENT_MS);
+  }
 
   async function start() {
     setError(null);
@@ -31,17 +70,9 @@ export default function VoiceRecorder({
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
-      const mr = new MediaRecorder(stream);
-      chunksRef.current = [];
-      mr.ondataavailable = (e) => e.data.size > 0 && chunksRef.current.push(e.data);
-      mr.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
-        setHasClip(true);
-        onRecorded(blob);
-        streamRef.current?.getTracks().forEach((t) => t.stop());
-      };
-      mr.start();
-      mediaRef.current = mr;
+      segmentsRef.current = [];
+      keepGoingRef.current = true;
+      startSegment(stream);
       setRecording(true);
       setSeconds(0);
       timerRef.current = setInterval(() => setSeconds((s) => s + 1), 1000);
@@ -51,7 +82,11 @@ export default function VoiceRecorder({
   }
 
   function stop() {
-    mediaRef.current?.stop();
+    keepGoingRef.current = false; // last segment: finalize instead of rotating
+    if (rotateRef.current) clearTimeout(rotateRef.current);
+    // Guard against stopping an already-inactive recorder (e.g. clicking stop right as a segment
+    // rotates), which would throw InvalidStateError. The pending onstop will still finalize.
+    if (mediaRef.current && mediaRef.current.state === "recording") mediaRef.current.stop();
     setRecording(false);
     if (timerRef.current) clearInterval(timerRef.current);
   }
