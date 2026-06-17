@@ -66,7 +66,9 @@ export default function Home() {
   const [resume, setResume] = useState<ParsedResume | null>(null);
   const [questions, setQuestions] = useState<InterviewQuestion[]>([]);
   const [questionsNotice, setQuestionsNotice] = useState<string | null>(null);
-  const [answers, setAnswers] = useState<Record<number, Blob>>({});
+  // Each answer is one or more ordered audio segments (long answers are split to fit the 30s
+  // real-time STT limit and stitched back together server-side).
+  const [answers, setAnswers] = useState<Record<number, Blob[]>>({});
   const [transcripts, setTranscripts] = useState<Record<number, Transcript>>({});
   const [evaluations, setEvaluations] = useState<QuestionEvaluation[]>([]);
   const [verdicts, setVerdicts] = useState<SkillVerdict[]>([]);
@@ -123,8 +125,8 @@ export default function Home() {
       for (const q of questions) {
         const fd = new FormData();
         fd.append("questionId", String(q.id));
-        const blob = answers[q.id];
-        if (blob) fd.append("audio", blob, `answer-${q.id}.webm`);
+        const segments = answers[q.id] ?? [];
+        segments.forEach((seg, i) => fd.append("audio", seg, `answer-${q.id}-${i}.webm`));
         const tRes = await fetch("/api/transcribe", { method: "POST", body: fd });
         const t: Transcript = await readJsonOrThrow(tRes);
         newTranscripts[q.id] = t;
@@ -185,7 +187,7 @@ export default function Home() {
     setStep("private");
   }
 
-  const allRecorded = questions.length > 0 && questions.every((q) => answers[q.id]);
+  const allRecorded = questions.length > 0 && questions.every((q) => (answers[q.id]?.length ?? 0) > 0);
 
   return (
     <div className="min-h-screen relative overflow-hidden">
@@ -351,7 +353,7 @@ export default function Home() {
 
             <div className="flex flex-col gap-4">
               {questions.map((q) => {
-                const isRecorded = !!answers[q.id];
+                const isRecorded = (answers[q.id]?.length ?? 0) > 0;
                 return (
                   <div
                     key={q.id}
@@ -384,7 +386,7 @@ export default function Home() {
                     <div className="pl-12">
                       <VoiceRecorder
                         disabled={!!busy}
-                        onRecorded={(blob) => setAnswers((a) => ({ ...a, [q.id]: blob }))}
+                        onRecorded={(blobs) => setAnswers((a) => ({ ...a, [q.id]: blobs }))}
                       />
                     </div>
                   </div>
