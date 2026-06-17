@@ -39,6 +39,12 @@ export interface QuestionEvaluation {
   feedback: string;
   strengths: string[];
   improvements: string[];
+  // Multi-agent (judge-panel) metadata. Optional so single-judge results stay backward compatible.
+  confidence?: number; // 0-100; panel agreement. Low confidence => route to human review.
+  subScores?: { technical: number; communication: number; deduction: number };
+  // True when panel disagreement leaves the score below the confidence threshold; the caller
+  // should NOT write a low-confidence score on-chain without human review.
+  lowConfidence?: boolean;
 }
 
 export type SkillStatus = "strong" | "verified" | "exaggerated";

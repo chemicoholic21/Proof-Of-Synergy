@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sarvamChat, extractValidatedJson, sarvamConfigured } from "@/lib/sarvam";
 import { EVAL_SYSTEM, evalUser } from "@/lib/prompts";
+import { evaluateAnswerWithPanel } from "@/lib/panel";
 import { FALLBACK_EVALUATIONS } from "@/lib/fallbackData";
-import { QuestionEvaluation } from "@/lib/types";
+import { QuestionEvaluation, InterviewQuestion } from "@/lib/types";
 import { EvaluateBody, EvaluationLLMSchema } from "@/lib/schemas";
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
@@ -10,6 +11,46 @@ import { newRequestId, errorResponse, enforceRateLimit, parseJsonBody, Validatio
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
+
+/** Multi-agent path: three-lens judge panel aggregated into one scored evaluation. */
+async function evaluateWithPanel(
+  question: InterviewQuestion,
+  answer: string
+): Promise<QuestionEvaluation> {
+  const agg = await evaluateAnswerWithPanel(question, answer);
+  return {
+    questionId: question.id,
+    targetSkill: question.targetSkill,
+    score: agg.score,
+    feedback: agg.feedback,
+    strengths: agg.strengths,
+    improvements: agg.improvements,
+    confidence: agg.confidence,
+    subScores: agg.subScores,
+    lowConfidence: agg.lowConfidence,
+  };
+}
+
+/** Legacy single-judge path, retained behind the EVAL_PANEL flag. */
+async function evaluateSingleJudge(
+  question: InterviewQuestion,
+  answer: string
+): Promise<QuestionEvaluation> {
+  const raw = await sarvamChat(
+    EVAL_SYSTEM,
+    evalUser(question.text, question.targetSkill, question.rubric, answer),
+    { temperature: 0.3 }
+  );
+  const out = extractValidatedJson(raw, EvaluationLLMSchema);
+  return {
+    questionId: question.id,
+    targetSkill: question.targetSkill,
+    score: Math.max(0, Math.min(100, Math.round(out.score))),
+    feedback: out.feedback,
+    strengths: out.strengths,
+    improvements: out.improvements,
+  };
+}
 
 export async function POST(req: NextRequest) {
   const requestId = newRequestId();
@@ -36,21 +77,11 @@ export async function POST(req: NextRequest) {
     const evaluations: QuestionEvaluation[] = await Promise.all(
       items.map(async ({ question, answer }) => {
         try {
-          const raw = await sarvamChat(
-            EVAL_SYSTEM,
-            evalUser(question.text, question.targetSkill, question.rubric, answer),
-            { temperature: 0.3 }
-          );
-          const out = extractValidatedJson(raw, EvaluationLLMSchema);
-          const score = Math.max(0, Math.min(100, Math.round(out.score)));
-          return {
-            questionId: question.id,
-            targetSkill: question.targetSkill,
-            score,
-            feedback: out.feedback,
-            strengths: out.strengths,
-            improvements: out.improvements,
-          };
+          // L3+L4: diverse judge panel + deterministic aggregation. Falls back to the original
+          // single-judge prompt when EVAL_PANEL is disabled (cheaper, less robust).
+          return env.EVAL_PANEL
+            ? await evaluateWithPanel(question, answer)
+            : await evaluateSingleJudge(question, answer);
         } catch (e) {
           // INTEGRITY: a failed evaluation must never become a fabricated score in production,
           // because that score drives an on-chain attestation. Only DEMO_MODE substitutes samples.
@@ -69,7 +100,8 @@ export async function POST(req: NextRequest) {
       })
     );
 
-    log.info("evaluation complete", { count: evaluations.length });
+    const lowConfidence = evaluations.filter((e) => e.lowConfidence).length;
+    log.info("evaluation complete", { count: evaluations.length, mode: env.EVAL_PANEL ? "panel" : "single", lowConfidence });
     return NextResponse.json({ evaluations });
   } catch (e) {
     log.error("evaluation failed", { error: e });

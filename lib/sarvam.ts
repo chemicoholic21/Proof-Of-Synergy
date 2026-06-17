@@ -73,14 +73,25 @@ async function sarvamChatOnce(
   let content = (message.content ?? "") as string;
   if (content) content = content.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
   if (!content) {
-    const finish = data?.choices?.[0]?.finish_reason ?? "unknown";
-    throw new Error(`Sarvam chat returned empty content (model=${CHAT_MODEL}, finish_reason=${finish})`);
+    const finish = (data?.choices?.[0]?.finish_reason ?? "unknown") as string;
+    const err = new Error(
+      `Sarvam chat returned empty content (model=${CHAT_MODEL}, finish_reason=${finish})`
+    ) as Error & { finishReason?: string };
+    // `length` means the reasoning step consumed the whole token budget before any visible
+    // content was emitted; the caller uses this to retry with a much larger budget.
+    err.finishReason = finish;
+    throw err;
   }
   return content;
 }
 
-/** Sarvam chat completion with one retry, the reasoning model occasionally returns empty
- *  content; a single retry makes it reliable. */
+// Hard ceiling for the escalated retry. Reasoning models can spend a few thousand tokens
+// thinking before emitting any content; 8000 leaves ample room for the JSON answer afterwards.
+const MAX_TOKENS_CEILING = 8000;
+
+/** Sarvam chat completion with one retry. The reasoning model occasionally returns empty
+ *  content (all tokens consumed by the reasoning phase -> finish_reason=length); the retry
+ *  escalates the token budget so the answer actually fits. */
 export async function sarvamChat(
   system: string,
   user: string,
@@ -90,13 +101,23 @@ export async function sarvamChat(
   try {
     return await sarvamChatOnce(system, user, opts);
   } catch (e) {
+    const finishReason = (e as Error & { finishReason?: string }).finishReason;
     // Log the real cause, otherwise a misconfigured model/key looks like a generic fallback.
-    console.warn("[sarvam] chat attempt 1 failed, retrying:", (e as Error).message);
-    // Retry once at lower temperature with a larger budget.
+    console.warn(
+      `[sarvam] chat attempt 1 failed (finish_reason=${finishReason ?? "n/a"}), retrying:`,
+      (e as Error).message
+    );
+    // On a `length` truncation the previous budget was simply too small for the reasoning
+    // model: jump straight to the ceiling rather than nudging it. Otherwise just retry at a
+    // calmer temperature with at least the default budget.
+    const retryMaxTokens =
+      finishReason === "length"
+        ? MAX_TOKENS_CEILING
+        : Math.max(opts.maxTokens ?? 4000, 4000);
     return await sarvamChatOnce(system, user, {
       ...opts,
       temperature: Math.min(opts.temperature ?? 0.2, 0.2),
-      maxTokens: Math.max(opts.maxTokens ?? 4000, 4000),
+      maxTokens: retryMaxTokens,
     });
   }
 }

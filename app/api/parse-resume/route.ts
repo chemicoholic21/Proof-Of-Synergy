@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { extractText, getDocumentProxy } from "unpdf";
 import { sarvamParse, sarvamChat, extractValidatedJson, sarvamConfigured } from "@/lib/sarvam";
 import { RESUME_PARSE_SYSTEM, resumeParseUser } from "@/lib/prompts";
+import { verifyResumeSkills } from "@/lib/refine";
 import { FALLBACK_RESUME } from "@/lib/fallbackData";
 import { ParsedResume } from "@/lib/types";
 import { ParsedResumeLLMSchema } from "@/lib/schemas";
@@ -74,13 +75,23 @@ export async function POST(req: NextRequest) {
     if (!text || text.trim().length < 20) throw new Error("Could not extract readable text from the document.");
 
     // 2) Sarvam structures the raw text into the resume schema, validated against ParsedResumeLLMSchema.
+    // sarvam-105b is a reasoning model: the reasoning phase and the JSON answer share one
+    // token budget. 2000 was too small (reasoning alone exhausted it -> finish_reason=length,
+    // empty content). 5000 leaves room for the answer after the model finishes thinking.
     const raw = await sarvamChat(RESUME_PARSE_SYSTEM, resumeParseUser(text), {
       temperature: 0.2,
-      maxTokens: 2000,
+      maxTokens: 5000,
     });
     const parsed = extractValidatedJson(raw, ParsedResumeLLMSchema);
 
-    log.info("resume parsed", { skills: parsed.skills.length });
+    // L1: a second agent grounds the extracted skills against the source text and drops any that
+    // were hallucinated. Best-effort and never empties the list (see verifyResumeSkills).
+    let dropped: string[] = [];
+    if (env.EVAL_VERIFY_LAYERS) {
+      ({ skills: parsed.skills, dropped } = await verifyResumeSkills(parsed.skills, text));
+    }
+
+    log.info("resume parsed", { skills: parsed.skills.length, dropped: dropped.length });
     return NextResponse.json({ ...parsed, source: "sarvam" } satisfies ParsedResume);
   } catch (e) {
     const message = (e as Error).message;
