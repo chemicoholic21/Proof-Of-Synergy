@@ -8,9 +8,19 @@ const KEY = env.SARVAM_API_KEY || "";
 // The hosted chat endpoint only accepts `sarvam-30b` / `sarvam-105b` (NOT the HuggingFace name
 // `sarvam-m`, which 400s). Configurable in case the account only has 30b access.
 const CHAT_MODEL = env.SARVAM_CHAT_MODEL;
-// Sarvam reasoning models default to "medium" effort and will burn the whole token budget
-// thinking, leaving `content` empty (the bug behind the silent fallback). Keep it low.
+// Sarvam reasoning models default to "medium" effort and burn the whole token budget thinking,
+// leaving `content` empty -> the "finish_reason=length, empty content" bug. On the starter tier
+// (max_tokens capped at 4096) even "low" effort exhausts the budget before any JSON is emitted, so
+// we DISABLE reasoning by default (reasoning_effort: null). Every task here returns structured
+// JSON, where thinking adds little (and the judge rubrics are explicit, where CoT is known to add
+// minimal value). Override per-call or via SARVAM_REASONING_EFFORT if on a higher tier.
 const REASONING_EFFORT = env.SARVAM_REASONING_EFFORT;
+
+/** Map an effort string to the wire value. "none"/"off"/"null"/""/unknown -> null (disabled). */
+function reasoningWireValue(effort: string | undefined): "low" | "medium" | "high" | null {
+  const v = (effort ?? "").trim().toLowerCase();
+  return v === "low" || v === "medium" || v === "high" ? v : null;
+}
 
 export { sarvamConfigured };
 
@@ -43,7 +53,7 @@ async function fetchWithTimeout(
 async function sarvamChatOnce(
   system: string,
   user: string,
-  opts: { temperature?: number; maxTokens?: number; timeoutMs?: number }
+  opts: { temperature?: number; maxTokens?: number; timeoutMs?: number; reasoningEffort?: string }
 ): Promise<string> {
   // Clamp to the subscription tier ceiling: Sarvam 400s any request whose max_tokens exceeds the
   // plan limit (starter = 4096 for sarvam-105b), so never ask for more than the tier allows.
@@ -60,10 +70,11 @@ async function sarvamChatOnce(
           { role: "user", content: user },
         ],
         temperature: opts.temperature ?? 0.2,
-        // Budget for the JSON answer after the (low) reasoning step, capped at the tier ceiling.
+        // Budget for the JSON answer, capped at the tier ceiling.
         max_tokens: maxTokens,
-        // First-class param to keep reasoning minimal so `content` is actually populated.
-        reasoning_effort: REASONING_EFFORT,
+        // null disables reasoning entirely so `content` is populated directly (no token burn on a
+        // thinking phase). Per-call override wins over the SARVAM_REASONING_EFFORT default.
+        reasoning_effort: reasoningWireValue(opts.reasoningEffort ?? REASONING_EFFORT),
       }),
     },
     opts.timeoutMs ?? 45000
@@ -94,7 +105,7 @@ async function sarvamChatOnce(
 export async function sarvamChat(
   system: string,
   user: string,
-  opts: { temperature?: number; maxTokens?: number; timeoutMs?: number } = {}
+  opts: { temperature?: number; maxTokens?: number; timeoutMs?: number; reasoningEffort?: string } = {}
 ): Promise<string> {
   if (!KEY) throw new Error("SARVAM_API_KEY not set");
   try {
