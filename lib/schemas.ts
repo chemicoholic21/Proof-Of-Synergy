@@ -48,19 +48,24 @@ export const GenerateQuestionsBody = z.object({
   skills: z.array(ResumeSkillSchema).min(1).max(20),
 });
 
-export const QuestionsLLMSchema = z.object({
-  questions: z
-    .array(
-      z.object({
-        id: z.coerce.number().int().optional(),
-        text: z.string().min(1).max(2000),
-        targetSkill: z.string().min(1).max(200),
-        rubric: z.string().max(2000).catch(""),
-      })
-    )
-    .min(1)
-    .max(40),
-});
+// Some models ignore the wrapper and return a bare array of questions instead of
+// { questions: [...] }. Accept both shapes by normalizing a top-level array first.
+export const QuestionsLLMSchema = z.preprocess(
+  (v) => (Array.isArray(v) ? { questions: v } : v),
+  z.object({
+    questions: z
+      .array(
+        z.object({
+          id: z.coerce.number().int().optional(),
+          text: z.string().min(1).max(2000),
+          targetSkill: z.string().min(1).max(200),
+          rubric: z.string().max(2000).catch(""),
+        })
+      )
+      .min(1)
+      .max(40),
+  })
+);
 
 // ---- Evaluation ----
 export const InterviewQuestionSchema = z.object({
