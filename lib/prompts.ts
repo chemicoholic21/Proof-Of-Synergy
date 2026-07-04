@@ -37,6 +37,49 @@ Skills:
 ${skills.map((s) => `- ${s.name} (${s.category}, claimed ${s.claimedLevel})`).join("\n")}`;
 }
 
+/**
+ * Adaptive question generation. Unlike the stateless generator above, this one is steered by the
+ * candidate's Career Knowledge Graph via recall(): it re-probes weak concepts, revisits decayed
+ * ones, verifies never-tested claims, escalates difficulty on mastered topics, and biases toward an
+ * upcoming company. This is the concrete point where "the LLM never generates an interview without
+ * consulting Cognee" is enforced.
+ */
+export function questionGenAdaptiveUser(
+  skills: { name: string; category: string; claimedLevel: string }[],
+  memory: {
+    focusDirectives: string[];
+    weakConcepts: { name: string; confidence: number }[];
+    forgottenConcepts: { name: string; lastSeenDays: number }[];
+    unverifiedSkills: string[];
+    masteredConcepts: string[];
+    upcomingCompany: string | null;
+    interviewCount: number;
+  }
+) {
+  const count = Math.min(7, Math.max(skills.length, 4));
+  return `Generate a PERSONALIZED interview using this candidate's long-term memory (from their Career Knowledge Graph). This is interview #${memory.interviewCount + 1}; it must NOT repeat a generic "tell me about yourself" style and must build on what we already know.
+
+MEMORY-DRIVEN FOCUS (obey these, in priority order):
+${memory.focusDirectives.map((d, i) => `${i + 1}. ${d}`).join("\n") || "1. Establish a baseline across the candidate's claimed skills."}
+
+Signals:
+- Weak concepts (re-probe, slightly easier entry then push): ${memory.weakConcepts.map((c) => `${c.name} (${c.confidence}%)`).join(", ") || "none"}
+- Decaying concepts (not practised recently): ${memory.forgottenConcepts.map((c) => `${c.name} (${c.lastSeenDays}d ago)`).join(", ") || "none"}
+- Never verified (must test): ${memory.unverifiedSkills.join(", ") || "none"}
+- Already mastered (DO NOT ask basics; escalate to advanced sub-topics): ${memory.masteredConcepts.join(", ") || "none"}
+- Upcoming company: ${memory.upcomingCompany ?? "none"}
+
+Output compact JSON (no markdown, no prose):
+{ "questions": [ { "id": number, "text": string, "targetSkill": string, "rubric": string } ] }
+Constraints:
+- Output ${count} question(s). "text" <= 280 chars; "rubric" <= 200 chars.
+- "targetSkill" MUST exactly equal one of these skill names: ${skills.map((s) => s.name).join(", ")}.
+- Each question must be hard to fake and reveal true depth; no yes/no or "what is X" definitions.
+
+Skills:
+${skills.map((s) => `- ${s.name} (${s.category}, claimed ${s.claimedLevel})`).join("\n")}`;
+}
+
 export const EVAL_SYSTEM =
   "You are an expert, fair evaluator scoring a spoken interview answer. Judge technical depth, communication clarity, confidence, and authenticity (genuine experience vs memorized/vague). Output ONLY valid JSON.";
 

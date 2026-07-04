@@ -9,10 +9,17 @@
 
 import { CareerGraph, EdgeType, GEdge, GNode, ID, NodeKind } from "./model";
 
-let now = () => new Date().toISOString();
-/** Test seam: freeze the clock for deterministic snapshots. */
-export function __setClock(fn: () => string) {
+const defaultNow = () => new Date().toISOString();
+let now = defaultNow;
+/** Test/demo seam: override the clock for deterministic snapshots. Returns the PREVIOUS clock so
+ *  callers can restore it (never pass `clock` back in — that would recurse). */
+export function __setClock(fn: () => string): () => string {
+  const prev = now;
   now = fn;
+  return prev;
+}
+export function __resetClock() {
+  now = defaultNow;
 }
 export function clock(): string {
   return now();

@@ -46,6 +46,15 @@ export const ParsedResumeLLMSchema = z.object({
 // ---- Question generation ----
 export const GenerateQuestionsBody = z.object({
   skills: z.array(ResumeSkillSchema).min(1).max(20),
+  // Optional: when present, question generation consults the candidate's Career Knowledge Graph
+  // (recall) and produces an ADAPTIVE interview. Absent => original stateless behaviour.
+  candidateId: z
+    .string()
+    .min(1)
+    .max(80)
+    .regex(/^[a-zA-Z0-9_-]+$/)
+    .optional(),
+  company: z.string().max(120).nullable().optional(),
 });
 
 // Some models ignore the wrapper and return a bare array of questions instead of
