@@ -35,3 +35,6 @@ contracts/lib/**/package-lock.json
 
 # typescript incremental build info
 *.tsbuildinfo
+
+# local career-memory graph store (per-candidate JSON documents)
+.career-memory/
