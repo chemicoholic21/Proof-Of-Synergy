@@ -239,7 +239,7 @@ export default function Home() {
   return (
     <div className="min-h-screen relative overflow-hidden bg-black">
       {/* The Hangover Part AI - solving AI amnesia */}
-      <div className="absolute inset-0 -z-10 opacity-10">
+      <div className="absolute inset-0 -z-10 opacity-15">
         <img src="/hangover-bg.svg" alt="" className="w-full h-full object-cover" />
       </div>
 
@@ -407,7 +407,7 @@ export default function Home() {
               </div>
 
               <p className="mt-4 text-[14px] leading-relaxed text-zinc-400">
-                The AI has extracted your skill credentials. To build your career memory, please answer the questions below out loud in <b className="text-zinc-200">any Indian language</b> (e.g. Hindi, Tamil, Telugu, Kannada, Bengali, etc.). Our Saarika transcription pipeline will auto-detect and translate it.
+                The AI has extracted your skill credentials. To build your career memory, please answer the questions below out loud in <b className="text-zinc-200">22 languages</b> (e.g. Hindi, Tamil, Telugu, Kannada, Bengali, etc.). Our Saarika transcription pipeline will auto-detect and translate it.
               </p>
 
               <div className="mt-6">
@@ -765,7 +765,7 @@ function Intro({ onStart }: { onStart: () => void }) {
       />
 
       <p className="fade-up mt-8 max-w-2xl text-base leading-relaxed text-ink-soft sm:text-[17px]" style={{ animationDelay: "620ms" }}>
-        Upload your resume, take a voice interview in any Indian language, and watch your answers become
+        Upload your resume, take a voice interview in 22 languages, and watch your answers become
         more than facts - your Career Memory grows permanently, making you better at every attempt.
       </p>
 
