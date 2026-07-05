@@ -23,6 +23,7 @@ interface RecallSummary {
   unverifiedSkills: string[];
   masteredConcepts: string[];
   upcomingCompany: string | null;
+  cogneeInsight?: string | null;
 }
 interface ImproveSummary {
   newEdges: number;
@@ -58,21 +59,21 @@ const STATUS_STYLE: Record<string, { border: string; bg: string; text: string; l
     border: "border-emerald-500/30",
     bg: "bg-emerald-950/20",
     text: "text-emerald-400",
-    label: "Expert Verified",
+    label: "Highly Demonstrated",
     glow: "shadow-[0_0_15px_rgba(16,185,129,0.15)]",
   },
   verified: {
     border: "border-cyan-500/30",
     bg: "bg-cyan-950/20",
     text: "text-cyan-400",
-    label: "Skills Verified",
+    label: "Developing",
     glow: "shadow-[0_0_15px_rgba(6,182,212,0.15)]",
   },
   exaggerated: {
     border: "border-amber-500/40",
     bg: "bg-amber-950/25",
     text: "text-amber-400",
-    label: "Flagged Discrepancy",
+    label: "Needs More Evidence",
     glow: "shadow-[0_0_15px_rgba(245,158,11,0.15)]",
   },
 };
@@ -347,6 +348,14 @@ export default function Home() {
                     <li key={i}>{d}</li>
                   ))}
                 </ul>
+                {recallSummary.cogneeInsight && (
+                  <div className="mt-3 rounded-lg border border-cyan-500/20 bg-black/30 p-3">
+                    <div className="text-[10px] uppercase tracking-widest font-bold text-[#00E5FF]">
+                      Cognee graph · search()
+                    </div>
+                    <p className="mt-1 text-[12px] text-zinc-300 whitespace-pre-line">{recallSummary.cogneeInsight}</p>
+                  </div>
+                )}
               </div>
             )}
             {resume.source === "fallback" && (
@@ -512,11 +521,13 @@ export default function Home() {
               <div className="flex flex-col md:flex-row items-center gap-8 justify-between">
                 <div>
                   <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-400 border border-emerald-500/20">
-                    Verification Complete
+                    Interview Complete
                   </span>
-                  <h2 className="heading-font mt-3 text-3xl font-bold tracking-tight text-white">Attestation Report</h2>
+                  <h2 className="heading-font mt-3 text-3xl font-bold tracking-tight text-white">Your Skill Snapshot</h2>
                   <p className="mt-2 text-[14px] leading-relaxed text-zinc-400">
-                    The credentials have been cross-checked against actual responses. Flagged items indicate skill level exaggeration compared to baseline knowledge responses.
+                    Here&apos;s what you demonstrated today, grouped by how much evidence backs each skill. This is a
+                    starting point — every future interview strengthens the picture. Skills with less evidence are
+                    just opportunities to practise, not judgements.
                   </p>
                 </div>
                 
@@ -562,7 +573,7 @@ export default function Home() {
             </Card>
 
             <div className="space-y-4">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-zinc-500">Skill-by-Skill Credential Verdicts</h3>
+              <h3 className="text-sm font-bold uppercase tracking-wider text-zinc-500">Skill-by-skill evidence</h3>
               {verdicts.map((v) => {
                 const cfg = STATUS_STYLE[v.status] || STATUS_STYLE.verified;
                 return (

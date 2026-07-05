@@ -28,6 +28,7 @@ export default function CareerDashboard({ candidateId, company }: { candidateId:
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("graph");
   const [replay, setReplay] = useState<{ concept: string; entries: ReplayEntry[] } | null>(null);
+  const [cogneeInsight, setCogneeInsight] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -41,9 +42,27 @@ export default function CareerDashboard({ candidateId, company }: { candidateId:
     }
   }, [candidateId, company]);
 
+  // Cognee-driven "what should I study next" — a graph-grounded answer straight from Cognee's memory.
+  const loadInsight = useCallback(async () => {
+    setCogneeInsight(null);
+    try {
+      const res = await fetch("/api/memory/recall", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ candidateId, company: company || null }),
+      });
+      if (!res.ok) return;
+      const r = await res.json();
+      if (r.cogneeInsight) setCogneeInsight(r.cogneeInsight);
+    } catch {
+      /* best-effort */
+    }
+  }, [candidateId, company]);
+
   useEffect(() => {
     load();
-  }, [load]);
+    loadInsight();
+  }, [load, loadInsight]);
 
   const openReplay = useCallback(
     async (concept: string) => {
@@ -80,7 +99,7 @@ export default function CareerDashboard({ candidateId, company }: { candidateId:
 
   return (
     <div className="flex flex-col gap-5">
-      <MemoryHeader d={d} recall={recall} cogneeConfigured={cogneeConfigured} />
+      <MemoryHeader d={d} recall={recall} cogneeConfigured={cogneeConfigured} cogneeInsight={cogneeInsight} company={company} />
 
       {/* Tabs (progressive disclosure) */}
       <div className="flex flex-wrap gap-2">
@@ -117,7 +136,19 @@ export default function CareerDashboard({ candidateId, company }: { candidateId:
   );
 }
 
-function MemoryHeader({ d, recall, cogneeConfigured }: { d: Dashboard; recall: RecallResult; cogneeConfigured: boolean }) {
+function MemoryHeader({
+  d,
+  recall,
+  cogneeConfigured,
+  cogneeInsight,
+  company,
+}: {
+  d: Dashboard;
+  recall: RecallResult;
+  cogneeConfigured: boolean;
+  cogneeInsight: string | null;
+  company?: string | null;
+}) {
   return (
     <div className="glass-card p-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -139,6 +170,15 @@ function MemoryHeader({ d, recall, cogneeConfigured }: { d: Dashboard; recall: R
           <Stat label="On roadmap" value={String(recall.weakConcepts.length + recall.forgottenConcepts.length)} />
         </div>
       </div>
+      {cogneeInsight && (
+        <div className="mt-4 rounded-xl border border-[#00E5FF]/25 bg-[#00E5FF]/5 p-3">
+          <div className="text-[10px] uppercase tracking-widest font-bold text-[#00E5FF] mb-1">
+            Ask Cognee · {company ? `what to study before ${company}` : "what should I study next"}
+          </div>
+          <p className="text-[13px] text-zinc-200 whitespace-pre-line">{cogneeInsight}</p>
+          <p className="mt-1 text-[10px] text-zinc-500">Graph-grounded answer from Cognee&apos;s search() over your memory.</p>
+        </div>
+      )}
       {recall.focusDirectives.length > 0 && (
         <div className="mt-4 rounded-xl border border-cyan-500/20 bg-cyan-950/10 p-3">
           <div className="text-[10px] uppercase tracking-wider font-bold text-cyan-300 mb-1">recall() — what the next interview will focus on</div>

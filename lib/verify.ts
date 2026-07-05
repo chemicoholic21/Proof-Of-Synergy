@@ -1,8 +1,9 @@
 import { QuestionEvaluation, ResumeSkill, SkillVerdict, SkillStatus } from "./types";
 
-// The LLM->chain bridge + fraud detector.
+// Skill-verification summary (coaching, never shaming).
 // 1) Average per-question evaluation scores by targetSkill -> observed confidence (0-100).
-// 2) Compare the resume's claimed level vs observed confidence -> status + flag.
+// 2) Compare the resume's claimed level vs observed confidence -> tier + supportive note.
+// Statuses map to UI tiers: strong=Highly Demonstrated, verified=Developing, exaggerated=Needs More Evidence.
 
 const LEVEL_EXPECTATION: Record<string, number> = {
   beginner: 40,
@@ -38,7 +39,7 @@ export function buildVerdicts(
         claimedLevel: s.claimedLevel,
         observedConfidence: 0,
         status: "exaggerated" as SkillStatus,
-        flag: "Not demonstrated in interview",
+        flag: "Not shown yet — verify it in an interview to turn the claim into evidence.",
       };
     }
     const expected = LEVEL_EXPECTATION[s.claimedLevel] ?? 70;
@@ -46,7 +47,7 @@ export function buildVerdicts(
     let flag: string | null = null;
     if (observed < 70 || observed < expected - 25) {
       status = "exaggerated";
-      flag = `⚠️ Claimed ${s.claimedLevel}, observed ${observed}%: potentially exaggerated`;
+      flag = `Claimed ${s.claimedLevel}; ${observed}% demonstrated so far — a focused practice session will strengthen the evidence.`;
     } else if (observed >= 85) {
       status = "strong";
     } else {
