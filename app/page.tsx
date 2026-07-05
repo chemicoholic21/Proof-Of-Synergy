@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import VoiceRecorder from "@/components/VoiceRecorder";
 import QuestionPlayer from "@/components/QuestionPlayer";
-import BlurText from "@/components/bits/BlurText";
+import Shuffle from "@/components/bits/Shuffle";
 import { aggregateConfidence, buildVerdicts, overallScore } from "@/lib/verify";
 import { getCandidateId, setCandidateName } from "@/lib/candidate";
 import {
@@ -701,78 +701,43 @@ function Header({ step }: { step: Step }) {
   
   return (
     <header className="mb-10">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <span className="grid h-10 w-10 place-items-center rounded-2xl bg-[#c8beac]/15 border border-[#c8beac]/30 text-lg shadow-[0_0_15px_rgba(131,110,249,0.25)]">
-            <svg className="h-5.5 w-5.5 text-[#c8beac]" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.57-.598-3.75h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
-            </svg>
-          </span>
-          <div>
-            <h1 className="heading-font text-2xl font-black tracking-tight text-white flex items-center gap-2">
-              ProofOfSynergy
-            </h1>
-            <div className="text-[10px] tracking-widest text-[#c8beac] uppercase font-bold">Cognee Career Memory</div>
-          </div>
-        </div>
+      <div className="flex items-center justify-between gap-4 border-b border-line pb-5">
+        <Link href="/" className="heading-font text-lg tracking-tight text-ink hover:text-white transition-colors">
+          Proof of Synergy
+        </Link>
 
-        <div className="flex items-center gap-3 self-start sm:self-center">
+        <nav className="flex items-center gap-5">
+          <span className="hidden sm:flex items-center gap-2 text-[11px] text-ink-soft">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+            memory live
+          </span>
           <Link
             href="/dashboard"
-            className="rounded-full border border-[#c8beac]/30 bg-[#c8beac]/10 px-4 py-1.5 text-xs font-bold text-[#c8beac] hover:bg-[#c8beac]/20 transition-colors"
+            className="text-sm text-ink border-b border-transparent hover:border-accent pb-0.5 transition-colors"
           >
-            🧠 Career Memory
+            Career Memory <span className="text-ink-soft">→</span>
           </Link>
-          <span className="hidden sm:flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="font-mono text-xs text-zinc-400 font-semibold">Cognee memory: live</span>
-          </span>
-        </div>
+        </nav>
       </div>
 
-      <p className="mt-3 text-[14px] leading-relaxed text-zinc-400 max-w-xl">
-        A lifelong <b className="text-zinc-200">AI Interview Twin</b>: every interview writes to a Cognee-powered Career
-        Knowledge Graph, so feedback, questions and learning get more personal over time.
-      </p>
-
-      {/* Futuristic Timeline Stepper */}
+      {/* Minimal step indicator */}
       {idx >= 0 && (
-        <div className="mt-8 relative">
-          {/* Progress bar background track */}
-          <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-zinc-900 -translate-y-1/2 z-0" />
-          
-          {/* Progress bar active track */}
-          <div 
-            className="absolute top-1/2 left-0 h-px bg-accent -translate-y-1/2 z-0 transition-all duration-500"
-            style={{ width: `${(idx / (steps.length - 1)) * 100}%` }}
-          />
-
-          <div className="relative flex justify-between z-10">
-            {steps.map((s, i) => {
-              const isActive = i <= idx;
-              const isCurrent = i === idx;
-              return (
-                <div key={s} className="flex flex-col items-center">
-                  <div 
-                    className={`grid h-8 w-8 place-items-center rounded-full text-xs font-bold font-mono transition-all duration-500 border ${
-                      isCurrent
-                        ? "bg-black border-[#c8beac] text-[#c8beac] shadow-[0_0_15px_rgba(0,229,255,0.4)] scale-110"
-                        : isActive
-                        ? "bg-[#c8beac] border-[#c8beac] text-black"
-                        : "bg-zinc-950 border-zinc-850 text-zinc-600"
-                    }`}
-                  >
-                    {i + 1}
-                  </div>
-                  <span className={`mt-2 text-[10px] font-semibold uppercase tracking-wider hidden sm:block ${
-                    isCurrent ? "text-[#c8beac]" : isActive ? "text-zinc-300" : "text-zinc-650"
-                  }`}>
-                    {stepLabels[i]}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
+        <div className="mt-6 flex items-center gap-4">
+          {steps.map((s, i) => {
+            const isActive = i <= idx;
+            const isCurrent = i === idx;
+            return (
+              <div key={s} className="flex items-center gap-2.5">
+                <span className={`font-mono text-[11px] tabular-nums ${isCurrent ? "text-accent" : isActive ? "text-ink" : "text-ink-soft/50"}`}>
+                  {String(i + 1).padStart(2, "0")}
+                </span>
+                <span className={`text-xs ${isCurrent ? "text-ink" : isActive ? "text-ink-soft" : "text-ink-soft/50"}`}>
+                  {stepLabels[i]}
+                </span>
+                {i < steps.length - 1 && <span className={`h-px w-8 ${i < idx ? "bg-accent" : "bg-line"}`} />}
+              </div>
+            );
+          })}
         </div>
       )}
     </header>
@@ -792,12 +757,13 @@ function Intro({ onStart }: { onStart: () => void }) {
         <span className="text-[11px] uppercase tracking-[0.25em] text-ink-soft">A lifelong AI interview twin</span>
       </div>
 
-      <BlurText
+      <Shuffle
         as="h1"
         text={"GitHub shows code.\nLinkedIn shows claims.\nWe remember what neither can."}
-        delay={55}
-        start={120}
-        className="heading-font mt-6 text-[2.6rem] leading-[1.08] tracking-tight text-ink sm:text-[3.6rem]"
+        stagger={28}
+        scrambleMs={240}
+        start={160}
+        className="heading-font mt-6 block text-[2.6rem] leading-[1.08] tracking-tight text-ink sm:text-[3.6rem]"
       />
 
       <p className="fade-up mt-7 max-w-xl text-[15px] leading-relaxed text-ink-soft" style={{ animationDelay: "620ms" }}>
