@@ -66,7 +66,7 @@ export function saveGraphLocal(candidateId: string, graph: unknown): void {
   try {
     localStorage.setItem(graphKey(candidateId), JSON.stringify(graph));
   } catch {
-    /* quota exceeded — non-fatal */
+    /* quota exceeded - non-fatal */
   }
 }
 

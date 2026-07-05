@@ -7,10 +7,10 @@ import type { GraphView, VizNode } from "@/lib/memory";
  * User-facing Career Knowledge Graph visualization (not a developer graph). Deterministic radial
  * layout so it is stable across renders; nodes animate in on mount, weak nodes glow amber, strong
  * nodes glow emerald, and clicking any node explains why it exists and what it connects to. This is
- * the demo centrepiece — the audience literally sees the candidate's memory.
+ * the demo centrepiece - the audience literally sees the candidate's memory.
  */
 
-// Muted, earthy palette — one restrained system, not a rainbow. Ink for the candidate, warm bone
+// Muted, earthy palette - one restrained system, not a rainbow. Ink for the candidate, warm bone
 // for skills, quiet neutrals for the rest; semantic sage/ochre only for strong/weak states.
 const KIND_STYLE: Record<string, { fill: string; ring: string; label: string }> = {
   candidate: { fill: "#ece9e3", ring: "#ece9e3", label: "You" },
@@ -162,10 +162,10 @@ export default function KnowledgeGraph({ graph, onReplay }: { graph: GraphView; 
               <Bar label="Retention" value={selectedNode.retention} tone="cyan" />
               <div className="text-[11px] text-zinc-400">
                 {selectedNode.weak
-                  ? "Weak — repeatedly scored low. On the learning roadmap."
+                  ? "Weak - repeatedly scored low. On the learning roadmap."
                   : selectedNode.strong
-                  ? "Strong — consistently well demonstrated."
-                  : "Developing — some evidence, keep reinforcing."}
+                  ? "Strong - consistently well demonstrated."
+                  : "Developing - some evidence, keep reinforcing."}
               </div>
             </div>
           )}

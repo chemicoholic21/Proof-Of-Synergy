@@ -11,7 +11,7 @@ export const runtime = "nodejs";
 export const maxDuration = 30;
 
 /**
- * Memory Replay — every time the candidate answered a given skill/concept across all interviews,
+ * Memory Replay - every time the candidate answered a given skill/concept across all interviews,
  * so growth (or remaining weakness) is visible over months.
  */
 export async function POST(req: NextRequest) {

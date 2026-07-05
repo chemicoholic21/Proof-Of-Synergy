@@ -1,5 +1,5 @@
 /**
- * Recommendation engine — never recommends random resources.
+ * Recommendation engine - never recommends random resources.
  *
  * A concept is worth recommending only when it scores high on importance × need:
  *   importance  = graph weight (how central/how often encountered) + resume-claim boost
@@ -61,7 +61,7 @@ export function recommendations(g: CareerGraph, opts: { company?: string | null;
 }
 
 function buildReason(c: GNode, retention: number): string {
-  if (c.confidence < 55) return `Confidence is only ${c.confidence}% — repeated weakness.`;
+  if (c.confidence < 55) return `Confidence is only ${c.confidence}% - repeated weakness.`;
   if (retention < 55) return `Retention has decayed to ${retention}% since last practised.`;
   return `High-value concept worth reinforcing (importance ${Math.min(100, c.weight * 8)}).`;
 }

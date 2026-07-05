@@ -1,7 +1,7 @@
 /**
  * Normalize a memory into relationship-rich text before it is handed to Cognee.
  *
- * The brief is explicit: don't store "I used Redis because it was faster" — store the MEANING.
+ * The brief is explicit: don't store "I used Redis because it was faster" - store the MEANING.
  * Cognee builds its own knowledge graph from what we `add`, so we feed it normalized subject–
  * predicate–object statements, not raw transcripts. That way Cognee's graph and our local graph
  * agree on entities and relationships.

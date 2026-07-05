@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 
 /**
- * Shuffle — the React Bits scramble/shuffle text reveal (https://reactbits.dev/text-animations/shuffle),
+ * Shuffle - the React Bits scramble/shuffle text reveal (https://reactbits.dev/text-animations/shuffle),
  * reimplemented dependency-free. Each glyph cycles through random characters and locks into place on
  * a left-to-right stagger. Scrambling glyphs are dimmed so the settle reads clearly. Respects
  * prefers-reduced-motion and preserves the final text for screen readers.

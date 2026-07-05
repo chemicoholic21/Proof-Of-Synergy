@@ -1,5 +1,5 @@
 // L1 + L2 verification layers. These are GENERATOR -> VERIFIER pairs: a second agent (ideally a
-// cheaper/different model) checks the first agent's output. They are deliberately BEST-EFFORT —
+// cheaper/different model) checks the first agent's output. They are deliberately BEST-EFFORT -
 // a verifier failure must never break the core pipeline, so every entry point falls back to the
 // unverified result and logs why. External verification (not self-critique) is the kind that
 // actually helps (Huang et al., ICLR 2024).

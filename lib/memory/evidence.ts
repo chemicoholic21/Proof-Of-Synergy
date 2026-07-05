@@ -1,5 +1,5 @@
 /**
- * Evidence engine — every score and every recommendation must be traceable.
+ * Evidence engine - every score and every recommendation must be traceable.
  *
  * Given a skill/concept node, gather the concrete evidence backing its confidence: interview
  * answers, resume claims, projects that use it, GitHub signals (when present). The UI never shows a

@@ -1,14 +1,14 @@
 /**
- * remember() — the ingestion half of the memory lifecycle.
- *
- * Turns a resume or a completed interview into STRUCTURED nodes + relationships in the Career
- * Knowledge Graph. Never stores flat JSON: a resume becomes candidate→resume→CLAIMS→skill;
- * an interview becomes interview→TESTS→concept, answer→ANSWERS→question, skill→DEMONSTRATED_IN→
- * interview, evidence→EVIDENCE_FOR→skill, and communication→UPDATES_COMMUNICATION→candidate.
- *
- * Deterministic and side-effect-free on I/O — it mutates the passed CareerGraph; the caller
- * (orchestrator) persists and mirrors into Cognee.
- */
+  * remember() - the ingestion half of the memory lifecycle.
+  *
+  * Turns a resume or a completed interview into STRUCTURED nodes + relationships in the Career
+  * Knowledge Graph. Never stores flat JSON: a resume becomes candidate->resume->CLAIMS->skill;
+  * an interview becomes interview->TESTS->concept, answer->ANSWERS->question, skill->DEMONSTRATED_IN->
+  * interview, evidence->EVIDENCE_FOR->skill, and communication->UPDATES_COMMUNICATION->candidate.
+  *
+  * Deterministic and side-effect-free on I/O - it mutates the passed CareerGraph; the caller
+  * (orchestrator) persists and mirrors into Cognee.
+  */
 
 import { CareerGraph, ID, SkillLevel } from "./graph/model";
 import { clock, edgesFrom, link, nodesByKind, upsertNode } from "./graph/ops";
@@ -53,7 +53,7 @@ export function rememberResume(g: CareerGraph, input: RememberResumeInput): stri
 
   for (const s of input.skills) {
     const skillId = ID.skill(s.name);
-    // A claim raises the node's *claimed* level but NOT its confidence — confidence is earned in
+    // A claim raises the node's *claimed* level but NOT its confidence - confidence is earned in
     // interviews. This separation is the whole basis of the Reality Gap.
     const expected = LEVEL_EXPECTATION[s.claimedLevel] ?? 60;
     upsertNode(g, {
@@ -98,11 +98,11 @@ export function rememberResume(g: CareerGraph, input: RememberResumeInput): stri
 }
 
 /**
- * Ingest a GitHub profile as an independent evidence source. Each technology the candidate actually
- * ships becomes a technology node; when it matches a claimed/known skill we attach a GitHub evidence
- * node (source: "github") so the Reality Gap and evidence engine can say "3 matching GitHub repos"
- * — or, by its ABSENCE, "claims Kubernetes but 0 Kubernetes repos detected".
- */
+  * Ingest a GitHub profile as an independent evidence source. Each technology the candidate actually
+  * ships becomes a technology node; when it matches a claimed/known skill we attach a GitHub evidence
+  * node (source: "github") so the Reality Gap and evidence engine can say "3 matching GitHub repos"
+  * - or, by its ABSENCE, "claims Kubernetes but 0 Kubernetes repos detected".
+  */
 export function rememberGithub(g: CareerGraph, candidateIdRaw: string, profile: GithubProfile): void {
   const candidateId = ID.candidate(g.candidateId);
   const cand = upsertNode(g, { id: candidateId, kind: "candidate", label: g.name || "Candidate", data: {} });
@@ -227,7 +227,7 @@ function ingestAnswer(g: CareerGraph, interviewId: string, a: RememberAnswer): v
   link(g, questionId, "TESTS", skillId);
 
   // Reinforcement-weighted confidence update: new belief blends prior with the fresh observation,
-  // weighted by how many times we've seen this skill (later evidence moves it less — stability).
+  // weighted by how many times we've seen this skill (later evidence moves it less - stability).
   const timesSeen = (skill.data.timesTested as number) ?? 0;
   const prior = timesSeen === 0 ? a.score : skill.confidence;
   const alpha = 1 / (timesSeen + 2); // 1st obs weight .5, then .33, .25...

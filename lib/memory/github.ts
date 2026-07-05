@@ -1,13 +1,13 @@
 /**
- * GitHub evidence source. Fetches a candidate's PUBLIC repositories and aggregates the technologies
- * they actually ship, so the Reality Gap can compare resume claims against real code:
- * "claims Kubernetes (advanced) — 0 Kubernetes repos detected" is far more powerful than a bare
- * confidence number. This is a third, independent evidence source alongside the resume and the
- * interview.
- *
- * Uses the unauthenticated GitHub REST API (60 req/hr/IP — plenty for a demo). Set GITHUB_TOKEN for
- * a higher limit. Never throws into the request path; returns a structured error the route surfaces.
- */
+  * GitHub evidence source. Fetches a candidate's PUBLIC repositories and aggregates the technologies
+  * they actually ship, so the Reality Gap can compare resume claims against real code:
+  * "claims Kubernetes (advanced) - 0 Kubernetes repos detected" is far more powerful than a bare
+  * confidence number. This is a third, independent evidence source alongside the resume and the
+  * interview.
+  *
+  * Uses the unauthenticated GitHub REST API (60 req/hr/IP - plenty for a demo). Set GITHUB_TOKEN for
+  * a higher limit. Never throws into the request path; returns a structured error the route surfaces.
+  */
 
 import { logger } from "@/lib/logger";
 

@@ -1,4 +1,4 @@
-# Proof of Synergy — a Cognee-powered Career Memory
+# Proof of Synergy - a Cognee-powered Career Memory
 
 > **Every AI interviewer forgets everything. Proof of Synergy never forgets.**
 
@@ -9,26 +9,26 @@
   <img alt="tests" src="https://img.shields.io/badge/tests-65%20passing-brightgreen">
 </p>
 
-### 🏆 Built for *The Hangover Part AI: Where's My Context?* — WeMakeDevs × Cognee (Jun 29 – Jul 5, 2026)
+### 🏆 Built for *The Hangover Part AI: Where's My Context?* - WeMakeDevs × Cognee (Jun 29 – Jul 5, 2026)
 
-The hackathon attacks **"AI Amnesia"**: standard LLM agents are structurally stateless — they forget
+The hackathon attacks **"AI Amnesia"**: standard LLM agents are structurally stateless - they forget
 your preferences, overflow their context window, and reset every session. Proof of Synergy answers
 that head-on. It uses **Cognee's hybrid graph-vector memory** to give an AI interviewer a *lifelong*
 memory of a candidate's career, so context is retained across **infinite** interview sessions instead
 of starting from "tell me about yourself" every time.
 
 **Track:** _Best Use of Cognee Cloud_ (Cognee Cloud, access code `COGNEE-35`). The same build also runs
-against **self-hosted open-source Cognee** by changing one env var — see [Connect Cognee](#-connect-cognee-pick-your-track).
+against **self-hosted open-source Cognee** by changing one env var - see [Connect Cognee](#-connect-cognee-pick-your-track).
 
 ---
 
-LinkedIn shows your network. GitHub shows your code. Proof of Synergy proves your communication —
+LinkedIn shows your network. GitHub shows your code. Proof of Synergy proves your communication -
 and, more importantly, it **remembers**. It has evolved from a single-session AI interviewer into a
 persistent **AI Interview Twin**: every interview, answer, weakness, project and communication
 pattern is written into a lifelong **Career Knowledge Graph** powered by **[Cognee](https://www.cognee.ai/)**
 (structural memory, not another vector DB). Future interviews are personalized from that memory,
 every recommendation is backed by traceable evidence, and skills decay over time until you revisit
-them — just like real learning.
+them - just like real learning.
 
 Cognee is the brain. Remove it and the product stops being intelligent.
 
@@ -38,8 +38,8 @@ Cognee stores **relationships, not chunks**. The whole app is built around its m
 
 | Lifecycle | Where it happens | What it does |
 | --- | --- | --- |
-| `remember()` | after resume upload & every interview | writes structured nodes + relationships (candidate → resume → CLAIMS → skill → TESTS → concept → EVIDENCE) — never flat JSON |
-| `recall()`   | **before** generating any interview | the Career Reasoner: which concepts are weak, forgotten (retention-decayed), never verified, already mastered, or relevant to an upcoming company — this steers question generation |
+| `remember()` | after resume upload & every interview | writes structured nodes + relationships (candidate → resume → CLAIMS → skill → TESTS → concept → EVIDENCE) - never flat JSON |
+| `recall()`   | **before** generating any interview | the Career Reasoner: which concepts are weak, forgotten (retention-decayed), never verified, already mastered, or relevant to an upcoming company - this steers question generation |
 | `improve()`  | after every interview | relates concepts, raises node weights, recomputes confidence + retention, emits evidence-backed recommendations, learning missions and improvement milestones |
 | `forget()`   | candidate-controlled | prunes an interview / resume / company / project while preserving graph consistency and recomputing scores |
 
@@ -53,11 +53,11 @@ runs with zero credentials. See [docs/cognee-career-memory-architecture.md](docs
 Open **`/dashboard`** and click **Load demo** (or run one interview from the home page):
 
 1. A six-month, three-interview career history seeds instantly.
-2. **Knowledge Graph** — click any node to see why it exists, its confidence/retention and connections. Weak nodes glow.
-3. **Reality Gap** — resume claims vs demonstrated evidence, framed as coaching (Highly Demonstrated / Developing / Needs Evidence).
-4. **Memory Replay** — watch Kubernetes grow 30% → 58% → 84% across interviews.
-5. **Communication trends** — filler words drop, confidence rises, tracked as persistent Interview DNA.
-6. **Learning Roadmap** — every weakness becomes an evidence-backed mission with spaced-repetition review dates.
+2. **Knowledge Graph** - click any node to see why it exists, its confidence/retention and connections. Weak nodes glow.
+3. **Reality Gap** - resume claims vs demonstrated evidence, framed as coaching (Highly Demonstrated / Developing / Needs Evidence).
+4. **Memory Replay** - watch Kubernetes grow 30% → 58% → 84% across interviews.
+5. **Communication trends** - filler words drop, confidence rises, tracked as persistent Interview DNA.
+6. **Learning Roadmap** - every weakness becomes an evidence-backed mission with spaced-repetition review dates.
 7. Start a new interview and the **recall()** banner shows it being personalized from memory.
 
 https://proof-of-synergy.vercel.app/
@@ -89,15 +89,15 @@ Part 2 : https://www.loom.com/share/48f0ebcbbcfa42d689c8a4af2697f9ef
 
 ## 🛠️ Features
 
-- **Career Knowledge Graph:** a living graph of skills, concepts, projects, companies, interviews and communication patterns — the centrepiece, powered by Cognee.
+- **Career Knowledge Graph:** a living graph of skills, concepts, projects, companies, interviews and communication patterns - the centrepiece, powered by Cognee.
 - **Adaptive interviews:** questions are generated from `recall()`, targeting weak / forgotten / never-verified topics and biasing toward an upcoming company. No two interviews are the same.
 - **Reality Gap:** resume claims cross-checked against demonstrated evidence, always framed as coaching.
 - **Evidence engine:** every score and recommendation is traceable ("Improve Kafka because: scored 40%, no project, last discussed 96 days ago").
-- **GitHub evidence:** import a public GitHub profile and the technologies you actually ship become a third evidence source — matched skills gain repo evidence, unmatched claims visibly show 0 repos.
+- **GitHub evidence:** import a public GitHub profile and the technologies you actually ship become a third evidence source - matched skills gain repo evidence, unmatched claims visibly show 0 repos.
 - **Learning loop:** each weakness becomes a mission (read → practice → quiz → re-interview → improvement recorded) with spaced-repetition scheduling.
 - **Interview DNA + Memory Replay:** persistent communication metrics over time (fillers, confidence, vocabulary, speaking pace), and replay of every answer to a topic across months.
 - **Ask Cognee:** a graph-grounded "what should I study before my Stripe interview?" answer straight from Cognee's `search()`.
-- **Persistent across sessions:** your Career Knowledge Graph survives every visit — the whole point.
+- **Persistent across sessions:** your Career Knowledge Graph survives every visit - the whole point.
 
 
 
@@ -155,10 +155,10 @@ lib/memory/
 ## 🔌 Connect Cognee (pick your track)
 
 The app works with **zero credentials** (a deterministic local graph engine mirrors the exact
-`remember/recall/improve/forget` semantics) so you can try it immediately — but to compete, point it
+`remember/recall/improve/forget` semantics) so you can try it immediately - but to compete, point it
 at a real Cognee backend:
 
-**Best Use of Cognee Cloud** (iPhone 17 track) — grab dev-tier credits with access code `COGNEE-35`:
+**Best Use of Cognee Cloud** (iPhone 17 track) - grab dev-tier credits with access code `COGNEE-35`:
 
 ```env
 COGNEE_API_URL=https://tenant-<id>.aws.cognee.ai   # your Cognee Cloud tenant URL
@@ -167,7 +167,7 @@ COGNEE_DATASET=career-memory
 COGNEE_DATA_DIR=/tmp/career-memory                 # writable path on serverless (Vercel)
 ```
 
-**Best Use of Open Source** (MacBook track) — run self-hosted Cognee and point at it:
+**Best Use of Open Source** (MacBook track) - run self-hosted Cognee and point at it:
 
 ```bash
 pip install cognee && python -m cognee.api.server   # or the official docker image
@@ -178,9 +178,9 @@ COGNEE_API_KEY=local
 ```
 
 When these are set, every `remember()` is mirrored into Cognee (`add_text` + `cognify`) and
-`recall()` is enriched by Cognee's graph-grounded `search` — that answer is injected into interview
+`recall()` is enriched by Cognee's graph-grounded `search` - that answer is injected into interview
 generation and shown in the UI. Remove Cognee and the product loses adaptivity, evidence, reality
-gap, retention decay and the roadmap — i.e. it stops being intelligent.
+gap, retention decay and the roadmap - i.e. it stops being intelligent.
 
 > The client (`lib/memory/cognee/client.ts`) is wired against Cognee Cloud's live API, verified from
 > its OpenAPI spec: `X-Api-Key` auth, `POST /api/v1/add_text`, background `POST /api/v1/cognify`,

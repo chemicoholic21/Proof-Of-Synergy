@@ -1,5 +1,5 @@
 /**
- * Learning engine — closes the feedback loop. A weakness is not an endpoint; it becomes a mission:
+ * Learning engine - closes the feedback loop. A weakness is not an endpoint; it becomes a mission:
  *   concept → read → practice → quiz → re-interview → improvement recorded.
  *
  * Missions are derived from the top recommendations and carry a spaced-repetition due date so the
@@ -45,7 +45,7 @@ function missionFromRecommendation(r: Recommendation): LearningMission {
   }
   steps.push({ kind: "interview", title: `Re-interview on ${r.concept} to confirm improvement`, done: false });
 
-  // Half-life informs how soon to review — faster-decaying concepts come back sooner.
+  // Half-life informs how soon to review - faster-decaying concepts come back sooner.
   const halfLife = def.halfLifeDays ?? 60;
   const reviewDueInDays = Math.max(3, Math.round(halfLife / 4));
 

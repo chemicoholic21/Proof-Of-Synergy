@@ -1,12 +1,12 @@
 /**
- * forget() — prune memories while preserving graph consistency.
- *
- * The candidate owns their data: they can delete an interview, a resume version, a company prep
- * context, a project, or everything. Deletion is not just a node removal — dependent nodes
- * (questions/answers/DNA/evidence for a deleted interview) are cascaded, orphans are garbage
- * collected, and every skill/concept confidence is RECOMPUTED from the evidence that remains, so
- * the graph never keeps a score it can no longer justify.
- */
+  * forget() - prune memories while preserving graph consistency.
+  *
+  * The candidate owns their data: they can delete an interview, a resume version, a company prep
+  * context, a project, or everything. Deletion is not just a node removal - dependent nodes
+  * (questions/answers/DNA/evidence for a deleted interview) are cascaded, orphans are garbage
+  * collected, and every skill/concept confidence is RECOMPUTED from the evidence that remains, so
+  * the graph never keeps a score it can no longer justify.
+  */
 
 import { CareerGraph, GNode, ID } from "./graph/model";
 import { edgesFrom, edgesTouching, nodesByKind, removeNodes } from "./graph/ops";

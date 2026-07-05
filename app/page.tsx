@@ -122,7 +122,7 @@ export default function Home() {
       // the resume into the Career Knowledge Graph BEFORE generating questions.
       const cid = r.name ? setCandidateName(r.name) : getCandidateId();
       setCandidateId(cid);
-      setBusy("remember() — writing your resume into the Career Knowledge Graph…");
+      setBusy("remember() - writing your resume into the Career Knowledge Graph…");
       try {
         const memRes = await fetch("/api/memory/remember", {
           method: "POST",
@@ -135,7 +135,7 @@ export default function Home() {
         /* memory is additive; never block the interview if it fails */
       }
 
-      setBusy("recall() — consulting memory to personalize this interview…");
+      setBusy("recall() - consulting memory to personalize this interview…");
       const qRes = await fetch("/api/generate-questions", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -195,7 +195,7 @@ export default function Home() {
 
       // The interview-complete pipeline: remember() this interview + improve() the graph. This is
       // the moment the candidate's memory permanently grows.
-      setBusy("remember() + improve() — updating your Career Knowledge Graph…");
+      setBusy("remember() + improve() - updating your Career Knowledge Graph…");
       try {
         const answersPayload = questions.map((q) => {
           const ev = evals.find((e) => e.questionId === q.id);
@@ -536,7 +536,7 @@ export default function Home() {
                   <h2 className="heading-font mt-3 text-3xl font-bold tracking-tight text-white">Your Skill Snapshot</h2>
                   <p className="mt-2 text-[14px] leading-relaxed text-zinc-400">
                     Here&apos;s what you demonstrated today, grouped by how much evidence backs each skill. This is a
-                    starting point — every future interview strengthens the picture. Skills with less evidence are
+                    starting point - every future interview strengthens the picture. Skills with less evidence are
                     just opportunities to practise, not judgements.
                   </p>
                 </div>
@@ -749,9 +749,9 @@ function Header({ step }: { step: Step }) {
 
 function Intro({ onStart }: { onStart: () => void }) {
   const features = [
-    { k: "remember()", t: "Structural memory", d: "Every interview writes to a lifelong Cognee knowledge graph — not chunks, relationships." },
+    { k: "remember()", t: "Structural memory", d: "Every interview writes to a lifelong Cognee knowledge graph - not chunks, relationships." },
     { k: "recall()", t: "Adaptive by memory", d: "The next interview knows your weak, forgotten and unverified topics. No two are alike." },
-    { k: "improve()", t: "Evidence, not scores", d: "Reality gap, retention decay and a learning roadmap — every recommendation is traceable." },
+    { k: "improve()", t: "Evidence, not scores", d: "Reality gap, retention decay and a learning roadmap - every recommendation is traceable." },
   ];
   return (
     <div className="relative py-6 sm:py-10">
@@ -772,7 +772,7 @@ function Intro({ onStart }: { onStart: () => void }) {
       <p className="fade-up mt-8 max-w-2xl text-base leading-relaxed text-ink-soft sm:text-[17px]" style={{ animationDelay: "620ms" }}>
         Upload your resume, take a voice interview in any Indian language, and watch every answer become
         permanent memory in a <span className="text-ink">Cognee Career Knowledge Graph</span>. Each session
-        makes the next one smarter — personalized questions, evidence-backed feedback, a roadmap that never forgets.
+        makes the next one smarter - personalized questions, evidence-backed feedback, a roadmap that never forgets.
       </p>
 
       <div className="fade-up mt-9 flex flex-col sm:flex-row gap-3" style={{ animationDelay: "740ms" }}>

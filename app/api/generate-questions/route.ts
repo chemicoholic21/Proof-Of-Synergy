@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
   }
 
   // recall(): consult the Career Knowledge Graph BEFORE generating. The LLM never designs an
-  // interview blind when we have memory — this is the adaptive-difficulty seam.
+  // interview blind when we have memory - this is the adaptive-difficulty seam.
   let memory: RecallResult | null = null;
   if (candidateId) {
     try {

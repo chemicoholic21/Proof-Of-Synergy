@@ -134,7 +134,7 @@ export const QuestionAdversaryLLMSchema = z.object({
     .catch([]),
 });
 
-// L3: judge panel — three diverse lenses
+// L3: judge panel - three diverse lenses
 export const JudgeTechnicalLLMSchema = z.object({
   score: z.coerce.number(),
   justification: z.string().max(2000).catch(""),

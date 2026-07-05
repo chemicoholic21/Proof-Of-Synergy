@@ -8,8 +8,8 @@
  * and what lets the Learning Engine target the exact weak node.
  *
  * This ontology is deliberately deterministic (no LLM required) so the demo works with zero
- * credentials. When Sarvam/Cognee are configured, extracted concepts are UNIONED with this map —
- * the ontology is a floor, not a ceiling.
+* credentials. When Sarvam/Cognee are configured, extracted concepts are UNIONED with this map -
+  * the ontology is a floor, not a ceiling.
  */
 
 export interface ConceptDef {

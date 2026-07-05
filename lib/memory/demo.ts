@@ -32,7 +32,7 @@ const DAY = 24 * 60 * 60 * 1000;
 
 /**
  * Build a fully-seeded demo graph for `candidateId`. Uses an injected clock so the three interviews
- * span the past ~6 months RELATIVE TO NOW — this guarantees retention has visibly decayed by the
+ * span the past ~6 months RELATIVE TO NOW - this guarantees retention has visibly decayed by the
  * time the dashboard renders, so spaced-repetition, forgotten-concepts and the learning roadmap
  * always light up regardless of the wall-clock date the demo is run on.
  *
@@ -70,7 +70,7 @@ export function buildDemoGraph(candidateId: string, name = "Aarav Sharma"): Care
     });
     improve(g);
 
-    // Interview #1 — baseline (~6 months ago). Kubernetes fails, lots of fillers.
+    // Interview #1 - baseline (~6 months ago). Kubernetes fails, lots of fillers.
     virtual += 5 * DAY;
     rememberInterview(g, {
       candidateId,
@@ -84,7 +84,7 @@ export function buildDemoGraph(candidateId: string, name = "Aarav Sharma"): Care
     });
     improve(g, { company: "Stripe" });
 
-    // Interview #2 — ~10 weeks later. Learned Kubernetes basics, fewer fillers.
+    // Interview #2 - ~10 weeks later. Learned Kubernetes basics, fewer fillers.
     virtual += 70 * DAY;
     rememberInterview(g, {
       candidateId,
@@ -98,7 +98,7 @@ export function buildDemoGraph(candidateId: string, name = "Aarav Sharma"): Care
     });
     improve(g, { company: "Stripe" });
 
-    // Interview #3 — ~6 weeks later (~5 weeks ago), Google prep. Kubernetes confident, few fillers.
+    // Interview #3 - ~6 weeks later (~5 weeks ago), Google prep. Kubernetes confident, few fillers.
     virtual += 55 * DAY;
     rememberInterview(g, {
       candidateId,

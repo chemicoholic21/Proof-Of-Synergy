@@ -25,7 +25,7 @@ export interface RememberResumeInput {
   experience?: { role: string; company: string; years: number }[];
   education?: { degree: string; institution: string; year: number | null }[];
   projects?: MemoryProject[];
-  /** raw resume text — used for Cognee ingestion + light project extraction */
+  /** raw resume text - used for Cognee ingestion + light project extraction */
   rawText?: string;
 }
 
@@ -52,7 +52,7 @@ export interface RememberInterviewInput {
   answers: RememberAnswer[];
 }
 
-/** The Career Reasoner's answer — everything an adaptive interview or dashboard needs. */
+/** The Career Reasoner's answer - everything an adaptive interview or dashboard needs. */
 export interface RecallResult {
   candidateId: string;
   isNew: boolean; // no interview history yet

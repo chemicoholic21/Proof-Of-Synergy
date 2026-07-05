@@ -53,7 +53,7 @@ const EnvSchema = z.object({
   EVAL_CONFIDENCE_MIN: z.coerce.number().int().min(0).max(100).default(50),
   EVAL_VERIFY_LAYERS: z.string().optional(), // default true
 
-  // Cognee — the structural memory / Career Knowledge Graph backend. When these are set the memory
+  // Cognee - the structural memory / Career Knowledge Graph backend. When these are set the memory
   // layer mirrors remember() into a real Cognee instance and can answer recall() via Cognee search.
   // When unset, the deterministic local graph engine provides identical semantics so the app runs
   // with zero credentials (same posture as DEMO_MODE). COGNEE_DATA_DIR overrides where the local
