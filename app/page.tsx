@@ -749,9 +749,9 @@ function Header({ step }: { step: Step }) {
 
 function Intro({ onStart }: { onStart: () => void }) {
   const features = [
-    { k: "remember()", t: "Personal, persistent memory", d: "Every interview becomes a node in your Career Knowledge Graph - stored as meaning, not text chunks." },
-    { k: "recall()", t: "Ask better questions", d: "Questions adapt based on what you demonstrated and what faded - no generic repeats." },
-    { k: "improve()", t: "Your growth, made tangible", d: "Weaknesses become learning missions with evidence-backed recommendations." },
+    { k: "remember()", t: "Personal, persistent memory", d: "Your Interview Twin remembers everything you say - questions, answers, skills, and communication patterns." },
+    { k: "recall()", t: "Ask better questions", d: "Your next interview will target what you missed and revisit what you forgot." },
+    { k: "improve()", t: "Your growth, made tangible", d: "Every weakness turns into a focused practice mission." },
   ];
   return (
     <div className="relative py-6 sm:py-10">
@@ -771,8 +771,7 @@ function Intro({ onStart }: { onStart: () => void }) {
 
       <p className="fade-up mt-8 max-w-2xl text-base leading-relaxed text-ink-soft sm:text-[17px]" style={{ animationDelay: "620ms" }}>
         Upload your resume, take a voice interview in any Indian language, and watch your answers become
-        permanent career memory in a Cognee Knowledge Graph. Each session
-        makes the next one smarter - personalized questions, evidence-backed feedback, a roadmap that remembers.
+        more than facts - your Career Memory grows permanently, making you better at every attempt.
       </p>
 
       <div className="fade-up mt-9 flex flex-col sm:flex-row gap-3" style={{ animationDelay: "740ms" }}>
