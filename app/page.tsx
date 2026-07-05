@@ -241,7 +241,7 @@ export default function Home() {
       <div className="cyber-glow-2" />
       <div className="cyber-glow-3" />
 
-      <main className="mx-auto max-w-3xl px-5 py-12 relative z-10">
+      <main className="mx-auto w-full max-w-6xl px-6 sm:px-10 lg:px-16 py-10 relative z-10">
         <Header step={step} />
 
         {busy && (
@@ -760,13 +760,13 @@ function Intro({ onStart }: { onStart: () => void }) {
       <Shuffle
         as="h1"
         text={"GitHub shows code.\nLinkedIn shows claims.\nWe remember what neither can."}
-        stagger={28}
+        stagger={26}
         scrambleMs={240}
         start={160}
-        className="heading-font mt-6 block text-[2.6rem] leading-[1.08] tracking-tight text-ink sm:text-[3.6rem]"
+        className="heading-font mt-8 block text-[2.5rem] leading-[1.06] tracking-tight text-ink sm:text-[3.5rem] lg:text-[4rem]"
       />
 
-      <p className="fade-up mt-7 max-w-xl text-[15px] leading-relaxed text-ink-soft" style={{ animationDelay: "620ms" }}>
+      <p className="fade-up mt-8 max-w-2xl text-base leading-relaxed text-ink-soft sm:text-[17px]" style={{ animationDelay: "620ms" }}>
         Upload your resume, take a voice interview in any Indian language, and watch every answer become
         permanent memory in a <span className="text-ink">Cognee Career Knowledge Graph</span>. Each session
         makes the next one smarter — personalized questions, evidence-backed feedback, a roadmap that never forgets.
