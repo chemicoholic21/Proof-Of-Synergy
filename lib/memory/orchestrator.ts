@@ -12,7 +12,8 @@
 
 import { logger } from "@/lib/logger";
 import { loadOrInit, saveGraph } from "./graph/store";
-import { rememberInterview, rememberResume } from "./remember";
+import { rememberInterview, rememberResume, rememberGithub } from "./remember";
+import { fetchGithubProfile } from "./github";
 import { improve, ImproveSummary } from "./improve";
 import { recall } from "./recall";
 import { forget, ForgetResult, ForgetTarget } from "./forget";
@@ -54,6 +55,28 @@ export async function ingestInterview(
     revision: g.revision,
   });
   return { dashboard: buildDashboard(g), improve: summary, interviewIndex };
+}
+
+/** remember() a GitHub profile as an independent evidence source. */
+export async function ingestGithub(
+  candidateId: string,
+  username: string
+): Promise<{ dashboard: Dashboard; profile: { username: string; repoCount: number; technologies: string[] } }> {
+  const profile = await fetchGithubProfile(username);
+  const g = await loadOrInit(candidateId, null);
+  rememberGithub(g, candidateId, profile);
+  improve(g);
+  await saveGraph(g);
+  const techList = Object.keys(profile.technologies);
+  void mirror(
+    candidateId,
+    `${g.name || "The candidate"} owns GitHub account @${profile.username} with ${profile.repoCount} public repos.\n` +
+      Object.entries(profile.technologies)
+        .map(([t, c]) => `GitHub EVIDENCE: ${c} repo(s) use technology "${t}".`)
+        .join("\n")
+  );
+  log.info("github ingested", { candidateId, username: profile.username, techs: techList.length });
+  return { dashboard: buildDashboard(g), profile: { username: profile.username, repoCount: profile.repoCount, technologies: techList } };
 }
 
 /**

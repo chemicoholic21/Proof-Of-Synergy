@@ -29,6 +29,9 @@ export default function CareerDashboard({ candidateId, company }: { candidateId:
   const [tab, setTab] = useState<Tab>("graph");
   const [replay, setReplay] = useState<{ concept: string; entries: ReplayEntry[] } | null>(null);
   const [cogneeInsight, setCogneeInsight] = useState<string | null>(null);
+  const [ghUser, setGhUser] = useState("");
+  const [ghBusy, setGhBusy] = useState(false);
+  const [ghMsg, setGhMsg] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -82,6 +85,28 @@ export default function CareerDashboard({ candidateId, company }: { candidateId:
     [candidateId]
   );
 
+  async function connectGithub() {
+    if (!ghUser.trim()) return;
+    setGhBusy(true);
+    setGhMsg(null);
+    try {
+      const res = await fetch("/api/memory/github", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ candidateId, username: ghUser.trim() }),
+      });
+      const r = await res.json();
+      if (!res.ok) throw new Error(r.error || "GitHub import failed");
+      setGhMsg(`Imported @${r.profile.username}: ${r.profile.repoCount} repos, ${r.profile.technologies.length} technologies.`);
+      setGhUser("");
+      await load();
+    } catch (e) {
+      setGhMsg(e instanceof Error ? e.message : "GitHub import failed");
+    } finally {
+      setGhBusy(false);
+    }
+  }
+
   if (error) return <div className="glass-card p-6 text-red-300">{error}</div>;
   if (!data) return <div className="glass-card p-6 text-zinc-400 animate-pulse">Loading career memory…</div>;
 
@@ -100,6 +125,28 @@ export default function CareerDashboard({ candidateId, company }: { candidateId:
   return (
     <div className="flex flex-col gap-5">
       <MemoryHeader d={d} recall={recall} cogneeConfigured={cogneeConfigured} cogneeInsight={cogneeInsight} company={company} />
+
+      {/* GitHub evidence import — a third, independent evidence source for the Reality Gap. */}
+      <div className="glass-card p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+        <div className="flex items-center gap-2 text-sm text-zinc-300">
+          <span className="text-lg">🐙</span>
+          <span className="font-semibold">Add GitHub evidence</span>
+          <span className="text-xs text-zinc-500 hidden sm:inline">— verify resume claims against real code</span>
+        </div>
+        <div className="flex gap-2 flex-1 sm:justify-end">
+          <input
+            value={ghUser}
+            onChange={(e) => setGhUser(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && connectGithub()}
+            placeholder="github username"
+            className="rounded-lg border border-zinc-800 bg-black/40 px-3 py-1.5 text-sm text-zinc-200 w-full sm:w-52"
+          />
+          <button onClick={connectGithub} disabled={ghBusy} className="btn-ghost text-xs px-4 py-1.5 border-purple-500/30 text-purple-300 hover:bg-purple-950/20 whitespace-nowrap">
+            {ghBusy ? "Importing…" : "Import"}
+          </button>
+        </div>
+        {ghMsg && <div className="text-xs text-zinc-400 w-full sm:w-auto sm:ml-3">{ghMsg}</div>}
+      </div>
 
       {/* Tabs (progressive disclosure) */}
       <div className="flex flex-wrap gap-2">
