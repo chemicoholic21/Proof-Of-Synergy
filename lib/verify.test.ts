@@ -29,11 +29,13 @@ describe("buildVerdicts", () => {
     { name: "Rust", category: "Programming", claimedLevel: "intermediate" },
   ];
 
-  it("flags a claimed-expert skill with a low observed score as exaggerated", () => {
+  it("flags a claimed-expert skill with a low observed score as needing more evidence (coaching tone)", () => {
     const v = buildVerdicts(skills, { Python: 34 });
     const python = v.find((x) => x.skill === "Python")!;
     expect(python.status).toBe("exaggerated");
-    expect(python.flag).toMatch(/exaggerated/);
+    // Supportive, never shaming: mentions the claim + a next step, no "exaggerated/fraud/lie" wording.
+    expect(python.flag).toMatch(/practice|strengthen|evidence/i);
+    expect(python.flag).not.toMatch(/exaggerat|fraud|lie/i);
   });
 
   it("marks a high observed score as strong", () => {
@@ -45,7 +47,7 @@ describe("buildVerdicts", () => {
     const v = buildVerdicts(skills, { Python: 90 });
     const k8s = v.find((x) => x.skill === "Kubernetes")!;
     expect(k8s.observedConfidence).toBe(0);
-    expect(k8s.flag).toMatch(/Not demonstrated/);
+    expect(k8s.flag).toMatch(/verify it in an interview/i);
   });
 
   it("marks a mid-range score that meets expectation as verified", () => {

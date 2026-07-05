@@ -77,4 +77,9 @@ export const SeedBody = z.object({
   name: z.string().max(200).optional(),
 });
 
+export const GithubBody = z.object({
+  candidateId: CandidateId,
+  username: z.string().min(1).max(39).regex(/^@?[a-zA-Z0-9-]+$/, "invalid GitHub username"),
+});
+
 export { CandidateId };

@@ -4,7 +4,7 @@
  * brain behind one clean abstraction.
  */
 
-export { ingestResume, ingestInterview, reason, dashboard, forgetMemory } from "./orchestrator";
+export { ingestResume, ingestInterview, ingestGithub, reason, dashboard, forgetMemory } from "./orchestrator";
 export { recall } from "./recall";
 export { buildDashboard, graphView, memoryReplay, realityGap } from "./derive";
 export { recommendations } from "./recommendations";

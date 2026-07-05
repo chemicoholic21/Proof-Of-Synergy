@@ -36,7 +36,8 @@ export async function POST(req: NextRequest) {
   let memory: RecallResult | null = null;
   if (candidateId) {
     try {
-      memory = await reason(candidateId, { company: company ?? null });
+      // withCognee: consult Cognee's own graph for a focus directive, not just the local mirror.
+      memory = await reason(candidateId, { company: company ?? null, withCognee: true });
     } catch (e) {
       log.warn("recall unavailable, falling back to stateless generation", { error: (e as Error).message });
     }
@@ -95,6 +96,7 @@ export async function POST(req: NextRequest) {
             unverifiedSkills: memory.unverifiedSkills,
             masteredConcepts: memory.masteredConcepts,
             upcomingCompany: memory.upcomingCompany,
+            cogneeInsight: memory.cogneeInsight ?? null,
           }
         : null,
     });

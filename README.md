@@ -93,8 +93,10 @@ Part 2 : https://www.loom.com/share/48f0ebcbbcfa42d689c8a4af2697f9ef
 - **Adaptive interviews:** questions are generated from `recall()`, targeting weak / forgotten / never-verified topics and biasing toward an upcoming company. No two interviews are the same.
 - **Reality Gap:** resume claims cross-checked against demonstrated evidence, always framed as coaching.
 - **Evidence engine:** every score and recommendation is traceable ("Improve Kafka because: scored 40%, no project, last discussed 96 days ago").
+- **GitHub evidence:** import a public GitHub profile and the technologies you actually ship become a third evidence source — matched skills gain repo evidence, unmatched claims visibly show 0 repos.
 - **Learning loop:** each weakness becomes a mission (read → practice → quiz → re-interview → improvement recorded) with spaced-repetition scheduling.
-- **Interview DNA + Memory Replay:** persistent communication metrics over time, and replay of every answer to a topic across months.
+- **Interview DNA + Memory Replay:** persistent communication metrics over time (fillers, confidence, vocabulary, speaking pace), and replay of every answer to a topic across months.
+- **Ask Cognee:** a graph-grounded "what should I study before my Stripe interview?" answer straight from Cognee's `search()`.
 - **Persistent across sessions:** your Career Knowledge Graph survives every visit — the whole point.
 
 
@@ -131,6 +133,7 @@ lib/memory/
   remember.ts recall.ts improve.ts forget.ts   the lifecycle
   evidence.ts recommendations.ts learning.ts   evidence + roadmap engines
   concepts.ts          concept ontology + spaced-repetition retention decay
+  github.ts            public GitHub profile -> technology + evidence signals
   interview-memory.ts  semantic extraction + Interview DNA (voice/comm metrics)
   derive.ts            dashboard read-models (reality gap, timeline, trends, replay, graph view)
   orchestrator.ts      owns the interview-complete pipeline
@@ -141,6 +144,7 @@ lib/memory/
 | Endpoint | Lifecycle | Purpose |
 | --- | --- | --- |
 | `POST /api/memory/remember` | `remember()` | ingest a resume version or a completed interview |
+| `POST /api/memory/github`   | `remember()` | ingest a public GitHub profile as evidence |
 | `POST /api/memory/recall`   | `recall()`   | the Career Reasoner state (weak/forgotten/unverified/…) |
 | `GET  /api/memory/graph`    | derived      | full dashboard payload: graph, reality gap, evidence, trends, roadmap |
 | `POST /api/memory/replay`   | derived      | every answer to a topic across all interviews |
@@ -157,9 +161,10 @@ at a real Cognee backend:
 **Best Use of Cognee Cloud** (iPhone 17 track) — grab dev-tier credits with access code `COGNEE-35`:
 
 ```env
-COGNEE_API_URL=https://api.cognee.ai   # your Cognee Cloud base URL
-COGNEE_API_KEY=sk-...                  # from Cognee Cloud (code COGNEE-35)
+COGNEE_API_URL=https://tenant-<id>.aws.cognee.ai   # your Cognee Cloud tenant URL
+COGNEE_API_KEY=<your key>                          # from Cognee Cloud (code COGNEE-35)
 COGNEE_DATASET=career-memory
+COGNEE_DATA_DIR=/tmp/career-memory                 # writable path on serverless (Vercel)
 ```
 
 **Best Use of Open Source** (MacBook track) — run self-hosted Cognee and point at it:
@@ -172,12 +177,15 @@ COGNEE_API_URL=http://localhost:8000
 COGNEE_API_KEY=local
 ```
 
-When these are set, every `remember()` is mirrored into Cognee (`add` + `cognify`) and `recall()` is
-enriched by Cognee's semantic + graph `search`. Remove Cognee and the product loses adaptivity,
-evidence, reality gap, retention decay and the roadmap — i.e. it stops being intelligent.
+When these are set, every `remember()` is mirrored into Cognee (`add_text` + `cognify`) and
+`recall()` is enriched by Cognee's graph-grounded `search` — that answer is injected into interview
+generation and shown in the UI. Remove Cognee and the product loses adaptivity, evidence, reality
+gap, retention decay and the roadmap — i.e. it stops being intelligent.
 
-> The Cognee client (`lib/memory/cognee/client.ts`) is a REST scaffold. Verify the exact
-> endpoints/payloads against your Cognee version's API before the live demo.
+> The client (`lib/memory/cognee/client.ts`) is wired against Cognee Cloud's live API, verified from
+> its OpenAPI spec: `X-Api-Key` auth, `POST /api/v1/add_text`, background `POST /api/v1/cognify`,
+> `POST /api/v1/search` (`GRAPH_COMPLETION`). `GET /api/health` reports `cogneeReachable` via a live
+> ping so a silent local-fallback can't hide during a demo.
 
 ## 📦 Getting Started
 

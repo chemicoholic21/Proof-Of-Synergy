@@ -15,6 +15,7 @@ import { clock, edgesFrom, link, nodesByKind, upsertNode } from "./graph/ops";
 import { relatedConcepts } from "./concepts";
 import { aggregateDNA, extractDNA, InterviewDNA } from "./interview-memory";
 import { RememberAnswer, RememberInterviewInput, RememberResumeInput } from "./types";
+import { GithubProfile } from "./github";
 
 const LEVEL_EXPECTATION: Record<SkillLevel, number> = {
   beginner: 40,
@@ -94,6 +95,42 @@ export function rememberResume(g: CareerGraph, input: RememberResumeInput): stri
 
   g.revision += 1;
   return resumeId;
+}
+
+/**
+ * Ingest a GitHub profile as an independent evidence source. Each technology the candidate actually
+ * ships becomes a technology node; when it matches a claimed/known skill we attach a GitHub evidence
+ * node (source: "github") so the Reality Gap and evidence engine can say "3 matching GitHub repos"
+ * — or, by its ABSENCE, "claims Kubernetes but 0 Kubernetes repos detected".
+ */
+export function rememberGithub(g: CareerGraph, candidateIdRaw: string, profile: GithubProfile): void {
+  const candidateId = ID.candidate(g.candidateId);
+  const cand = upsertNode(g, { id: candidateId, kind: "candidate", label: g.name || "Candidate", data: {} });
+  cand.data.github = profile.username;
+  cand.data.githubRepoCount = profile.repoCount;
+
+  const skills = nodesByKind(g, "skill");
+  for (const [tech, count] of Object.entries(profile.technologies)) {
+    const techId = ID.technology(tech);
+    upsertNode(g, { id: techId, kind: "technology", label: tech, data: { githubRepos: count, source: "github" } });
+    link(g, candidateId, "USES", techId, { weight: count, data: { source: "github" } });
+
+    // Match against known skills (by name) and attach GitHub evidence.
+    const match = skills.find((s) => s.label.toLowerCase() === tech || tech.includes(s.label.toLowerCase()) || s.label.toLowerCase().includes(tech));
+    if (match) {
+      const evId = ID.evidence(match.id, "github", tech);
+      upsertNode(g, {
+        id: evId,
+        kind: "evidence",
+        label: `${count} GitHub repo${count > 1 ? "s" : ""} using ${tech}`,
+        confidence: Math.min(100, 50 + count * 8),
+        data: { source: "github", tech, repos: count },
+      });
+      link(g, evId, "EVIDENCE_FOR", match.id, { data: { source: "github", repos: count } });
+      link(g, techId, "EVIDENCE_FOR", match.id, { data: { source: "github" } });
+    }
+  }
+  g.revision += 1;
 }
 
 /**
