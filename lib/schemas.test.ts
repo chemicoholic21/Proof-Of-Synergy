@@ -2,8 +2,6 @@ import { describe, it, expect } from "vitest";
 import {
   ParsedResumeLLMSchema,
   EvaluationLLMSchema,
-  MintBody,
-  GateCheckBody,
   EvaluateBody,
   QuestionsLLMSchema,
 } from "./schemas";
@@ -63,40 +61,6 @@ describe("EvaluationLLMSchema", () => {
 
   it("rejects when score is missing", () => {
     expect(() => EvaluationLLMSchema.parse({ feedback: "x" })).toThrow();
-  });
-});
-
-describe("MintBody", () => {
-  it("rejects an empty verdicts array", () => {
-    expect(() => MintBody.parse({ verdicts: [] })).toThrow();
-  });
-
-  it("accepts a valid verdict and defaults name", () => {
-    const b = MintBody.parse({
-      verdicts: [{ skill: "Go", claimedLevel: "expert", observedConfidence: 90, status: "strong" }],
-    });
-    expect(b.name).toBe("Anonymous");
-  });
-
-  it("defaults consent to false when omitted (opt-in, never assumed)", () => {
-    const b = MintBody.parse({
-      verdicts: [{ skill: "Go", claimedLevel: "expert", observedConfidence: 90, status: "strong" }],
-    });
-    expect(b.consent).toBe(false);
-  });
-
-  it("accepts explicit consent", () => {
-    const b = MintBody.parse({
-      verdicts: [{ skill: "Go", claimedLevel: "expert", observedConfidence: 90, status: "strong" }],
-      consent: true,
-    });
-    expect(b.consent).toBe(true);
-  });
-});
-
-describe("GateCheckBody", () => {
-  it("rejects a non-address subject", () => {
-    expect(() => GateCheckBody.parse({ subject: "nope", skill: "Go", minConfidence: 80 })).toThrow();
   });
 });
 

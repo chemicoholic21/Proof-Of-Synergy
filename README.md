@@ -95,7 +95,7 @@ Part 2 : https://www.loom.com/share/48f0ebcbbcfa42d689c8a4af2697f9ef
 - **Evidence engine:** every score and recommendation is traceable ("Improve Kafka because: scored 40%, no project, last discussed 96 days ago").
 - **Learning loop:** each weakness becomes a mission (read → practice → quiz → re-interview → improvement recorded) with spaced-repetition scheduling.
 - **Interview DNA + Memory Replay:** persistent communication metrics over time, and replay of every answer to a topic across months.
-- **Persistent + portable:** memory survives across sessions; verified reputation is minted on Monad as a soulbound credential.
+- **Persistent across sessions:** your Career Knowledge Graph survives every visit — the whole point.
 
 
 
@@ -106,7 +106,6 @@ Part 2 : https://www.loom.com/share/48f0ebcbbcfa42d689c8a4af2697f9ef
 | Structural memory| **Cognee** (Career Knowledge Graph) |
 | Frontend         | React / Next.js / TypeScript        |
 | Voice / LLM      | Sarvam AI (STT / TTS / chat)        |
-| Chain            | Monad (soulbound skill credential)  |
 | Styling          | Tailwind CSS                        |
 | Deployment       | Vercel                              |
 
@@ -191,12 +190,12 @@ evidence, reality gap, retention decay and the roadmap — i.e. it stops being i
 git clone https://github.com/chemicoholic21/ProofOfSynergy.git
 cd ProofOfSynergy
 npm install
-cp .env.local.example .env.local     # optional: add Cognee + Sarvam + Monad keys
+cp .env.local.example .env.local     # optional: add Cognee + Sarvam keys
 npm run dev                          # http://localhost:3000
 ```
 
 Then open **http://localhost:3000/dashboard** and click **Load demo** for the full memory story.
-Everything degrades gracefully: without Sarvam/Monad/Cognee keys it runs in clearly-labelled local
+Everything degrades gracefully: without Sarvam/Cognee keys it runs in clearly-labelled local
 mode. Useful scripts: `npm run check` (typecheck + lint + test), `npm test` (65 tests), `npm run build`.
 
 ---

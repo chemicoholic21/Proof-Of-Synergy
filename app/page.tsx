@@ -12,7 +12,6 @@ import {
   Transcript,
   QuestionEvaluation,
   SkillVerdict,
-  MintResult,
 } from "@/lib/types";
 
 /** Summary of what recall() steered + what improve() grew, surfaced so Cognee is visibly central. */
@@ -33,7 +32,7 @@ interface ImproveSummary {
   revision: number;
 }
 
-type Step = "intro" | "upload" | "interview" | "results" | "passport" | "private";
+type Step = "intro" | "upload" | "interview" | "results";
 
 /** Parse a JSON response, throwing a readable error when the API returns a non-2xx status. */
 async function readJsonOrThrow(res: Response): Promise<any> {
@@ -92,8 +91,6 @@ export default function Home() {
   const [transcripts, setTranscripts] = useState<Record<number, Transcript>>({});
   const [evaluations, setEvaluations] = useState<QuestionEvaluation[]>([]);
   const [verdicts, setVerdicts] = useState<SkillVerdict[]>([]);
-  const [mint, setMint] = useState<MintResult | null>(null);
-  const [consent, setConsent] = useState(false);
 
   // Cognee memory wiring: a stable per-browser candidate id + the recall/improve summaries so the
   // UI can show the memory lifecycle working (adaptive questions in, graph growth out).
@@ -227,38 +224,6 @@ export default function Home() {
       setBusy(null);
       setError(errMessage(err));
     }
-  }
-
-  async function handleMint() {
-    // The candidate must explicitly opt in before anything is published publicly on-chain.
-    if (!consent) {
-      setError("Please confirm your consent before publishing results on the blockchain.");
-      return;
-    }
-    setError(null);
-    setBusy("Publishing proofs to IPFS & minting SBT on Monad Sandbox…");
-    try {
-      const mRes = await fetch("/api/mint", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ verdicts, overall, name: resume?.name ?? "Anonymous", consent: true }),
-      });
-      const m: MintResult = await readJsonOrThrow(mRes);
-      setMint(m);
-      setBusy(null);
-      setStep("passport");
-    } catch (err) {
-      console.error(err);
-      setBusy(null);
-      setError(errMessage(err));
-    }
-  }
-
-  // Candidate opts out of publishing, keep the report private, nothing is written on-chain.
-  function keepPrivate() {
-    setError(null);
-    setMint(null);
-    setStep("private");
   }
 
   const allRecorded = questions.length > 0 && questions.every((q) => (answers[q.id]?.length ?? 0) > 0);
@@ -427,7 +392,7 @@ export default function Home() {
               </div>
 
               <p className="mt-4 text-[14px] leading-relaxed text-zinc-400">
-                The AI has extracted your skill credentials. To complete attestations, please answer the questions below out loud in <b className="text-zinc-200">any Indian language</b> (e.g. Hindi, Tamil, Telugu, Kannada, Bengali, etc.). Our Saarika transcription pipeline will auto-detect and translate it.
+                The AI has extracted your skill credentials. To build your career memory, please answer the questions below out loud in <b className="text-zinc-200">any Indian language</b> (e.g. Hindi, Tamil, Telugu, Kannada, Bengali, etc.). Our Saarika transcription pipeline will auto-detect and translate it.
               </p>
 
               <div className="mt-6">
@@ -683,121 +648,43 @@ export default function Home() {
               </div>
             </details>
 
-            {/* Consent gate, the candidate chooses whether to publish publicly on-chain */}
+            {/* Terminal action: the interview is now permanent memory. */}
             <Card>
-              <div className="flex flex-col gap-4">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-5">
                 <div>
                   <h3 className="heading-font text-lg font-bold text-white flex items-center gap-2">
-                    <span>🔐</span> Your data, your choice
+                    <span>🧠</span> Saved to your Career Memory
                   </h3>
-                  <p className="mt-2 text-[13px] leading-relaxed text-zinc-400">
-                    Publishing mints a soulbound Skill Passport on the Monad blockchain. This makes your{" "}
-                    <span className="text-zinc-200">skill names and verified confidence scores</span> public,
-                    portable and permanent. Anyone can verify them without going through us. Your{" "}
-                    <span className="text-zinc-200">raw resume and voice recordings are never published</span>;
-                    only the summarized results leave this session. Publishing is optional; you can keep your
-                    report private instead.
+                  <p className="mt-2 max-w-lg text-[13px] leading-relaxed text-zinc-400">
+                    This interview is now part of your Cognee Career Knowledge Graph. Your{" "}
+                    <span className="text-zinc-200">next interview adapts</span> to what you demonstrated here,
+                    and your dashboard shows the evidence, reality gap and learning roadmap that grew from it.
+                    Your raw resume and voice recordings never leave this session.
                   </p>
                 </div>
-
-                <label className="flex items-start gap-3 cursor-pointer rounded-xl border border-zinc-800 bg-zinc-950/40 p-4 hover:border-purple-500/30 transition-colors">
-                  <input
-                    type="checkbox"
-                    checked={consent}
-                    onChange={(e) => setConsent(e.target.checked)}
-                    className="mt-0.5 h-4 w-4 shrink-0 accent-[#836ef9]"
-                  />
-                  <span className="text-[13px] leading-relaxed text-zinc-300">
-                    I consent to publishing my verified skill results publicly and permanently on the Monad
-                    blockchain. I understand this action cannot be undone.
-                  </span>
-                </label>
-
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <button
-                    onClick={handleMint}
-                    disabled={!!busy || !consent}
-                    className="btn-primary flex-1 py-4 text-base font-bold tracking-wider hover:brightness-110 active:scale-[0.99] flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(131,110,249,0.4)] disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none"
+                <div className="flex flex-col gap-2 w-full sm:w-auto shrink-0">
+                  <Link
+                    href="/dashboard"
+                    className="btn-primary px-6 py-3 text-sm font-bold text-center whitespace-nowrap"
                   >
-                    <span>Publish on Blockchain</span>
-                    <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.57-.598-3.75h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
-                    </svg>
-                  </button>
-                  <button
-                    onClick={keepPrivate}
-                    disabled={!!busy}
-                    className="flex-1 py-4 text-base font-semibold tracking-wide rounded-xl border border-zinc-700 text-zinc-300 hover:bg-zinc-900/60 hover:text-white active:scale-[0.99] transition-colors flex items-center justify-center gap-2 disabled:opacity-40"
-                  >
-                    <span>Keep Private</span>
+                    🧠 Open Career Memory →
+                  </Link>
+                  <button onClick={() => location.reload()} className="btn-ghost px-6 py-3 text-sm">
+                    New interview
                   </button>
                 </div>
               </div>
             </Card>
           </div>
         )}
-
-        {step === "passport" && mint && (
-          <div className="step-container">
-            <Passport mint={mint} verdicts={verdicts} overall={overall} name={resume?.name ?? "Anonymous"} />
-          </div>
-        )}
-
-        {step === "private" && (
-          <div className="step-container">
-            <Card>
-              <div className="flex flex-col items-center text-center gap-5 py-4">
-                <div className="flex h-16 w-16 items-center justify-center rounded-full border border-zinc-700 bg-zinc-950/60 text-3xl">
-                  🔒
-                </div>
-                <div>
-                  <h2 className="heading-font text-2xl font-bold text-white">Kept Private</h2>
-                  <p className="mt-2 max-w-md text-[14px] leading-relaxed text-zinc-400">
-                    Nothing was published. Your verification report stays private to this session. No
-                    attestation was written on-chain and no passport was minted. You can review your results
-                    below, or change your mind and publish them whenever you're ready.
-                  </p>
-                </div>
-
-                <div className="w-full max-w-sm rounded-xl border border-zinc-800 bg-zinc-950/40 p-4 text-left">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs uppercase tracking-wide text-zinc-500">Overall confidence</span>
-                    <span className="font-mono text-lg font-bold text-white">{overall}/100</span>
-                  </div>
-                  <div className="mt-3 flex flex-col gap-1.5">
-                    {verdicts.map((v) => (
-                      <div key={v.skill} className="flex items-center justify-between text-[13px]">
-                        <span className="text-zinc-300">{v.skill}</span>
-                        <span className={STATUS_STYLE[v.status]?.text ?? "text-zinc-400"}>
-                          {v.observedConfidence}% · {STATUS_STYLE[v.status]?.label ?? v.status}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="flex flex-col sm:flex-row gap-3 w-full max-w-sm">
-                  <button
-                    onClick={() => setStep("results")}
-                    className="btn-primary flex-1 py-3.5 text-sm font-bold tracking-wider hover:brightness-110 active:scale-[0.99]"
-                  >
-                    Reconsider & Publish
-                  </button>
-                </div>
-              </div>
-            </Card>
-          </div>
-        )}
-
-        <WhyMonad />
       </main>
     </div>
   );
 }
 
 function Header({ step }: { step: Step }) {
-  const steps: Step[] = ["upload", "interview", "results", "passport"];
-  const stepLabels = ["Parse Resume", "Interview Room", "Attest Report", "Skill Passport"];
+  const steps: Step[] = ["upload", "interview", "results"];
+  const stepLabels = ["Parse Resume", "Interview Room", "Results & Memory"];
   const idx = steps.indexOf(step);
   
   return (
@@ -813,7 +700,7 @@ function Header({ step }: { step: Step }) {
             <h1 className="heading-font text-2xl font-black tracking-tight text-white flex items-center gap-2">
               ProofOfSynergy
             </h1>
-            <div className="text-[10px] tracking-widest text-[#00E5FF] uppercase font-bold">Monad Attestation Sandbox</div>
+            <div className="text-[10px] tracking-widest text-[#00E5FF] uppercase font-bold">Cognee Career Memory</div>
           </div>
         </div>
 
@@ -833,7 +720,7 @@ function Header({ step }: { step: Step }) {
 
       <p className="mt-3 text-[14px] leading-relaxed text-zinc-400 max-w-xl">
         A lifelong <b className="text-zinc-200">AI Interview Twin</b>: every interview writes to a Cognee-powered Career
-        Knowledge Graph, so feedback, questions and learning get more personal over time — and skill reputation is minted on Monad.
+        Knowledge Graph, so feedback, questions and learning get more personal over time.
       </p>
 
       {/* Futuristic Timeline Stepper */}
@@ -893,7 +780,7 @@ function Intro({ onStart }: { onStart: () => void }) {
         </h2>
         
         <p className="mt-5 text-[15px] leading-relaxed text-zinc-400">
-          Upload your resume credentials, undergo a secure voice-based smart interview in any Indian language, and turn your demonstrated expertise into <b className="text-zinc-200">soulbound skill attestations</b> written directly to Monad, trustlessly queryable by any recruitment app or decentralized agent.
+          Upload your resume, undergo a voice-based smart interview in any Indian language, and watch every answer become permanent memory in a <b className="text-zinc-200">Cognee Career Knowledge Graph</b>. Each interview makes the next one smarter — personalized questions, evidence-backed feedback, and a learning roadmap that never forgets.
         </p>
 
         {/* Feature Grid */}
@@ -916,9 +803,9 @@ function Intro({ onStart }: { onStart: () => void }) {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 7.5V18a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 18V7.5m18 0V6a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 6v1.5m18 0h-18M12 12h.008v.008H12V12Zm3 0h.008v.008H15V12Zm-6 0h.008v.008H9V12Zm6 3h.008v.008H15V15Zm-3 0h.008v.008H12V15Zm-3 0h.008v.008H9V15Z" />
               </svg>
             </div>
-            <h3 className="font-bold text-sm text-zinc-200">Composable Monad SBTs</h3>
+            <h3 className="font-bold text-sm text-zinc-200">Cognee Structural Memory</h3>
             <p className="mt-1 text-xs text-zinc-400 leading-relaxed">
-              Attests verified skill levels directly on-chain using Soulbound NFT tokens. Permissonless data.
+              A lifelong knowledge graph of skills, concepts, projects and communication — remember, recall, improve, forget.
             </p>
           </div>
 
@@ -959,309 +846,6 @@ function Intro({ onStart }: { onStart: () => void }) {
 
 function Card({ children }: { children: React.ReactNode }) {
   return <div className="glass-card p-6 sm:p-8">{children}</div>;
-}
-
-function Passport({
-  mint,
-  verdicts,
-  overall,
-  name,
-}: {
-  mint: MintResult;
-  verdicts: SkillVerdict[];
-  overall: number;
-  name: string;
-}) {
-  const [gate, setGate] = useState<null | { passes: boolean; confidence: number; source: string }>(null);
-  const [gateBusy, setGateBusy] = useState(false);
-  const [copiedText, setCopiedText] = useState<string | null>(null);
-  const strongSkill = verdicts.find((v) => v.status !== "exaggerated") ?? verdicts[0];
-
-  async function runGate() {
-    if (!strongSkill) return;
-    setGateBusy(true);
-    try {
-      const res = await fetch("/api/gate-check", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ subject: mint.subject, skill: strongSkill.skill, minConfidence: 80 }),
-      });
-      const r = await readJsonOrThrow(res);
-      setGate(r);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setGateBusy(false);
-    }
-  }
-
-  function handleCopy(text: string, label: string) {
-    navigator.clipboard.writeText(text);
-    setCopiedText(label);
-    setTimeout(() => setCopiedText(null), 2000);
-  }
-
-  const isReal = mint.source === "onchain";
-
-  return (
-    <div className="flex flex-col gap-6">
-      {/* Premium On-Chain Skill Passport Card widget */}
-      <div className="relative group overflow-hidden rounded-3xl bg-gradient-to-br from-zinc-950 via-[#18181b] to-zinc-900 border border-purple-500/25 p-7 shadow-[0_15px_40px_rgba(131,110,249,0.15)] flex flex-col justify-between min-h-[340px] transition-all duration-500 hover:shadow-[0_20px_50px_rgba(131,110,249,0.3)] hover:border-[#00E5FF]/40">
-        
-        {/* Hologram card effect & logo watermark */}
-        <div className="absolute top-0 right-0 w-80 h-80 bg-gradient-to-bl from-purple-500/10 via-[#00E5FF]/5 to-transparent rounded-full blur-2xl pointer-events-none group-hover:scale-110 transition-transform duration-700" />
-        
-        <div className="flex items-start justify-between z-10 relative">
-          <div>
-            <div className="flex items-center gap-1.5">
-              <svg className="h-5 w-5 text-[#836ef9]" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.57-.598-3.75h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
-              </svg>
-              <span className="font-mono text-xs font-bold tracking-widest text-[#00E5FF]">PROOF OF GROWTH · MONAD CREDENTIAL</span>
-            </div>
-            <h2 className="heading-font text-3xl font-extrabold text-white mt-3 leading-tight tracking-tight">
-              {name}
-            </h2>
-            <p className="mt-1 text-[11px] text-zinc-500">Backed by a Cognee Career Knowledge Graph — evolving reputation, not a single score.</p>
-          </div>
-
-          <div className="flex flex-col items-end">
-            <span className="rounded-full bg-purple-500/10 px-3 py-1 text-[11px] font-bold text-purple-400 border border-purple-500/20 uppercase tracking-wider">
-              SBT Passport
-            </span>
-            {!isReal && (
-              <span className="mt-2 text-[9px] text-amber-400 font-bold uppercase tracking-wider bg-amber-500/10 px-2.5 py-0.5 border border-amber-500/20 rounded">
-                Fallback Sandbox
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Card Middle: Attested skill metrics */}
-        <div className="z-10 relative my-6">
-          <div className="text-[10px] uppercase font-bold tracking-widest text-zinc-500 mb-2">Verified Skillsets</div>
-          <div className="flex flex-wrap gap-2 max-h-[85px] overflow-y-auto pr-1">
-            {verdicts.map((v) => (
-              <div 
-                key={v.skill} 
-                className={`flex items-center gap-1 text-xs rounded-full px-2.5 py-1 font-semibold border ${
-                  v.status === "exaggerated" 
-                    ? "bg-amber-950/20 border-amber-500/20 text-amber-400"
-                    : "bg-emerald-950/20 border-emerald-500/20 text-emerald-400"
-                }`}
-              >
-                <span>{v.status === "exaggerated" ? "⚠" : "✓"}</span>
-                <span>{v.skill}</span>
-                <span className="opacity-70 font-mono">({v.observedConfidence}%)</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Card Footer: Metadata and details */}
-        <div className="z-10 relative flex items-end justify-between border-t border-white/5 pt-4.5">
-          <div className="grid grid-cols-2 gap-x-8 gap-y-1">
-            <div>
-              <div className="text-[9px] uppercase tracking-wider text-zinc-500 font-semibold">Subject Address</div>
-              <div className="font-mono text-xs text-zinc-300 font-medium tracking-wide">
-                {mint.subject.slice(0, 6)}...{mint.subject.slice(-4)}
-              </div>
-            </div>
-            <div>
-              <div className="text-[9px] uppercase tracking-wider text-zinc-500 font-semibold">Token ID</div>
-              <div className="font-mono text-xs text-zinc-300 font-bold">
-                #{mint.tokenId ?? "Pending"}
-              </div>
-            </div>
-          </div>
-
-          <div className="text-right">
-            <div className="text-[9px] uppercase tracking-wider text-zinc-500 font-semibold">Overall Attestation</div>
-            <div className="text-2xl font-black heading-font text-white bg-gradient-to-r from-purple-400 to-cyan-300 bg-clip-text text-transparent">
-              {overall}%
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Transaction links section */}
-      <Card>
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-bold uppercase tracking-wider text-zinc-400">On-Chain Evidence & Registry Proofs</h3>
-          {copiedText && (
-            <span className="text-xs font-semibold text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 border border-emerald-500/20 rounded-full">
-              Copied {copiedText}
-            </span>
-          )}
-        </div>
-
-        <div className="flex flex-col gap-3.5 text-sm">
-          <LinkRow
-            label="Attestation Transaction"
-            href={`${mint.explorerBase}/tx/${mint.attestTxHash}`}
-            value={mint.attestTxHash}
-            enabled={isReal}
-            onCopy={() => handleCopy(mint.attestTxHash, "Tx Hash")}
-          />
-          <LinkRow
-            label="Passport Mint Transaction"
-            href={`${mint.explorerBase}/tx/${mint.mintTxHash}`}
-            value={mint.mintTxHash}
-            enabled={isReal}
-            onCopy={() => handleCopy(mint.mintTxHash, "Mint Hash")}
-          />
-          <LinkRow
-            label="Registry Address"
-            href={`${mint.explorerBase}/address/${mint.registryAddress}`}
-            value={mint.registryAddress}
-            enabled={isReal}
-            onCopy={() => handleCopy(mint.registryAddress, "Registry Address")}
-          />
-          <LinkRow
-            label="IPFS Metadata Evidence"
-            href={mint.metadataURI}
-            value={mint.metadataURI}
-            enabled
-            onCopy={() => handleCopy(mint.metadataURI, "Metadata URI")}
-          />
-        </div>
-      </Card>
-
-      {/* Composability / SkillGate interactive card */}
-      <Card>
-        <div className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
-            </svg>
-          </div>
-          <h3 className="text-lg font-bold tracking-tight text-white heading-font">Decomposition / SkillGate Check</h3>
-        </div>
-        
-        <p className="mt-2 text-[14px] leading-relaxed text-zinc-400">
-          An <b className="text-zinc-200">external hiring gate contract</b> (SkillGate) reads this candidate&apos;s passport on-chain and evaluates access to a job role. This occurs trustlessly, with no centralized server lookup.
-        </p>
-
-        <button
-          onClick={runGate}
-          disabled={gateBusy}
-          className="btn-ghost border-purple-500/30 text-purple-300 hover:bg-purple-950/10 hover:border-purple-500/50 mt-4.5 text-xs font-semibold py-2 px-5"
-        >
-          {gateBusy ? "Querying registry contract..." : `Simulate Role Gate (${strongSkill?.skill} ≥ 80)`}
-        </button>
-
-        {gate && (
-          <div className={`mt-4 rounded-xl border p-4 font-mono text-xs ${
-            gate.passes 
-              ? "bg-emerald-950/20 border-emerald-500/20 text-emerald-400" 
-              : "bg-red-950/20 border-red-500/20 text-red-400"
-          }`}>
-            <div className="font-bold mb-1 uppercase tracking-wide">
-              {gate.passes ? ">>> ACCESS GRANTED" : ">>> ACCESS DENIED"}
-            </div>
-            <div>Wallet Subject: {mint.subject}</div>
-            <div>Attribute Confidence: {gate.confidence}% (Required: ≥80%)</div>
-            <div className="opacity-70 mt-1">
-              Source: {gate.source === "fallback" ? "Local simulation node" : "Monad RPC State"}
-            </div>
-          </div>
-        )}
-      </Card>
-
-      <div className="mt-2 flex flex-col sm:flex-row items-center justify-center gap-4">
-        <Link href="/dashboard" className="flex items-center gap-1.5 text-xs font-bold text-[#00E5FF] hover:text-cyan-300 transition-colors">
-          🧠 <span>Open your Career Memory</span>
-        </Link>
-        <button
-          onClick={() => location.reload()}
-          className="flex items-center gap-1.5 text-xs font-semibold text-zinc-500 hover:text-zinc-300 transition-colors duration-300"
-        >
-          <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
-          </svg>
-          <span>New interview</span>
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function LinkRow({ 
-  label, 
-  href, 
-  value, 
-  enabled, 
-  onCopy 
-}: { 
-  label: string; 
-  href: string; 
-  value: string; 
-  enabled: boolean;
-  onCopy: () => void;
-}) {
-  return (
-    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-zinc-900 pb-3 last:border-0 last:pb-0">
-      <span className="text-zinc-400 font-semibold text-xs">{label}</span>
-      <div className="flex items-center gap-2 max-w-full">
-        {enabled ? (
-          <a
-            href={href}
-            target="_blank"
-            rel="noreferrer"
-            className="truncate font-mono text-xs text-purple-400 hover:text-purple-300 hover:underline transition-colors max-w-[180px] sm:max-w-[280px]"
-          >
-            {value}
-          </a>
-        ) : (
-          <span className="truncate font-mono text-xs text-zinc-650 max-w-[180px] sm:max-w-[280px]">
-            {value}
-          </span>
-        )}
-        
-        <button
-          onClick={onCopy}
-          className="rounded p-1 text-zinc-500 hover:text-zinc-300 hover:bg-white/5 transition-all"
-          title="Copy to clipboard"
-        >
-          <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H5.25m11.9-3.674A2.25 2.25 0 0 0 18.022 9.175a9 9 0 0 1-1.8 1.8 2.25 2.25 0 0 0-2.25 2.25v.896m1.156-1.156a2.25 2.25 0 0 0-2.25-2.25H9.75m0 0A2.25 2.25 0 0 1 7.5 7.5V5.25m0 0A2.25 2.25 0 0 1 9.75 3h3.75a2.25 2.25 0 0 1 2.25 2.25Z" />
-          </svg>
-        </button>
-
-        {enabled && (
-          <a
-            href={href}
-            target="_blank"
-            rel="noreferrer"
-            className="rounded p-1 text-zinc-500 hover:text-zinc-350 hover:bg-white/5 transition-all"
-          >
-            <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
-            </svg>
-          </a>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function WhyMonad() {
-  return (
-    <section className="glass-card mt-10 p-6 sm:p-8">
-      <div className="flex items-center gap-2.5 mb-3">
-        <span className="grid h-8 w-8 place-items-center rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/20">
-          <svg className="h-4.5 w-4.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 21l8.982-8.997M18 10.5H9.75L10.5 3H3v10.5h7.5L9.813 15.904Z" />
-          </svg>
-        </span>
-        <h3 className="text-base font-bold text-white uppercase tracking-wider heading-font">Why Monad instead of Postgres?</h3>
-      </div>
-      
-      <p className="text-sm leading-relaxed text-zinc-400">
-        AI-driven skill evaluation is only the mechanism; the <b className="text-zinc-200">proof is the trustless on-chain product</b>. Attested attributes live directly on the high-speed Monad L1. This allows any third party, including DAOs, other recruitment platforms, or AI agents, to permissionlessly read and compose with a wallet&apos;s verified skill score (as simulated in the SkillGate demo above).
-      </p>
-    </section>
-  );
 }
 
 const SAMPLE_RESUME_TEXT = `Aarav Sharma | aarav.sharma@example.com

@@ -57,15 +57,3 @@ export interface SkillVerdict {
   flag: string | null;
 }
 
-export interface MintResult {
-  subject: `0x${string}`;
-  registryAddress: string;
-  passportAddress: string;
-  gateAddress: string;
-  attestTxHash: string;
-  mintTxHash: string;
-  tokenId: string | null;
-  metadataURI: string;
-  explorerBase: string;
-  source: "onchain" | "fallback";
-}
