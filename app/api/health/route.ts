@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { env, sarvamConfigured, chainConfigured, ipfsConfigured } from "@/lib/env";
+import { env, sarvamConfigured, cogneeConfigured } from "@/lib/env";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,9 +16,7 @@ export async function GET() {
     environment: env.NODE_ENV,
     dependencies: {
       sarvam: sarvamConfigured(),
-      chain: chainConfigured(),
-      ipfs: ipfsConfigured(),
-      mintAuth: Boolean(env.MINT_API_SECRET),
+      cognee: cogneeConfigured(),
     },
   });
 }

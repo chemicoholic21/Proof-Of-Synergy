@@ -14,8 +14,8 @@ const mono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ProofOfSynergy",
-  description: "Verifiable skill attestations on Monad.",
+  title: "Proof of Synergy — Career Memory",
+  description: "A Cognee-powered AI Interview Twin that never forgets: every interview grows a lifelong Career Knowledge Graph.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

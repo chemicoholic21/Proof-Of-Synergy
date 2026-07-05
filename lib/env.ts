@@ -53,21 +53,6 @@ const EnvSchema = z.object({
   EVAL_CONFIDENCE_MIN: z.coerce.number().int().min(0).max(100).default(50),
   EVAL_VERIFY_LAYERS: z.string().optional(), // default true
 
-  // Chain
-  MONAD_RPC_URL: z.string().url().optional(),
-  DEPLOYER_PRIVATE_KEY: z
-    .string()
-    .regex(/^0x[0-9a-fA-F]{64}$/, "DEPLOYER_PRIVATE_KEY must be a 0x-prefixed 32-byte hex string")
-    .optional(),
-  NEXT_PUBLIC_CHAIN_ID: z.coerce.number().int().positive().default(143),
-  NEXT_PUBLIC_REGISTRY_ADDRESS: z.string().optional(),
-  NEXT_PUBLIC_PASSPORT_ADDRESS: z.string().optional(),
-  NEXT_PUBLIC_GATE_ADDRESS: z.string().optional(),
-  NEXT_PUBLIC_EXPLORER_URL: z.string().url().default("https://testnet.monadexplorer.com"),
-
-  // IPFS
-  PINATA_JWT: z.string().optional(),
-
   // Cognee — the structural memory / Career Knowledge Graph backend. When these are set the memory
   // layer mirrors remember() into a real Cognee instance and can answer recall() via Cognee search.
   // When unset, the deterministic local graph engine provides identical semantics so the app runs
@@ -77,9 +62,6 @@ const EnvSchema = z.object({
   COGNEE_API_KEY: z.string().optional(),
   COGNEE_DATASET: z.string().default("career-memory"),
   COGNEE_DATA_DIR: z.string().optional(),
-
-  // Auth, required to call the wallet-spending mint endpoint outside demo mode.
-  MINT_API_SECRET: z.string().min(16).optional(),
 
   // Limits / tuning (all optional with safe defaults)
   MAX_RESUME_BYTES: z.coerce.number().int().positive().default(10 * 1024 * 1024), // 10 MB
@@ -114,20 +96,6 @@ export type Env = typeof env;
 /** True when Sarvam AI calls can actually be made. */
 export function sarvamConfigured(): boolean {
   return Boolean(env.SARVAM_API_KEY && env.SARVAM_API_KEY.length > 0);
-}
-
-/** True when the server can submit on-chain transactions. */
-export function chainConfigured(): boolean {
-  return Boolean(
-    env.DEPLOYER_PRIVATE_KEY &&
-      env.NEXT_PUBLIC_REGISTRY_ADDRESS &&
-      env.NEXT_PUBLIC_PASSPORT_ADDRESS
-  );
-}
-
-/** True when IPFS pinning is configured. */
-export function ipfsConfigured(): boolean {
-  return Boolean(env.PINATA_JWT && env.PINATA_JWT.length > 0);
 }
 
 /** True when a real Cognee backend is configured (otherwise the local graph engine is used). */

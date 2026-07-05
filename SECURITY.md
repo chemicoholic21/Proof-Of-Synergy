@@ -12,13 +12,15 @@ We will acknowledge your report and credit you in the release notes unless you p
 
 ## Deployment notes
 
-This app handles resumes, voice recordings, and on-chain attestations. When deploying:
+This app handles resumes, voice recordings, and a persistent Career Knowledge Graph. When deploying:
 
-- Never enable `DEMO_MODE` in production. It substitutes mock data and non-resolvable IPFS CIDs that
-  must not be presented as real results or written on-chain.
-- Protect `/api/mint`. It signs transactions with a funded server wallet. Set `MINT_API_SECRET` and
-  keep `DEPLOYER_PRIVATE_KEY` in a secrets manager. Prefer a low-privilege signer with spend limits.
-- Never commit secrets. Keys and tokenized RPC URLs belong in environment variables only.
+- Never enable `DEMO_MODE` in production. It substitutes mock data that must not be presented as
+  real results.
+- The Career Knowledge Graph is personal data. The local store (`.career-memory/`) and any Cognee
+  dataset are keyed per candidate; scope access to the authenticated user and honour `forget()`
+  (`/api/memory/forget`) so candidates can delete their memories.
+- Never commit secrets. `COGNEE_API_KEY`, `SARVAM_API_KEY` and tokenized URLs belong in environment
+  variables only.
 - Rate limiting is in-memory by default. For multi-instance deployments, back the limiter in
   `lib/rateLimit.ts` with a shared store such as Redis.
 - Treat LLM output as untrusted. All model responses are validated against Zod schemas in

@@ -38,8 +38,14 @@ dependency degrades gracefully (`DEMO_MODE`, honest errors, labelled fallbacks).
 - `lib/logger.ts`, `lib/rateLimit.ts` — infra.
 
 ### What stays unchanged
-Resume upload, voice interview, transcription, judge-panel evaluation, minting, TTS. All existing
-routes keep working with the exact same request/response contracts.
+Resume upload, voice interview, transcription, judge-panel evaluation, TTS. These routes keep
+working with the exact same request/response contracts.
+
+> **Update (post-audit):** the legacy Monad/blockchain layer (`contracts/`, `lib/chain.ts`,
+> `lib/ipfs.ts`, and the `mint` / `gate-check` / `tx-receipt` routes + passport UI) was **removed**.
+> It was carried over from a previous (Monad) hackathon and is irrelevant to the Cognee memory
+> product; the interview now ends at **Results → Career Memory**. Everything below describes the
+> memory layer that replaced it as the product's core.
 
 ### What is extended (non-breaking)
 - `generate-questions` gains an **optional** `candidateId` → consults `recall()` for adaptive

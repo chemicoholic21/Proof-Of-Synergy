@@ -29,10 +29,10 @@ See [`.env.example`](./.env.example) for all variables.
 ## Project layout
 
 ```
-app/         Next.js pages and API routes (app/api/*)
-components/   React components
-lib/         Shared logic: env, schemas (Zod), prompts, Sarvam client, chain, scoring
-contracts/   Foundry smart contracts
+app/         Next.js pages (/, /dashboard) and API routes (app/api/*, app/api/memory/*)
+components/   React components (incl. components/memory/* — dashboard + knowledge graph)
+lib/         Shared logic: env, schemas (Zod), prompts, Sarvam client, scoring
+lib/memory/   Cognee-native Career Knowledge Graph: remember/recall/improve/forget + views
 ```
 
 ## Before you open a PR

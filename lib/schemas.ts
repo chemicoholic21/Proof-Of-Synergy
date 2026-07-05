@@ -155,31 +155,3 @@ export const TtsBody = z.object({
   language: z.string().max(10).optional(),
 });
 
-// ---- Mint ----
-export const SkillVerdictSchema = z.object({
-  skill: z.string().min(1).max(200),
-  claimedLevel: SkillLevel,
-  observedConfidence: z.coerce.number().int().min(0).max(100),
-  status: z.enum(["strong", "verified", "exaggerated"]),
-  flag: z.string().max(500).nullable().default(null),
-});
-
-export const MintBody = z.object({
-  verdicts: z.array(SkillVerdictSchema).min(1).max(20),
-  overall: z.coerce.number().int().min(0).max(100).default(0),
-  name: z.string().max(200).default("Anonymous"),
-  // Explicit candidate consent is required before anything is published publicly on-chain.
-  consent: z.boolean().default(false),
-});
-
-// ---- Gate check ----
-export const GateCheckBody = z.object({
-  subject: z.string().regex(/^0x[0-9a-fA-F]{40}$/, "subject must be a 0x address"),
-  skill: z.string().min(1).max(200),
-  minConfidence: z.coerce.number().int().min(0).max(100),
-});
-
-// ---- Tx receipt ----
-export const TxReceiptBody = z.object({
-  hash: z.string().regex(/^0x[0-9a-fA-F]{64}$/, "hash must be a 0x-prefixed 32-byte hex string"),
-});
