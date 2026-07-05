@@ -8,7 +8,7 @@ everything.
 ## Design principles (and why)
 
 - **Typed contract at every agent boundary.** Each agent returns Zod-validated JSON
-  (`extractValidatedJson`). Under-specified roles + missing verification — not weak models — are
+  (`extractValidatedJson`). Under-specified roles + missing verification - not weak models - are
   the dominant multi-agent failure mode (*Why Do Multi-Agent LLM Systems Fail? / MAST*,
   arXiv:2503.13657).
 - **Verification is always external.** A second agent or a deterministic check grades the first
@@ -57,7 +57,7 @@ default.
 - **Fairness (L0/L5).** In the current data flow the scorer sees only the question + transcribed
   answer (no name/demographics), so blind-assessment redaction is lower-value here than in a
   resume-*ranking* product. If resume text ever reaches the scorer, add an anonymizer (L0) and a
-  counterfactual fairness gate (L5) before the on-chain write — LLMs demonstrably skew hiring
+  counterfactual fairness gate (L5) before the on-chain write - LLMs demonstrably skew hiring
   scores by name-inferred gender/race (arXiv:2503.19182, 2504.01420, 2507.02087).
 - **Confidence gate on mint.** `QuestionEvaluation.lowConfidence` is surfaced end-to-end; the
   mint step can refuse to attest low-confidence scores without human review.

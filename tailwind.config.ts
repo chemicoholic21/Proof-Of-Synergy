@@ -5,7 +5,7 @@ import type { Config } from "tailwindcss";
 // whole app becomes restrained and paper-like without touching every className. Semantic scales
 // (emerald = positive, amber = needs-attention) are kept but heavily desaturated.
 
-// Warm near-monochrome "stone" — replaces both purple and cyan.
+// Warm near-monochrome "stone" - replaces both purple and cyan.
 const stone = {
   50: "#f7f6f3",
   100: "#ecebe6",

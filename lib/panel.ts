@@ -6,7 +6,7 @@
 // (PoLL / Verga et al. 2024; "Nine Judges, Two Effective Votes", arXiv:2605.29800):
 //   - technical:      correctness and depth of reasoning only
 //   - communication:  clarity and authenticity only
-//   - skeptic:        adversarial — argues the answer is weaker than it looks (counters leniency)
+//   - skeptic:        adversarial - argues the answer is weaker than it looks (counters leniency)
 //
 // Why aggregation is plain code, not another LLM: the dominant multi-agent failure mode is
 // inter-agent misalignment and missing verification, not weak models (MAST, arXiv:2503.13657).
@@ -81,7 +81,7 @@ export function aggregatePanel(
   const allZero = technical === 0 && communication === 0;
   if (allZero) {
     confidence = 0;
-    console.warn("[panel] suspicious: both judges returned 0 — likely model defaulting to lowest anchor");
+    console.warn("[panel] suspicious: both judges returned 0 - likely model defaulting to lowest anchor");
   }
 
   const confidenceMin = opts.confidenceMin ?? env.EVAL_CONFIDENCE_MIN;
@@ -103,7 +103,7 @@ export function aggregatePanel(
     .filter(Boolean);
   if (allZero) {
     feedbackParts.push(
-      "All judges returned 0 — this likely indicates the model defaulted to the lowest score without evaluating. Score is unreliable; human review recommended."
+      "All judges returned 0 - this likely indicates the model defaulted to the lowest score without evaluating. Score is unreliable; human review recommended."
     );
   } else if (lowConfidence) {
     feedbackParts.push(
@@ -151,7 +151,7 @@ async function judgeScore<T extends { score?: number; deduction?: number }>(
 
 /**
  * L3: fan the three judges out concurrently (latency ~= one judge, not three), then L4 aggregate.
- * Any judge failure propagates — in production a missing judgement must never be silently
+ * Any judge failure propagates - in production a missing judgement must never be silently
  * substituted, because the score it feeds becomes an on-chain attestation.
  */
 export async function evaluateAnswerWithPanel(

@@ -39,7 +39,7 @@ export function buildVerdicts(
         claimedLevel: s.claimedLevel,
         observedConfidence: 0,
         status: "exaggerated" as SkillStatus,
-        flag: "Not shown yet — verify it in an interview to turn the claim into evidence.",
+        flag: "Not shown yet - verify it in an interview to turn the claim into evidence.",
       };
     }
     const expected = LEVEL_EXPECTATION[s.claimedLevel] ?? 70;
@@ -47,7 +47,7 @@ export function buildVerdicts(
     let flag: string | null = null;
     if (observed < 70 || observed < expected - 25) {
       status = "exaggerated";
-      flag = `Claimed ${s.claimedLevel}; ${observed}% demonstrated so far — a focused practice session will strengthen the evidence.`;
+      flag = `Claimed ${s.claimedLevel}; ${observed}% demonstrated so far - a focused practice session will strengthen the evidence.`;
     } else if (observed >= 85) {
       status = "strong";
     } else {

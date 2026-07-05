@@ -32,7 +32,7 @@ const RememberAnswer = z.object({
 });
 
 // The caller's current graph (client is the durable source of truth on serverless). Passed as an
-// opaque object; the orchestrator sanitizes it. Kept loose on purpose — it is the user's own data.
+// opaque object; the orchestrator sanitizes it. Kept loose on purpose - it is the user's own data.
 const Graph = z.any().optional();
 
 export const RememberBody = z.discriminatedUnion("kind", [

@@ -1,15 +1,15 @@
 /**
- * improve() — the enrichment half of the lifecycle. Runs automatically after every interview.
- *
- * Does NOT merely save data; it makes the graph smarter:
- *   1. Connects concepts structurally (RELATED_TO + PREREQ_OF) so weaknesses form a sub-graph.
- *   2. Materializes retention decay onto skill/concept nodes (spaced-repetition state).
- *   3. Raises node weights for everything touched (reinforcement / importance).
- *   4. Emits evidence-backed recommendation + learning-resource nodes into the graph.
- *   5. Records improvement milestones when a concept's confidence rose vs its previous interview.
- *
- * Returns a diff summary so the UI can animate "the graph just grew" during the demo.
- */
+  * improve() - the enrichment half of the lifecycle. Runs automatically after every interview.
+  *
+  * Does NOT merely save data; it makes the graph smarter:
+  *   1. Connects concepts structurally (RELATED_TO + PREREQ_OF) so weaknesses form a sub-graph.
+  *   2. Materializes retention decay onto skill/concept nodes (spaced-repetition state).
+  *   3. Raises node weights for everything touched (reinforcement / importance).
+  *   4. Emits evidence-backed recommendation + learning-resource nodes into the graph.
+  *   5. Records improvement milestones when a concept's confidence rose vs its previous interview.
+  *
+  * Returns a diff summary so the UI can animate "the graph just grew" during the demo.
+  */
 
 import { CareerGraph, ID } from "./graph/model";
 import { clock, edgesFrom, link, nodesByKind, upsertNode } from "./graph/ops";
@@ -52,7 +52,7 @@ export function improve(g: CareerGraph, opts: { company?: string | null } = {}):
     }
   }
 
-  // 5: improvement milestones — compare each skill's last two interview evidence scores.
+  // 5: improvement milestones - compare each skill's last two interview evidence scores.
   for (const s of nodesByKind(g, "skill")) {
     const scores = edgesFrom(g, s.id, "DEMONSTRATED_IN")
       .map((e) => (e.data?.score as number) ?? 0)

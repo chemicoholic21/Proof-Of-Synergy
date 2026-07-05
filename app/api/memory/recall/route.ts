@@ -9,7 +9,7 @@ export const runtime = "nodejs";
 export const maxDuration = 30;
 
 /**
- * recall() endpoint — the Career Reasoner state. Used before generating an adaptive interview and
+ * recall() endpoint - the Career Reasoner state. Used before generating an adaptive interview and
  * by the dashboard. When a real Cognee backend is configured we also attach its semantic answer.
  */
 export async function POST(req: NextRequest) {

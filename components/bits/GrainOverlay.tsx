@@ -5,7 +5,7 @@ import { useEffect, useRef } from "react";
 /**
  * Animated film grain (React Bits "Noise" style), monochrome and GPU-cheap: we regenerate a small
  * noise tile each frame and paint it once across the viewport, throttled to ~24fps for that analog
- * cinema flicker. Fixed, pointer-events-none, very low opacity — a texture you feel more than see.
+ * cinema flicker. Fixed, pointer-events-none, very low opacity - a texture you feel more than see.
  */
 export default function GrainOverlay({ opacity = 0.055, fps = 24 }: { opacity?: number; fps?: number }) {
   const ref = useRef<HTMLCanvasElement>(null);

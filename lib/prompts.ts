@@ -59,7 +59,7 @@ export function questionGenAdaptiveUser(
 ) {
   const count = Math.min(7, Math.max(skills.length, 4));
   const cogneeBlock = memory.cogneeInsight
-    ? `\nCOGNEE MEMORY (graph-grounded answer from the candidate's Cognee knowledge graph — treat as authoritative):\n"""${memory.cogneeInsight}"""\n`
+    ? `\nCOGNEE MEMORY (graph-grounded answer from the candidate's Cognee knowledge graph - treat as authoritative):\n"""${memory.cogneeInsight}"""\n`
     : "";
   return `Generate a PERSONALIZED interview using this candidate's long-term memory (from their Cognee Career Knowledge Graph). This is interview #${memory.interviewCount + 1}; it must NOT repeat a generic "tell me about yourself" style and must build on what we already know.
 ${cogneeBlock}

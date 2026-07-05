@@ -32,7 +32,7 @@ function fromBody(candidateId: string, provided: unknown): CareerGraph {
 }
 
 /**
- * POST — the durable path: the client sends its own graph (source of truth on serverless) and gets
+ * POST - the durable path: the client sends its own graph (source of truth on serverless) and gets
  * the full dashboard payload derived from it. Use this so the dashboard shows the memory the client
  * accumulated regardless of which serverless instance handles the request.
  */
@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
 }
 
 /**
- * GET — legacy/local path: derive the dashboard from the server-side file store. Reliable in local
+ * GET - legacy/local path: derive the dashboard from the server-side file store. Reliable in local
  * dev; on serverless it may be empty (per-instance /tmp), which is exactly why the client uses POST.
  */
 export async function GET(req: NextRequest) {

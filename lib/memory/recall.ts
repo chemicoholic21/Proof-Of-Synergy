@@ -1,18 +1,18 @@
 /**
- * recall() — the retrieval half of the lifecycle, a.k.a. the Career Reasoner.
- *
- * Answers the questions an adaptive interview / dashboard must ask BEFORE generating anything:
- *   - Which concepts have low confidence? (weak)
- *   - Which concepts have decayed since last practised? (forgotten → spaced repetition)
- *   - Which claimed skills were never verified?
- *   - Which resume claims have thin evidence? (reality gap)
- *   - Which concepts were recently mastered? (stop asking beginner questions)
- *   - Which projects were never discussed?
- *   - Which company interview is upcoming?
- *
- * Retention decay is computed lazily at read time from lastSeenAt + the concept's half-life, so a
- * skill genuinely "fades" the longer it goes unpractised — the mechanism behind lifelong learning.
- */
+  * recall() - the retrieval half of the lifecycle, a.k.a. the Career Reasoner.
+  *
+  * Answers the questions an adaptive interview / dashboard must ask BEFORE generating anything:
+  *   - Which concepts have low confidence? (weak)
+  *   - Which concepts have decayed since last practised? (forgotten -> spaced repetition)
+  *   - Which claimed skills were never verified?
+  *   - Which resume claims have thin evidence? (reality gap)
+  *   - Which concepts were recently mastered? (stop asking beginner questions)
+  *   - Which projects were never discussed?
+  *   - Which company interview is upcoming?
+  *
+  * Retention decay is computed lazily at read time from lastSeenAt + the concept's half-life, so a
+  * skill genuinely "fades" the longer it goes unpractised - the mechanism behind lifelong learning.
+  */
 
 import { CareerGraph, GNode, ID } from "./graph/model";
 import { clock, daysBetween, edgesFrom, edgesTo, nodesByKind } from "./graph/ops";
@@ -59,11 +59,11 @@ export function recall(g: CareerGraph, opts: RecallOptions = {}): RecallResult {
       reason: "",
     };
     if (c.confidence < 55) {
-      weakConcepts.push({ ...rc, reason: `Scored ${c.confidence}% when last tested — needs practice.` });
+      weakConcepts.push({ ...rc, reason: `Scored ${c.confidence}% when last tested - needs practice.` });
     } else if (retention < 55 && days > 14) {
       forgottenConcepts.push({
         ...rc,
-        reason: `Last discussed ${stalenessLabel(days)}; retention estimated ${retention}% — likely decaying.`,
+        reason: `Last discussed ${stalenessLabel(days)}; retention estimated ${retention}% - likely decaying.`,
       });
     } else if (c.confidence >= 78) {
       strongConcepts.push({ ...rc, reason: `Consistently strong (${c.confidence}%).` });
@@ -139,7 +139,7 @@ function buildDirectives(x: {
 }): string[] {
   const d: string[] = [];
   if (x.isNew) {
-    d.push("This is the candidate's first interview — establish a baseline across their claimed skills.");
+    d.push("This is the candidate's first interview - establish a baseline across their claimed skills.");
     return d;
   }
   if (x.weakConcepts.length)

@@ -12,7 +12,7 @@ import { CareerGraph, EdgeType, GEdge, GNode, ID, NodeKind } from "./model";
 const defaultNow = () => new Date().toISOString();
 let now = defaultNow;
 /** Test/demo seam: override the clock for deterministic snapshots. Returns the PREVIOUS clock so
- *  callers can restore it (never pass `clock` back in — that would recurse). */
+ *  callers can restore it (never pass `clock` back in - that would recurse). */
 export function __setClock(fn: () => string): () => string {
   const prev = now;
   now = fn;
@@ -81,7 +81,7 @@ export function link(
   to: string,
   opts: { weight?: number; data?: Record<string, unknown> } = {}
 ): GEdge | null {
-  // Never create a dangling edge — both endpoints must exist.
+  // Never create a dangling edge - both endpoints must exist.
   if (!g.nodes[from] || !g.nodes[to]) return null;
   const id = ID.edge(from, type, to);
   const ts = now();

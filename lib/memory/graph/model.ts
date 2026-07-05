@@ -3,7 +3,7 @@
  *
  * This is the stable contract for the whole memory layer. The *representation* (how it is stored,
  * whether it is mirrored into Cognee) may evolve, but these entity kinds and relationship types are
- * the vocabulary the rest of the app reasons in. Nodes are meaning, edges are the product — we
+ * the vocabulary the rest of the app reasons in. Nodes are meaning, edges are the product - we
  * never flatten a relationship into a JSON blob.
  */
 
@@ -81,7 +81,7 @@ export interface CareerGraph {
   edges: Record<string, GEdge>;
   createdAt: string;
   updatedAt: string;
-  /** Monotonic counter of remember()/improve() cycles — a cheap "how much has this person grown". */
+  /** Monotonic counter of remember()/improve() cycles - a cheap "how much has this person grown". */
   revision: number;
   /** Bumped whenever the on-disk shape changes so old files can be migrated. */
   schemaVersion: number;
@@ -93,7 +93,7 @@ export const SCHEMA_VERSION = 1;
 // Deterministic, mergeable identifiers.
 //
 // Skills / concepts / technologies / companies collapse to a slug so the SAME real-world entity is
-// ONE node no matter how many interviews mention it — that is what makes the graph accumulate
+// ONE node no matter how many interviews mention it - that is what makes the graph accumulate
 // meaning instead of piling up duplicates. Per-event entities (interviews, questions, answers)
 // carry their own scope so history is preserved.
 // ---------------------------------------------------------------------------

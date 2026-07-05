@@ -49,7 +49,7 @@ export default function CareerDashboard({ candidateId, company }: { candidateId:
     }
   }, [candidateId, company]);
 
-  // Cognee-driven "what should I study next" — a graph-grounded answer straight from Cognee's memory.
+  // Cognee-driven "what should I study next" - a graph-grounded answer straight from Cognee's memory.
   const loadInsight = useCallback(async () => {
     setCogneeInsight(null);
     try {
@@ -123,7 +123,7 @@ export default function CareerDashboard({ candidateId, company }: { candidateId:
       <div className="glass-card p-8 text-center text-zinc-400">
         <div className="text-4xl mb-3">🧠</div>
         <h3 className="heading-font text-xl font-bold text-white">No career memory yet</h3>
-        <p className="mt-2 text-sm">Upload a resume and finish an interview — or load the demo — to start building your Career Knowledge Graph.</p>
+        <p className="mt-2 text-sm">Upload a resume and finish an interview - or load the demo - to start building your Career Knowledge Graph.</p>
       </div>
     );
 
@@ -131,12 +131,12 @@ export default function CareerDashboard({ candidateId, company }: { candidateId:
     <div className="flex flex-col gap-5">
       <MemoryHeader d={d} recall={recall} cogneeConfigured={cogneeConfigured} cogneeInsight={cogneeInsight} company={company} />
 
-      {/* GitHub evidence import — a third, independent evidence source for the Reality Gap. */}
+      {/* GitHub evidence import - a third, independent evidence source for the Reality Gap. */}
       <div className="glass-card p-4 flex flex-col sm:flex-row sm:items-center gap-3">
         <div className="flex items-center gap-2 text-sm text-zinc-300">
           <span className="text-lg">🐙</span>
           <span className="font-semibold">Add GitHub evidence</span>
-          <span className="text-xs text-zinc-500 hidden sm:inline">— verify resume claims against real code</span>
+          <span className="text-xs text-zinc-500 hidden sm:inline">- verify resume claims against real code</span>
         </div>
         <div className="flex gap-2 flex-1 sm:justify-end">
           <input
@@ -233,7 +233,7 @@ function MemoryHeader({
       )}
       {recall.focusDirectives.length > 0 && (
         <div className="mt-4 rounded-xl border border-cyan-500/20 bg-cyan-950/10 p-3">
-          <div className="text-[10px] uppercase tracking-wider font-bold text-cyan-300 mb-1">recall() — what the next interview will focus on</div>
+          <div className="text-[10px] uppercase tracking-wider font-bold text-cyan-300 mb-1">recall() - what the next interview will focus on</div>
           <ul className="text-[13px] text-zinc-300 space-y-0.5 list-disc pl-4">
             {recall.focusDirectives.map((x, i) => (
               <li key={i}>{x}</li>
@@ -254,7 +254,7 @@ const REALITY_TIERS: { tier: RealityGapItem["tier"]; label: string; box: string;
 function RealityGap({ items }: { items: RealityGapItem[] }) {
   return (
     <section className="glass-card p-6">
-      <SectionTitle title="Reality Gap" subtitle="Resume claims cross-checked against demonstrated evidence — coaching, never shaming." />
+      <SectionTitle title="Reality Gap" subtitle="Resume claims cross-checked against demonstrated evidence - coaching, never shaming." />
       <div className="grid gap-4 md:grid-cols-3">
         {REALITY_TIERS.map((g) => {
           const list = items.filter((i) => i.tier === g.tier);
@@ -264,7 +264,7 @@ function RealityGap({ items }: { items: RealityGapItem[] }) {
                 {g.label} ({list.length})
               </div>
               <div className="flex flex-col gap-3">
-                {list.length === 0 && <div className="text-xs text-zinc-600">—</div>}
+                {list.length === 0 && <div className="text-xs text-zinc-600">-</div>}
                 {list.map((i) => (
                   <div key={i.skill} className="rounded-xl bg-black/40 border border-white/5 p-3">
                     <div className="flex items-center justify-between">
@@ -340,9 +340,9 @@ function SkillEvidence({ skills, onReplay }: { skills: SkillCard[]; onReplay: (c
 function Roadmap({ recommendations, missions }: { recommendations: Recommendation[]; missions: LearningMission[] }) {
   return (
     <section className="glass-card p-6">
-      <SectionTitle title="Learning Roadmap" subtitle="Every weakness becomes a mission — read → practice → quiz → re-interview → improvement recorded. Each is evidence-backed." />
+      <SectionTitle title="Learning Roadmap" subtitle="Every weakness becomes a mission - read → practice → quiz → re-interview → improvement recorded. Each is evidence-backed." />
       <div className="flex flex-col gap-3">
-        {missions.length === 0 && <div className="text-sm text-zinc-500">No weaknesses to work on — everything is well demonstrated and fresh. 🎉</div>}
+        {missions.length === 0 && <div className="text-sm text-zinc-500">No weaknesses to work on - everything is well demonstrated and fresh. 🎉</div>}
         {missions.map((m) => {
           const rec = recommendations.find((r) => r.concept === m.concept);
           return (
@@ -389,7 +389,7 @@ function Communication({ d }: { d: Dashboard }) {
   const c = d.communication;
   return (
     <section className="glass-card p-6">
-      <SectionTitle title="Communication Trends (Interview DNA)" subtitle="Voice & language patterns tracked across every interview — persistent, not per-session." />
+      <SectionTitle title="Communication Trends (Interview DNA)" subtitle="Voice & language patterns tracked across every interview - persistent, not per-session." />
       {c.length === 0 ? (
         <div className="text-sm text-zinc-500">No interviews recorded yet.</div>
       ) : (
@@ -415,7 +415,7 @@ function Communication({ d }: { d: Dashboard }) {
 function Timeline({ d, onReplay }: { d: Dashboard; onReplay: (c: string) => void }) {
   return (
     <section className="glass-card p-6">
-      <SectionTitle title="Career Timeline" subtitle="Automatically generated from the graph — resume versions, interviews and improvement milestones." />
+      <SectionTitle title="Career Timeline" subtitle="Automatically generated from the graph - resume versions, interviews and improvement milestones." />
       <ol className="relative border-l border-zinc-800 ml-2">
         {d.timeline.map((e, i) => (
           <li key={i} className="mb-5 ml-5">

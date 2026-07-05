@@ -13,7 +13,7 @@ graph.* If a change does not feed the evolving memory, it is out of scope.
 ## 1. Repository audit (as-is)
 
 The app is a Next.js 14 (App Router) + TypeScript project. There is **no database and no auth
-wired in today** — the whole session lives in React state in `app/page.tsx`. Every external
+wired in today - the whole session lives in React state in `app/page.tsx`. Every external
 dependency degrades gracefully (`DEMO_MODE`, honest errors, labelled fallbacks).
 
 ### Data-flow pipeline (current)
@@ -30,12 +30,12 @@ dependency degrades gracefully (`DEMO_MODE`, honest errors, labelled fallbacks).
 
 ### Key modules (unchanged, reused as-is)
 
-- `lib/sarvam.ts` — the only AI provider abstraction (chat / STT / TTS / OCR) + JSON extractors.
-- `lib/env.ts` — centralized, validated env with graceful `*Configured()` guards. **Pattern to copy.**
-- `lib/http.ts` — request id, error envelope, rate limit, zod body parsing.
-- `lib/panel.ts`, `lib/prompts.ts`, `lib/schemas.ts` — multi-agent evaluation. Reused verbatim.
-- `lib/chain.ts`, `lib/ipfs.ts` — blockchain + IPFS. Reused; only the *meaning* of the mint changes.
-- `lib/logger.ts`, `lib/rateLimit.ts` — infra.
+- `lib/sarvam.ts` - the only AI provider abstraction (chat / STT / TTS / OCR) + JSON extractors.
+- `lib/env.ts` - centralized, validated env with graceful `*Configured()` guards. **Pattern to copy.**
+- `lib/http.ts` - request id, error envelope, rate limit, zod body parsing.
+- `lib/panel.ts`, `lib/prompts.ts`, `lib/schemas.ts` - multi-agent evaluation. Reused verbatim.
+- `lib/chain.ts`, `lib/ipfs.ts` - blockchain + IPFS. Reused; only the *meaning* of the mint changes.
+- `lib/logger.ts`, `lib/rateLimit.ts` - infra.
 
 ### What stays unchanged
 Resume upload, voice interview, transcription, judge-panel evaluation, TTS. These routes keep
@@ -115,33 +115,33 @@ LearningResource/Mission, Recommendation, Milestone.
 `UPDATES_COMMUNICATION`, `RETENTION_DECAY`.
 
 ### Memory lifecycle, made visible
-- **remember()** — resume/interview/github → structured nodes + relationships (never flat JSON).
-- **recall()** — semantic + graph traversal answering the Career Reasoner questions.
-- **improve()** — relate concepts, raise node weights, recompute confidence + retention, emit
+- **remember()** - resume/interview/github -> structured nodes + relationships (never flat JSON).
+- **recall()** - semantic + graph traversal answering the Career Reasoner questions.
+- **improve()** - relate concepts, raise node weights, recompute confidence + retention, emit
   evidence-backed recommendations and spaced-repetition schedule.
-- **forget()** — delete a memory and prune orphans while keeping the graph consistent.
+- **forget()** - delete a memory and prune orphans while keeping the graph consistent.
 
 ### Cognee integration point
 `lib/memory/cognee/client.ts` is the seam. When `COGNEE_API_URL`/`COGNEE_API_KEY` are set the
 client mirrors each `remember()` into Cognee (`add` + `cognify`) and can answer `recall()` via
 Cognee `search`. When unset, the deterministic local graph engine provides identical semantics so
-the demo runs with zero credentials — same posture as `DEMO_MODE` elsewhere. Removing this layer
-removes adaptivity, evidence, reality gap, retention and roadmap — i.e. the product.
+the demo runs with zero credentials - same posture as `DEMO_MODE` elsewhere. Removing this layer
+removes adaptivity, evidence, reality gap, retention and roadmap - i.e. the product.
 
 ---
 
 ## 3. Phased roadmap (incremental commits)
 
-1. **Graph model + store + ops** — canonical model, per-candidate persistence, consistency ops.
-2. **Cognee client** — configured guard + REST bridge + local-engine fallback.
-3. **remember()** — resume + interview ingestion into nodes/edges; Interview DNA extraction.
-4. **recall()** — Career Reasoner queries (weak / forgotten / unverified / undiscussed / company).
-5. **improve()** — concept relation, weights, retention decay, recommendations, learning missions.
+1. **Graph model + store + ops** - canonical model, per-candidate persistence, consistency ops.
+2. **Cognee client** - configured guard + REST bridge + local-engine fallback.
+3. **remember()** - resume + interview ingestion into nodes/edges; Interview DNA extraction.
+4. **recall()** - Career Reasoner queries (weak / forgotten / unverified / undiscussed / company).
+5. **improve()** - concept relation, weights, retention decay, recommendations, learning missions.
 6. **forget()** + evidence + derive views (reality gap, timeline, trends, roadmap, replay).
 7. **Memory API routes** (`/api/memory/*`) + adaptive `generate-questions` + demo seed.
 8. **Orchestrator** wiring the interview-complete pipeline.
 9. **UI**: Career Dashboard, Knowledge Graph viz, Reality Gap, Evidence, Trends, Timeline,
-   Roadmap, Replay — all consuming graph data; reframed "Proof of Growth" mint.
+   Roadmap, Replay - all consuming graph data; reframed "Proof of Growth" mint.
 10. **Demo mode**: one-click seed (resume + 3 interviews + comm history) for the 5-minute script.
 
 Success test (all must be "yes"): remembers me across sessions · every interview gets smarter ·

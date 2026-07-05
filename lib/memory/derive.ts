@@ -1,6 +1,6 @@
 /**
  * Derived read-models for the Career Intelligence Dashboard. Everything here is computed from the
- * graph — no view has its own store — so the dashboard is always a faithful projection of memory.
+ * graph - no view has its own store - so the dashboard is always a faithful projection of memory.
  */
 
 import { CareerGraph, GNode, ID, NodeKind } from "./graph/model";
@@ -33,7 +33,7 @@ export function realityGap(g: CareerGraph): RealityGapItem[] {
     let action: string;
     if (demonstrated && s.confidence >= 75) {
       tier = "highly-demonstrated";
-      action = retention < 60 ? `Keep ${s.label} fresh — a quick review interview will re-verify it.` : `${s.label} is well evidenced. Ready to showcase.`;
+      action = retention < 60 ? `Keep ${s.label} fresh - a quick review interview will re-verify it.` : `${s.label} is well evidenced. Ready to showcase.`;
     } else if (demonstrated && s.confidence >= 50) {
       tier = "developing";
       action = `Practice ${s.label} once more to move it into highly-demonstrated.`;
@@ -174,7 +174,7 @@ export interface GraphView {
 }
 
 /** A readable subset of the graph for visualization: the candidate, skills, top concepts, projects,
- *  companies, interviews and the recommendations — not every low-level answer/evidence node. */
+ *  companies, interviews and the recommendations - not every low-level answer/evidence node. */
 export function graphView(g: CareerGraph): GraphView {
   const keepKinds: NodeKind[] = ["candidate", "skill", "concept", "project", "company", "interview", "recommendation", "resource"];
   const now = clock();

@@ -1,5 +1,5 @@
 /**
- * Cognee service client — the single seam between the app and Cognee Cloud.
+ * Cognee service client - the single seam between the app and Cognee Cloud.
  *
  * Verified against the tenant's live OpenAPI spec (cognee Cloud, /openapi.json):
  *   - auth:    X-Api-Key header (NOT Bearer)
@@ -15,7 +15,7 @@
  * (remember/recall/improve/forget); that layer keeps a local Career Knowledge Graph as a
  * deterministic fallback AND, when Cognee is configured, mirrors every remember() into Cognee and
  * enriches recall() with Cognee's graph-grounded search. If Cognee is unconfigured or a call fails,
- * the local engine already produced a correct answer, so the product never breaks — it only loses
+ * the local engine already produced a correct answer, so the product never breaks - it only loses
  * the extra semantic lift. Same posture as DEMO_MODE elsewhere.
  */
 

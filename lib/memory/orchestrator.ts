@@ -1,5 +1,5 @@
 /**
- * Memory Orchestrator — owns the end-to-end pipeline so routes and UI never wire the lifecycle
+ * Memory Orchestrator - owns the end-to-end pipeline so routes and UI never wire the lifecycle
  * together by hand. This is the single entry point the application uses to grow the graph.
  *
  * Persistence model: the CLIENT is the durable source of truth. Every mutation takes the caller's
