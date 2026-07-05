@@ -141,3 +141,28 @@ body {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+/* React Bits-style reveals for the landing hero */
+@keyframes blurReveal {
+  0% { opacity: 0; filter: blur(14px); transform: translateY(0.42em); }
+  100% { opacity: 1; filter: blur(0); transform: translateY(0); }
+}
+@keyframes fadeUp {
+  0% { opacity: 0; transform: translateY(14px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+.fade-up {
+  animation: fadeUp 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@keyframes hairline {
+  0% { transform: scaleX(0); }
+  100% { transform: scaleX(1); }
+}
+.hairline-grow {
+  transform-origin: left;
+  animation: hairline 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fade-up, .hairline-grow { animation: none; }
+}
