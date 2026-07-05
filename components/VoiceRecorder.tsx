@@ -11,7 +11,7 @@ export default function VoiceRecorder({
   onRecorded,
   disabled,
 }: {
-  onRecorded: (blobs: Blob[]) => void;
+  onRecorded: (blobs: Blob[], durationSec: number) => void;
   disabled?: boolean;
 }) {
   const [recording, setRecording] = useState(false);
@@ -25,6 +25,7 @@ export default function VoiceRecorder({
   const rotateRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const keepGoingRef = useRef(false); // true while the user is still recording (drives rotation)
   const streamRef = useRef<MediaStream | null>(null);
+  const startMsRef = useRef(0); // wall-clock start, used to report answer duration for speech-rate DNA
 
   function clearTimers() {
     if (timerRef.current) clearInterval(timerRef.current);
@@ -53,7 +54,8 @@ export default function VoiceRecorder({
       } else {
         streamRef.current?.getTracks().forEach((t) => t.stop());
         setHasClip(true);
-        onRecorded(segmentsRef.current.slice());
+        const durationSec = Math.max(1, Math.round((performance.now() - startMsRef.current) / 1000));
+        onRecorded(segmentsRef.current.slice(), durationSec);
       }
     };
     mr.start();
@@ -72,6 +74,7 @@ export default function VoiceRecorder({
       streamRef.current = stream;
       segmentsRef.current = [];
       keepGoingRef.current = true;
+      startMsRef.current = performance.now();
       startSegment(stream);
       setRecording(true);
       setSeconds(0);

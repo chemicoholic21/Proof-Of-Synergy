@@ -89,6 +89,8 @@ export default function Home() {
   // Each answer is one or more ordered audio segments (long answers are split to fit the 30s
   // real-time STT limit and stitched back together server-side).
   const [answers, setAnswers] = useState<Record<number, Blob[]>>({});
+  // Per-question recording duration (seconds) → speech-rate (WPM) in Interview DNA.
+  const [durations, setDurations] = useState<Record<number, number>>({});
   const [transcripts, setTranscripts] = useState<Record<number, Transcript>>({});
   const [evaluations, setEvaluations] = useState<QuestionEvaluation[]>([]);
   const [verdicts, setVerdicts] = useState<SkillVerdict[]>([]);
@@ -205,6 +207,7 @@ export default function Home() {
             feedback: ev?.feedback,
             strengths: ev?.strengths,
             improvements: ev?.improvements,
+            durationSec: durations[q.id],
           };
         });
         const memRes = await fetch("/api/memory/remember", {
@@ -452,7 +455,10 @@ export default function Home() {
                     <div className="pl-12">
                       <VoiceRecorder
                         disabled={!!busy}
-                        onRecorded={(blobs) => setAnswers((a) => ({ ...a, [q.id]: blobs }))}
+                        onRecorded={(blobs, durationSec) => {
+                          setAnswers((a) => ({ ...a, [q.id]: blobs }));
+                          setDurations((d) => ({ ...d, [q.id]: durationSec }));
+                        }}
                       />
                     </div>
                   </div>

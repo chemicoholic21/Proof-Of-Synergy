@@ -393,6 +393,14 @@ function Communication({ d }: { d: Dashboard }) {
           <TrendCard title="Filler words" points={c.map((x) => x.fillerCount)} labels={c.map((x) => `#${x.interviewIndex}`)} higherBetter={false} />
           <TrendCard title="Vocabulary richness" points={c.map((x) => x.vocabularyRichness)} labels={c.map((x) => `#${x.interviewIndex}`)} suffix="%" higherBetter />
           <TrendCard title="Technical depth" points={c.map((x) => x.technicalDepth)} labels={c.map((x) => `#${x.interviewIndex}`)} suffix="%" higherBetter />
+          {c.some((x) => x.speechRateWpm != null) && (
+            <TrendCard
+              title="Speaking pace (wpm)"
+              points={c.map((x) => x.speechRateWpm ?? 0)}
+              labels={c.map((x) => `#${x.interviewIndex}`)}
+              higherBetter
+            />
+          )}
         </div>
       )}
     </section>
