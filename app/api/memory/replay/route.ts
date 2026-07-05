@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { memoryReplay } from "@/lib/memory";
 import { loadOrInit } from "@/lib/memory/graph/store";
+import { emptyGraph, CareerGraph } from "@/lib/memory/graph/model";
+import { clock } from "@/lib/memory/graph/ops";
 import { ReplayBody } from "@/lib/memory/api-schemas";
 import { logger } from "@/lib/logger";
 import { newRequestId, errorResponse, enforceRateLimit, parseJsonBody, ValidationError } from "@/lib/http";
@@ -27,7 +29,10 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const g = await loadOrInit(body.candidateId, null);
+    const p = body.graph as Partial<CareerGraph> | undefined;
+    const g = p && p.nodes && p.edges
+      ? { ...emptyGraph(body.candidateId, p.name ?? null, clock()), nodes: p.nodes as CareerGraph["nodes"], edges: p.edges as CareerGraph["edges"] }
+      : await loadOrInit(body.candidateId, null);
     const entries = memoryReplay(g, body.concept);
     log.info("replay served", { candidateId: body.candidateId, concept: body.concept, entries: entries.length });
     return NextResponse.json({ concept: body.concept, entries });

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import KnowledgeGraph from "./KnowledgeGraph";
+import { loadGraphLocal, saveGraphLocal } from "@/lib/candidate";
 import type { Dashboard, Recommendation, LearningMission, RecallResult, ReplayEntry, RealityGapItem, SkillCard } from "@/lib/memory";
 
 interface GraphResponse {
@@ -33,11 +34,14 @@ export default function CareerDashboard({ candidateId, company }: { candidateId:
   const [ghBusy, setGhBusy] = useState(false);
   const [ghMsg, setGhMsg] = useState<string | null>(null);
 
+  // Durable path: derive the dashboard from the browser-held graph so it works on serverless.
   const load = useCallback(async () => {
     try {
-      const q = new URLSearchParams({ candidateId });
-      if (company) q.set("company", company);
-      const res = await fetch(`/api/memory/graph?${q.toString()}`);
+      const res = await fetch("/api/memory/graph", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ candidateId, company: company || null, graph: loadGraphLocal(candidateId) }),
+      });
       if (!res.ok) throw new Error(`Failed to load memory (${res.status})`);
       setData(await res.json());
     } catch (e) {
@@ -52,7 +56,7 @@ export default function CareerDashboard({ candidateId, company }: { candidateId:
       const res = await fetch("/api/memory/recall", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ candidateId, company: company || null }),
+        body: JSON.stringify({ candidateId, company: company || null, graph: loadGraphLocal(candidateId) }),
       });
       if (!res.ok) return;
       const r = await res.json();
@@ -74,7 +78,7 @@ export default function CareerDashboard({ candidateId, company }: { candidateId:
         const res = await fetch("/api/memory/replay", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ candidateId, concept }),
+          body: JSON.stringify({ candidateId, concept, graph: loadGraphLocal(candidateId) }),
         });
         const r = await res.json();
         setReplay({ concept, entries: r.entries ?? [] });
@@ -93,10 +97,11 @@ export default function CareerDashboard({ candidateId, company }: { candidateId:
       const res = await fetch("/api/memory/github", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ candidateId, username: ghUser.trim() }),
+        body: JSON.stringify({ candidateId, username: ghUser.trim(), graph: loadGraphLocal(candidateId) }),
       });
       const r = await res.json();
       if (!res.ok) throw new Error(r.error || "GitHub import failed");
+      if (r.graph) saveGraphLocal(candidateId, r.graph);
       setGhMsg(`Imported @${r.profile.username}: ${r.profile.repoCount} repos, ${r.profile.technologies.length} technologies.`);
       setGhUser("");
       await load();

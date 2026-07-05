@@ -4,7 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import CareerDashboard from "@/components/memory/CareerDashboard";
-import { getCandidateId, setCandidateName } from "@/lib/candidate";
+import { getCandidateId, setCandidateName, saveGraphLocal } from "@/lib/candidate";
 
 const COMPANIES = ["", "Google", "Amazon", "Meta", "Stripe", "Microsoft", "Netflix", "Uber"];
 
@@ -24,7 +24,9 @@ function DashboardInner() {
     try {
       const id = "demo-aarav";
       setCandidateName("Aarav Sharma", id);
-      await fetch("/api/memory/seed", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ candidateId: id, name: "Aarav Sharma" }) });
+      const res = await fetch("/api/memory/seed", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ candidateId: id, name: "Aarav Sharma" }) });
+      const r = await res.json().catch(() => null);
+      if (r?.graph) saveGraphLocal(id, r.graph); // persist so the dashboard reads it (durable on serverless)
       setCandidateId(id);
       setReloadKey((k) => k + 1);
     } finally {
