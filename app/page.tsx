@@ -749,20 +749,20 @@ function Header({ step }: { step: Step }) {
 
 function Intro({ onStart }: { onStart: () => void }) {
   const features = [
-    { k: "remember()", t: "Structural memory", d: "Every interview writes to a lifelong Cognee knowledge graph - not chunks, relationships." },
-    { k: "recall()", t: "Adaptive by memory", d: "The next interview knows your weak, forgotten and unverified topics. No two are alike." },
-    { k: "improve()", t: "Evidence, not scores", d: "Reality gap, retention decay and a learning roadmap - every recommendation is traceable." },
+    { k: "remember()", t: "Personal, persistent memory", d: "Your Interview Twin remembers everything you say - questions, answers, skills, and communication patterns." },
+    { k: "recall()", t: "Ask better questions", d: "Your next interview will target what you missed and revisit what you forgot." },
+    { k: "improve()", t: "Your growth, made tangible", d: "Every weakness turns into a focused practice mission." },
   ];
   return (
     <div className="relative py-6 sm:py-10">
       <div className="fade-up flex items-center gap-3" style={{ animationDelay: "60ms" }}>
         <span className="h-px w-8 bg-accent/60 hairline-grow" style={{ animationDelay: "60ms" }} />
-        <span className="text-[11px] uppercase tracking-[0.25em] text-ink-soft">A lifelong AI interview twin</span>
+        <span className="text-[11px] uppercase tracking-[0.25em] text-ink-soft">Your Career Memory</span>
       </div>
 
       <Shuffle
         as="h1"
-        text={"GitHub shows code.\nLinkedIn shows claims.\nWe remember what neither can."}
+        text={"We prove communication.\nWe build your Career Knowledge Graph.\nWe remember what others forget."}
         stagger={26}
         scrambleMs={240}
         start={160}
@@ -770,9 +770,8 @@ function Intro({ onStart }: { onStart: () => void }) {
       />
 
       <p className="fade-up mt-8 max-w-2xl text-base leading-relaxed text-ink-soft sm:text-[17px]" style={{ animationDelay: "620ms" }}>
-        Upload your resume, take a voice interview in any Indian language, and watch every answer become
-        permanent memory in a <span className="text-ink">Cognee Career Knowledge Graph</span>. Each session
-        makes the next one smarter - personalized questions, evidence-backed feedback, a roadmap that never forgets.
+        Upload your resume, take a voice interview in any Indian language, and watch your answers become
+        more than facts - your Career Memory grows permanently, making you better at every attempt.
       </p>
 
       <div className="fade-up mt-9 flex flex-col sm:flex-row gap-3" style={{ animationDelay: "740ms" }}>
@@ -783,7 +782,7 @@ function Intro({ onStart }: { onStart: () => void }) {
           </svg>
         </button>
         <Link href="/dashboard" className="btn-ghost px-8 py-3.5 text-base flex items-center justify-center gap-2">
-          See a 6-month Career Memory demo
+          See Career Memory
         </Link>
       </div>
 
