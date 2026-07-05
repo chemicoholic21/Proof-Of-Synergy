@@ -18,7 +18,7 @@ import { recall } from "./recall";
 import { forget, ForgetResult, ForgetTarget } from "./forget";
 import { buildDashboard, Dashboard } from "./derive";
 import { RecallResult, RememberInterviewInput, RememberResumeInput } from "./types";
-import { cogneeAdd, cogneeCognify, cogneeForget } from "./cognee/client";
+import { cogneeAdd, cogneeCognify, cogneeForget, cogneeSearch, cogneeConfigured } from "./cognee/client";
 import { serializeInterviewForCognee, serializeResumeForCognee } from "./cognee/serialize";
 import { nodesByKind } from "./graph/ops";
 import { deleteGraph } from "./graph/store";
@@ -56,10 +56,26 @@ export async function ingestInterview(
   return { dashboard: buildDashboard(g), improve: summary, interviewIndex };
 }
 
-/** recall() the Career Reasoner state used to steer an adaptive interview. */
-export async function reason(candidateId: string, opts: { company?: string | null } = {}): Promise<RecallResult> {
+/**
+ * recall() the Career Reasoner state used to steer an adaptive interview. When Cognee is configured
+ * and `withCognee` is set, this ALSO asks Cognee's own graph what the next interview should focus
+ * on, and attaches that graph-grounded answer as `cogneeInsight` — so the interview is genuinely
+ * driven by Cognee's memory, not just the local mirror.
+ */
+export async function reason(
+  candidateId: string,
+  opts: { company?: string | null; withCognee?: boolean } = {}
+): Promise<RecallResult> {
   const g = await loadOrInit(candidateId, null);
-  return recall(g, { company: opts.company });
+  const result = recall(g, { company: opts.company });
+  if (opts.withCognee && cogneeConfigured() && !result.isNew) {
+    result.cogneeInsight = await cogneeSearch(
+      `Based on this candidate's interview history, which concepts are weakest or least recently practised, and what should their next interview${opts.company ? ` (preparing for ${opts.company})` : ""} focus on? Answer concisely.`,
+      candidateId,
+      "GRAPH_COMPLETION"
+    );
+  }
+  return result;
 }
 
 /** Full dashboard read-model. */

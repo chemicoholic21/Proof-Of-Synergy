@@ -54,11 +54,15 @@ export function questionGenAdaptiveUser(
     masteredConcepts: string[];
     upcomingCompany: string | null;
     interviewCount: number;
+    cogneeInsight?: string | null;
   }
 ) {
   const count = Math.min(7, Math.max(skills.length, 4));
-  return `Generate a PERSONALIZED interview using this candidate's long-term memory (from their Career Knowledge Graph). This is interview #${memory.interviewCount + 1}; it must NOT repeat a generic "tell me about yourself" style and must build on what we already know.
-
+  const cogneeBlock = memory.cogneeInsight
+    ? `\nCOGNEE MEMORY (graph-grounded answer from the candidate's Cognee knowledge graph — treat as authoritative):\n"""${memory.cogneeInsight}"""\n`
+    : "";
+  return `Generate a PERSONALIZED interview using this candidate's long-term memory (from their Cognee Career Knowledge Graph). This is interview #${memory.interviewCount + 1}; it must NOT repeat a generic "tell me about yourself" style and must build on what we already know.
+${cogneeBlock}
 MEMORY-DRIVEN FOCUS (obey these, in priority order):
 ${memory.focusDirectives.map((d, i) => `${i + 1}. ${d}`).join("\n") || "1. Establish a baseline across the candidate's claimed skills."}
 
