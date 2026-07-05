@@ -49,7 +49,7 @@ export default function CareerDashboard({ candidateId, company }: { candidateId:
     }
   }, [candidateId, company]);
 
-  // Cognee-driven "what should I study next" - a graph-grounded answer straight from Cognee's memory.
+  // Cognee-driven "my next steps" - a graph-grounded answer straight from Cognee's memory.
   const loadInsight = useCallback(async () => {
     setCogneeInsight(null);
     try {
@@ -122,8 +122,8 @@ export default function CareerDashboard({ candidateId, company }: { candidateId:
     return (
       <div className="glass-card p-8 text-center text-zinc-400">
         <div className="text-4xl mb-3">🧠</div>
-        <h3 className="heading-font text-xl font-bold text-white">No career memory yet</h3>
-        <p className="mt-2 text-sm">Upload a resume and finish an interview - or load the demo - to start building your Career Knowledge Graph.</p>
+        <h3 className="heading-font text-xl font-bold text-white">Start building your Career Memory</h3>
+        <p className="mt-2 text-sm">Complete your first interview to see your graph grow.</p>
       </div>
     );
 
@@ -225,7 +225,7 @@ function MemoryHeader({
       {cogneeInsight && (
         <div className="mt-4 rounded-xl border border-[#c8beac]/25 bg-[#c8beac]/5 p-3">
           <div className="text-[10px] uppercase tracking-widest font-bold text-[#c8beac] mb-1">
-            Ask Cognee · {company ? `what to study before ${company}` : "what should I study next"}
+            What to focus on {company ? `will help prepare for ${company}` : "my next steps"}
           </div>
           <p className="text-[13px] text-zinc-200 whitespace-pre-line">{cogneeInsight}</p>
           <p className="mt-1 text-[10px] text-zinc-500">Graph-grounded answer from Cognee&apos;s search() over your memory.</p>
