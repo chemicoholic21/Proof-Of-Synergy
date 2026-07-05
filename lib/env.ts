@@ -68,6 +68,16 @@ const EnvSchema = z.object({
   // IPFS
   PINATA_JWT: z.string().optional(),
 
+  // Cognee — the structural memory / Career Knowledge Graph backend. When these are set the memory
+  // layer mirrors remember() into a real Cognee instance and can answer recall() via Cognee search.
+  // When unset, the deterministic local graph engine provides identical semantics so the app runs
+  // with zero credentials (same posture as DEMO_MODE). COGNEE_DATA_DIR overrides where the local
+  // graph documents are persisted.
+  COGNEE_API_URL: z.string().url().optional(),
+  COGNEE_API_KEY: z.string().optional(),
+  COGNEE_DATASET: z.string().default("career-memory"),
+  COGNEE_DATA_DIR: z.string().optional(),
+
   // Auth, required to call the wallet-spending mint endpoint outside demo mode.
   MINT_API_SECRET: z.string().min(16).optional(),
 
@@ -118,4 +128,9 @@ export function chainConfigured(): boolean {
 /** True when IPFS pinning is configured. */
 export function ipfsConfigured(): boolean {
   return Boolean(env.PINATA_JWT && env.PINATA_JWT.length > 0);
+}
+
+/** True when a real Cognee backend is configured (otherwise the local graph engine is used). */
+export function cogneeConfigured(): boolean {
+  return Boolean(env.COGNEE_API_URL && env.COGNEE_API_KEY);
 }
