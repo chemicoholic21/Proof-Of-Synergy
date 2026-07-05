@@ -237,12 +237,11 @@ export default function Home() {
   const allRecorded = questions.length > 0 && questions.every((q) => (answers[q.id]?.length ?? 0) > 0);
 
   return (
-    <div className="min-h-screen relative overflow-hidden">
-      {/* Background grids and lighting */}
-      <div className="cyber-bg" />
-      <div className="cyber-glow-1" />
-      <div className="cyber-glow-2" />
-      <div className="cyber-glow-3" />
+    <div className="min-h-screen relative overflow-hidden bg-black">
+      {/* The Hangover Part AI - solving AI amnesia */}
+      <div className="absolute inset-0 -z-10 opacity-10">
+        <img src="/hangover-bg.svg" alt="" className="w-full h-full object-cover" />
+      </div>
 
       <main className="mx-auto w-full max-w-6xl px-6 sm:px-10 lg:px-16 py-10 relative z-10">
         <Header step={step} />
@@ -745,20 +744,20 @@ function Header({ step }: { step: Step }) {
 
 function Intro({ onStart }: { onStart: () => void }) {
   const features = [
-    { k: "remember()", t: "Personal, persistent memory", d: "Your Interview Twin remembers everything you say - questions, answers, skills, and communication patterns." },
-    { k: "recall()", t: "Ask better questions", d: "Your next interview will target what you missed and revisit what you forgot." },
-    { k: "improve()", t: "Your growth, made tangible", d: "Every weakness turns into a focused practice mission." },
+    { k: "forget()", t: "What did you miss?", d: "We surface gaps you forgot, so you can fill them." },
+    { k: "gap()", t: "What did they overlook?", d: "Interviewers miss what matters - we find it." },
+    { k: "remember()", t: "Never forget again", d: "Your Career Knowledge Graph stores everything permanently." },
   ];
   return (
     <div className="relative py-6 sm:py-10">
       <div className="fade-up flex items-center gap-3" style={{ animationDelay: "60ms" }}>
         <span className="h-px w-8 bg-accent/60 hairline-grow" style={{ animationDelay: "60ms" }} />
-        <span className="text-[11px] uppercase tracking-[0.25em] text-ink-soft">Your Career Memory</span>
+        <span className="text-[11px] uppercase tracking-[0.25em] text-ink-soft">The Hangover Part AI</span>
       </div>
 
       <Shuffle
         as="h1"
-        text={"We prove communication.\nWe build your Career Knowledge Graph.\nWe remember what others forget."}
+        text={"What did you forget?\nWhat did they miss?\nWe remember what matters."}
         stagger={26}
         scrambleMs={240}
         start={160}
@@ -778,7 +777,7 @@ function Intro({ onStart }: { onStart: () => void }) {
           </svg>
         </button>
         <Link href="/dashboard" className="btn-ghost px-8 py-3.5 text-base flex items-center justify-center gap-2">
-          See Career Memory
+          View Hangover Memory
         </Link>
       </div>
 
