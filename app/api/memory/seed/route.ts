@@ -29,9 +29,10 @@ export async function POST(req: NextRequest) {
 
   try {
     const g = buildDemoGraph(body.candidateId, body.name ?? "Aarav Sharma");
-    await saveGraph(g);
+    await saveGraph(g).catch(() => {});
     log.info("demo seeded", { candidateId: body.candidateId, nodes: Object.keys(g.nodes).length });
-    return NextResponse.json({ ok: true, dashboard: buildDashboard(g) });
+    // Return the graph so the client can persist it (durable source of truth on serverless).
+    return NextResponse.json({ ok: true, dashboard: buildDashboard(g), graph: g });
   } catch (e) {
     log.error("seed failed", { error: e });
     return errorResponse(502, "seed_failed", `seed failed: ${(e as Error).message}`, requestId);

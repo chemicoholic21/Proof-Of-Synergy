@@ -49,3 +49,39 @@ export function getCandidateName(): string | null {
   if (typeof window === "undefined") return null;
   return localStorage.getItem(NAME_KEY);
 }
+
+// ---------------------------------------------------------------------------
+// Client-held Career Knowledge Graph.
+//
+// On serverless hosts (Vercel) the server's file store is per-instance and NOT shared between
+// requests, so a graph written during an interview may be invisible when the dashboard reads it.
+// The browser is therefore the durable source of truth: we cache the latest graph per candidate in
+// localStorage and send it with every memory request. Cognee remains the shared semantic layer.
+// ---------------------------------------------------------------------------
+
+const graphKey = (candidateId: string) => `synergy.graph.${candidateId}`;
+
+export function saveGraphLocal(candidateId: string, graph: unknown): void {
+  if (typeof window === "undefined" || !graph) return;
+  try {
+    localStorage.setItem(graphKey(candidateId), JSON.stringify(graph));
+  } catch {
+    /* quota exceeded — non-fatal */
+  }
+}
+
+export function loadGraphLocal(candidateId: string): unknown | null {
+  if (typeof window === "undefined") return null;
+  const s = localStorage.getItem(graphKey(candidateId));
+  if (!s) return null;
+  try {
+    return JSON.parse(s);
+  } catch {
+    return null;
+  }
+}
+
+export function clearGraphLocal(candidateId: string): void {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(graphKey(candidateId));
+}

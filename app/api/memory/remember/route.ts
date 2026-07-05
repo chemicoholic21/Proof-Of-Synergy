@@ -28,26 +28,32 @@ export async function POST(req: NextRequest) {
 
   try {
     if (body.kind === "resume") {
-      const { dashboard, improve } = await ingestResume({
+      const { dashboard, improve, graph } = await ingestResume(
+        {
+          candidateId: body.candidateId,
+          name: body.name ?? null,
+          skills: body.skills,
+          experience: body.experience,
+          education: body.education,
+          projects: body.projects,
+          rawText: body.rawText,
+        },
+        body.graph
+      );
+      log.info("remembered resume", { candidateId: body.candidateId });
+      return NextResponse.json({ ok: true, kind: "resume", dashboard, improve, graph });
+    }
+    const { dashboard, improve, interviewIndex, graph } = await ingestInterview(
+      {
         candidateId: body.candidateId,
         name: body.name ?? null,
-        skills: body.skills,
-        experience: body.experience,
-        education: body.education,
-        projects: body.projects,
-        rawText: body.rawText,
-      });
-      log.info("remembered resume", { candidateId: body.candidateId });
-      return NextResponse.json({ ok: true, kind: "resume", dashboard, improve });
-    }
-    const { dashboard, improve, interviewIndex } = await ingestInterview({
-      candidateId: body.candidateId,
-      name: body.name ?? null,
-      company: body.company ?? null,
-      answers: body.answers,
-    });
+        company: body.company ?? null,
+        answers: body.answers,
+      },
+      body.graph
+    );
     log.info("remembered interview", { candidateId: body.candidateId, interviewIndex, milestones: improve.milestones });
-    return NextResponse.json({ ok: true, kind: "interview", interviewIndex, dashboard, improve });
+    return NextResponse.json({ ok: true, kind: "interview", interviewIndex, dashboard, improve, graph });
   } catch (e) {
     log.error("remember failed", { error: e });
     return errorResponse(502, "remember_failed", `remember() failed: ${(e as Error).message}`, requestId);

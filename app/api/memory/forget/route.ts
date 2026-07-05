@@ -23,10 +23,10 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const result = await forgetMemory(body.candidateId, body.target);
-    const dash = body.target.type === "all" ? null : await dashboard(body.candidateId);
+    const { graph, ...result } = await forgetMemory(body.candidateId, body.target, body.graph);
+    const dash = body.target.type === "all" || !graph ? null : await dashboard(body.candidateId, graph);
     log.info("forget complete", { candidateId: body.candidateId, target: body.target.type, ...result });
-    return NextResponse.json({ ...result, dashboard: dash });
+    return NextResponse.json({ ...result, dashboard: dash, graph });
   } catch (e) {
     log.error("forget failed", { error: e });
     return errorResponse(502, "forget_failed", `forget() failed: ${(e as Error).message}`, requestId);

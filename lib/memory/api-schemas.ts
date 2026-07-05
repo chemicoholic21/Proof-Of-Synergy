@@ -31,6 +31,10 @@ const RememberAnswer = z.object({
   durationSec: z.coerce.number().min(0).max(3600).optional(),
 });
 
+// The caller's current graph (client is the durable source of truth on serverless). Passed as an
+// opaque object; the orchestrator sanitizes it. Kept loose on purpose — it is the user's own data.
+const Graph = z.any().optional();
+
 export const RememberBody = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("resume"),
@@ -41,6 +45,7 @@ export const RememberBody = z.discriminatedUnion("kind", [
     education: z.array(z.object({ degree: z.string().max(200), institution: z.string().max(200), year: z.coerce.number().int().nullable() })).max(50).optional(),
     projects: z.array(MemoryProject).max(30).optional(),
     rawText: z.string().max(50000).optional(),
+    graph: Graph,
   }),
   z.object({
     kind: z.literal("interview"),
@@ -48,12 +53,20 @@ export const RememberBody = z.discriminatedUnion("kind", [
     name: z.string().max(200).nullable().optional(),
     company: z.string().max(120).nullable().optional(),
     answers: z.array(RememberAnswer).min(1).max(40),
+    graph: Graph,
   }),
 ]);
 
 export const RecallBody = z.object({
   candidateId: CandidateId,
   company: z.string().max(120).nullable().optional(),
+  graph: Graph,
+});
+
+export const DashboardBody = z.object({
+  candidateId: CandidateId,
+  company: z.string().max(120).nullable().optional(),
+  graph: Graph,
 });
 
 export const ForgetBody = z.object({
@@ -65,11 +78,13 @@ export const ForgetBody = z.object({
     z.object({ type: z.literal("project"), name: z.string().min(1).max(160) }),
     z.object({ type: z.literal("all") }),
   ]),
+  graph: Graph,
 });
 
 export const ReplayBody = z.object({
   candidateId: CandidateId,
   concept: z.string().min(1).max(200),
+  graph: Graph,
 });
 
 export const SeedBody = z.object({
@@ -80,6 +95,7 @@ export const SeedBody = z.object({
 export const GithubBody = z.object({
   candidateId: CandidateId,
   username: z.string().min(1).max(39).regex(/^@?[a-zA-Z0-9-]+$/, "invalid GitHub username"),
+  graph: Graph,
 });
 
 export { CandidateId };

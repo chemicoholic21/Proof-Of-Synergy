@@ -55,6 +55,8 @@ export const GenerateQuestionsBody = z.object({
     .regex(/^[a-zA-Z0-9_-]+$/)
     .optional(),
   company: z.string().max(120).nullable().optional(),
+  // Client-held graph (durable source of truth on serverless) so recall() is adaptive cross-instance.
+  graph: z.any().optional(),
 });
 
 // Some models ignore the wrapper and return a bare array of questions instead of

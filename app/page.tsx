@@ -6,7 +6,7 @@ import VoiceRecorder from "@/components/VoiceRecorder";
 import QuestionPlayer from "@/components/QuestionPlayer";
 import Shuffle from "@/components/bits/Shuffle";
 import { aggregateConfidence, buildVerdicts, overallScore } from "@/lib/verify";
-import { getCandidateId, setCandidateName } from "@/lib/candidate";
+import { getCandidateId, setCandidateName, saveGraphLocal, loadGraphLocal } from "@/lib/candidate";
 import {
   ParsedResume,
   InterviewQuestion,
@@ -124,11 +124,13 @@ export default function Home() {
       setCandidateId(cid);
       setBusy("remember() — writing your resume into the Career Knowledge Graph…");
       try {
-        await fetch("/api/memory/remember", {
+        const memRes = await fetch("/api/memory/remember", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ kind: "resume", candidateId: cid, name: r.name, skills: r.skills, experience: r.experience, education: r.education }),
+          body: JSON.stringify({ kind: "resume", candidateId: cid, name: r.name, skills: r.skills, experience: r.experience, education: r.education, graph: loadGraphLocal(cid) }),
         });
+        const mem = await memRes.json().catch(() => null);
+        if (mem?.graph) saveGraphLocal(cid, mem.graph); // browser is the durable source of truth
       } catch {
         /* memory is additive; never block the interview if it fails */
       }
@@ -137,7 +139,7 @@ export default function Home() {
       const qRes = await fetch("/api/generate-questions", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ skills: r.skills, candidateId: cid }),
+        body: JSON.stringify({ skills: r.skills, candidateId: cid, graph: loadGraphLocal(cid) }),
       });
       const q = await readJsonOrThrow(qRes);
       setQuestions(q.questions);
@@ -214,9 +216,10 @@ export default function Home() {
         const memRes = await fetch("/api/memory/remember", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ kind: "interview", candidateId, name: resume?.name ?? null, company: recallSummary?.upcomingCompany ?? null, answers: answersPayload }),
+          body: JSON.stringify({ kind: "interview", candidateId, name: resume?.name ?? null, company: recallSummary?.upcomingCompany ?? null, answers: answersPayload, graph: loadGraphLocal(candidateId) }),
         });
         const mem = await memRes.json().catch(() => null);
+        if (mem?.graph) saveGraphLocal(candidateId, mem.graph); // persist so the dashboard sees it
         if (mem?.improve) setImproveSummary(mem.improve);
       } catch {
         /* memory is additive; results still render if it fails */

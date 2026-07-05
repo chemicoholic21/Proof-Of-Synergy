@@ -21,9 +21,9 @@ export async function POST(req: NextRequest) {
   const limited = enforceRateLimit(req, "generate-questions", requestId);
   if (limited) return limited;
 
-  let skills, candidateId: string | undefined, company: string | null | undefined;
+  let skills, candidateId: string | undefined, company: string | null | undefined, graph: unknown;
   try {
-    ({ skills, candidateId, company } = await parseJsonBody(req, GenerateQuestionsBody));
+    ({ skills, candidateId, company, graph } = await parseJsonBody(req, GenerateQuestionsBody));
   } catch (e) {
     if (e instanceof ValidationError) {
       return errorResponse(400, "invalid_body", "Invalid request body.", requestId, { details: e.details });
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
   if (candidateId) {
     try {
       // withCognee: consult Cognee's own graph for a focus directive, not just the local mirror.
-      memory = await reason(candidateId, { company: company ?? null, withCognee: true });
+      memory = await reason(candidateId, { company: company ?? null, withCognee: true, provided: graph });
     } catch (e) {
       log.warn("recall unavailable, falling back to stateless generation", { error: (e as Error).message });
     }

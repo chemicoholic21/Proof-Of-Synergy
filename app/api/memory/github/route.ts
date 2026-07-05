@@ -27,9 +27,9 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { dashboard, profile } = await ingestGithub(body.candidateId, body.username);
+    const { dashboard, profile, graph } = await ingestGithub(body.candidateId, body.username, body.graph);
     log.info("github remembered", { candidateId: body.candidateId, username: profile.username, repos: profile.repoCount });
-    return NextResponse.json({ ok: true, profile, dashboard });
+    return NextResponse.json({ ok: true, profile, dashboard, graph });
   } catch (e) {
     const msg = (e as Error).message;
     log.warn("github ingest failed", { error: msg });

@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const result = await reason(body.candidateId, { company: body.company ?? null, withCognee: true });
+    const result = await reason(body.candidateId, { company: body.company ?? null, withCognee: true, provided: body.graph });
     log.info("recall complete", {
       candidateId: body.candidateId,
       weak: result.weakConcepts.length,
