@@ -10,15 +10,17 @@ import type { GraphView, VizNode } from "@/lib/memory";
  * the demo centrepiece — the audience literally sees the candidate's memory.
  */
 
+// Muted, earthy palette — one restrained system, not a rainbow. Ink for the candidate, warm bone
+// for skills, quiet neutrals for the rest; semantic sage/ochre only for strong/weak states.
 const KIND_STYLE: Record<string, { fill: string; ring: string; label: string }> = {
-  candidate: { fill: "#a855f7", ring: "#c084fc", label: "You" },
-  skill: { fill: "#836ef9", ring: "#a78bfa", label: "Skill" },
-  concept: { fill: "#0ea5e9", ring: "#38bdf8", label: "Concept" },
-  interview: { fill: "#f59e0b", ring: "#fbbf24", label: "Interview" },
-  company: { fill: "#ec4899", ring: "#f472b6", label: "Company" },
-  project: { fill: "#10b981", ring: "#34d399", label: "Project" },
-  recommendation: { fill: "#ef4444", ring: "#f87171", label: "To improve" },
-  resource: { fill: "#64748b", ring: "#94a3b8", label: "Resource" },
+  candidate: { fill: "#ece9e3", ring: "#ece9e3", label: "You" },
+  skill: { fill: "#c8beac", ring: "#d8cfbe", label: "Skill" },
+  concept: { fill: "#8f887b", ring: "#a29c8e", label: "Concept" },
+  interview: { fill: "#b8965c", ring: "#ccb07f", label: "Interview" },
+  company: { fill: "#7d7466", ring: "#948b7c", label: "Company" },
+  project: { fill: "#7f9a78", ring: "#a1b69b", label: "Project" },
+  recommendation: { fill: "#5e574b", ring: "#746c5d", label: "To improve" },
+  resource: { fill: "#4b463c", ring: "#615a4e", label: "Resource" },
 };
 
 interface Placed extends VizNode {
@@ -73,7 +75,7 @@ export default function KnowledgeGraph({ graph, onReplay }: { graph: GraphView; 
                 y1={a.y}
                 x2={b.x}
                 y2={b.y}
-                stroke={active ? "#a855f7" : "#3f3f5f"}
+                stroke={active ? "#c8beac" : "#3a352c"}
                 strokeOpacity={selected ? (active ? 0.85 : 0.08) : 0.22}
                 strokeWidth={active ? 1.8 : 1}
                 style={{ transition: "stroke-opacity .3s" }}
@@ -86,7 +88,7 @@ export default function KnowledgeGraph({ graph, onReplay }: { graph: GraphView; 
           {placed.map((n, i) => {
             const st = KIND_STYLE[n.kind] ?? KIND_STYLE.concept;
             const dim = selected && n.id !== selected && !connectedIds.has(n.id);
-            const glow = n.weak ? "#f59e0b" : n.strong ? "#10b981" : st.ring;
+            const glow = n.weak ? "#b8965c" : n.strong ? "#7f9a78" : st.ring;
             return (
               <g
                 key={n.id}
@@ -205,7 +207,7 @@ export default function KnowledgeGraph({ graph, onReplay }: { graph: GraphView; 
 }
 
 function Bar({ label, value, tone }: { label: string; value: number; tone: "amber" | "emerald" | "purple" | "cyan" }) {
-  const color = { amber: "#f59e0b", emerald: "#10b981", purple: "#836ef9", cyan: "#06b6d4" }[tone];
+  const color = { amber: "#b8965c", emerald: "#7f9a78", purple: "#c8beac", cyan: "#a29c8e" }[tone];
   return (
     <div>
       <div className="flex justify-between text-[11px] text-zinc-400">

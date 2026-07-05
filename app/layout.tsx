@@ -1,8 +1,15 @@
 import type { Metadata } from "next";
-import { Sora, JetBrains_Mono } from "next/font/google";
+import { Playfair_Display, Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
-const sans = Sora({
+// Editorial pairing: Playfair Display (serif) for headlines, Inter for body, JetBrains Mono for data.
+const display = Playfair_Display({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  style: ["normal", "italic"],
+  variable: "--font-display",
+});
+const sans = Inter({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
   variable: "--font-sans",
@@ -20,7 +27,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${sans.variable} ${mono.variable}`}>
+    <html lang="en" className={`${display.variable} ${sans.variable} ${mono.variable}`}>
       <body className="text-ink antialiased">{children}</body>
     </html>
   );

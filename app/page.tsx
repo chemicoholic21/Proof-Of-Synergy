@@ -246,8 +246,8 @@ export default function Home() {
         {busy && (
           <div className="mb-8 flex items-center gap-4 glass-card pulse-glow-active px-6 py-4.5 text-[15px] border-purple-500/25 bg-purple-950/15 text-purple-200 rounded-2xl">
             <span className="relative flex h-4.5 w-4.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#a855f7] opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-4.5 w-4.5 bg-[#836ef9]"></span>
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#c8beac] opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-4.5 w-4.5 bg-[#c8beac]"></span>
             </span>
             <span className="font-mono tracking-wide font-medium">{busy}</span>
           </div>
@@ -302,7 +302,7 @@ export default function Home() {
                   onChange={(e) => e.target.files?.[0] && handleUpload(e.target.files[0])}
                   className="sr-only"
                 />
-                <div className="rounded-full bg-purple-500/10 p-4 mb-4 text-[#a855f7] group-hover:scale-110 transition-transform duration-300 border border-purple-500/20 group-hover:border-purple-500/40">
+                <div className="rounded-full bg-purple-500/10 p-4 mb-4 text-[#c8beac] group-hover:scale-110 transition-transform duration-300 border border-purple-500/20 group-hover:border-purple-500/40">
                   <svg className="h-8 w-8" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5V9.75m0 0 3 3m-3-3-3 3M6.75 19.5a4.5 4.5 0 0 1-1.41-8.775 5.25 5.25 0 0 1 10.233-2.33 3 3 0 0 1 3.758 3.848A3.752 3.752 0 0 1 18 19.5H6.75Z" />
                   </svg>
@@ -353,7 +353,7 @@ export default function Home() {
                 </ul>
                 {recallSummary.cogneeInsight && (
                   <div className="mt-3 rounded-lg border border-cyan-500/20 bg-black/30 p-3">
-                    <div className="text-[10px] uppercase tracking-widest font-bold text-[#00E5FF]">
+                    <div className="text-[10px] uppercase tracking-widest font-bold text-[#c8beac]">
                       Cognee graph · search()
                     </div>
                     <p className="mt-1 text-[12px] text-zinc-300 whitespace-pre-line">{recallSummary.cogneeInsight}</p>
@@ -469,10 +469,10 @@ export default function Home() {
             <button
               onClick={finishInterview}
               disabled={!allRecorded || !!busy}
-              className={`btn-primary w-full py-4 text-base font-bold shadow-lg transition-all duration-300 ${
-                allRecorded 
-                  ? "from-[#836ef9] to-[#a855f7] hover:scale-[1.01] hover:brightness-110 active:scale-[0.99]"
-                  : "from-zinc-800 to-zinc-900 text-zinc-500 border border-zinc-800 shadow-none cursor-not-allowed"
+              className={`w-full py-4 text-base font-medium transition-colors duration-200 ${
+                allRecorded
+                  ? "btn-primary"
+                  : "rounded-full border border-zinc-800 text-zinc-500 cursor-not-allowed"
               }`}
             >
               {allRecorded ? (
@@ -491,7 +491,7 @@ export default function Home() {
 
         {step === "results" && (
           <div className="step-container flex flex-col gap-6">
-            <div className="rounded-2xl border border-purple-500/30 bg-gradient-to-br from-purple-950/30 to-cyan-950/10 px-6 py-5">
+            <div className="glass-card px-6 py-5">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                   <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-purple-300">
@@ -552,22 +552,16 @@ export default function Home() {
                       cx="50"
                       cy="50"
                       r="40"
-                      stroke="url(#purpleCyanGradient)"
+                      stroke="#c8beac"
                       strokeWidth="8"
                       strokeDasharray={`${2 * Math.PI * 40}`}
                       strokeDashoffset={`${2 * Math.PI * 40 * (1 - overall / 100)}`}
                       strokeLinecap="round"
                       fill="transparent"
                     />
-                    <defs>
-                      <linearGradient id="purpleCyanGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stopColor="#836ef9" />
-                        <stop offset="100%" stopColor="#00E5FF" />
-                      </linearGradient>
-                    </defs>
                   </svg>
                   <div className="text-center z-10">
-                    <div className="text-4xl font-extrabold heading-font tracking-tighter bg-gradient-to-r from-purple-300 to-cyan-300 bg-clip-text text-transparent">
+                    <div className="text-4xl font-semibold heading-font tracking-tight text-ink">
                       {overall}%
                     </div>
                     <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 mt-0.5">
@@ -629,7 +623,7 @@ export default function Home() {
             <details className="group glass-card border border-zinc-850 rounded-2xl overflow-hidden [&_summary::-webkit-details-marker]:hidden">
               <summary className="flex items-center justify-between cursor-pointer p-5 text-zinc-300 font-semibold hover:bg-white/[0.02] transition-colors duration-300 select-none">
                 <span className="flex items-center gap-2">
-                  <svg className="h-4.5 w-4.5 text-[#a855f7]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <svg className="h-4.5 w-4.5 text-[#c8beac]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m5.23 13.44-1.59 1.59-3.577-3.577m0 0-1.59 1.59L4.156 12.01m3.111 3.111L12.022 10.5M9 4.5h4.5a1.125 1.125 0 0 1 1.125 1.125V9A1.125 1.125 0 0 0 15.75 10.125H18a1.125 1.125 0 0 1 1.125 1.125v.875" />
                   </svg>
                   Per-Question Transcripts & Evaluation Detail
@@ -653,7 +647,7 @@ export default function Home() {
                       {e.feedback}
                     </p>
                     {transcripts[e.questionId] && (
-                      <p className="mt-2 text-xs font-medium text-[#00E5FF] flex items-center gap-1.5">
+                      <p className="mt-2 text-xs font-medium text-[#c8beac] flex items-center gap-1.5">
                         <span className="shrink-0 rounded bg-cyan-500/10 px-1.5 py-0.5 text-[10px] uppercase font-bold text-cyan-300 border border-cyan-500/20">
                           {transcripts[e.questionId].language}
                         </span>
@@ -708,8 +702,8 @@ function Header({ step }: { step: Step }) {
     <header className="mb-10">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <span className="grid h-10 w-10 place-items-center rounded-2xl bg-[#836ef9]/15 border border-[#836ef9]/30 text-lg shadow-[0_0_15px_rgba(131,110,249,0.25)]">
-            <svg className="h-5.5 w-5.5 text-[#836ef9]" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+          <span className="grid h-10 w-10 place-items-center rounded-2xl bg-[#c8beac]/15 border border-[#c8beac]/30 text-lg shadow-[0_0_15px_rgba(131,110,249,0.25)]">
+            <svg className="h-5.5 w-5.5 text-[#c8beac]" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.57-.598-3.75h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
             </svg>
           </span>
@@ -717,14 +711,14 @@ function Header({ step }: { step: Step }) {
             <h1 className="heading-font text-2xl font-black tracking-tight text-white flex items-center gap-2">
               ProofOfSynergy
             </h1>
-            <div className="text-[10px] tracking-widest text-[#00E5FF] uppercase font-bold">Cognee Career Memory</div>
+            <div className="text-[10px] tracking-widest text-[#c8beac] uppercase font-bold">Cognee Career Memory</div>
           </div>
         </div>
 
         <div className="flex items-center gap-3 self-start sm:self-center">
           <Link
             href="/dashboard"
-            className="rounded-full border border-[#00E5FF]/30 bg-[#00E5FF]/10 px-4 py-1.5 text-xs font-bold text-[#00E5FF] hover:bg-[#00E5FF]/20 transition-colors"
+            className="rounded-full border border-[#c8beac]/30 bg-[#c8beac]/10 px-4 py-1.5 text-xs font-bold text-[#c8beac] hover:bg-[#c8beac]/20 transition-colors"
           >
             🧠 Career Memory
           </Link>
@@ -748,7 +742,7 @@ function Header({ step }: { step: Step }) {
           
           {/* Progress bar active track */}
           <div 
-            className="absolute top-1/2 left-0 h-0.5 bg-gradient-to-r from-[#836ef9] to-[#00E5FF] -translate-y-1/2 z-0 transition-all duration-500" 
+            className="absolute top-1/2 left-0 h-px bg-accent -translate-y-1/2 z-0 transition-all duration-500"
             style={{ width: `${(idx / (steps.length - 1)) * 100}%` }}
           />
 
@@ -761,16 +755,16 @@ function Header({ step }: { step: Step }) {
                   <div 
                     className={`grid h-8 w-8 place-items-center rounded-full text-xs font-bold font-mono transition-all duration-500 border ${
                       isCurrent
-                        ? "bg-black border-[#00E5FF] text-[#00E5FF] shadow-[0_0_15px_rgba(0,229,255,0.4)] scale-110"
+                        ? "bg-black border-[#c8beac] text-[#c8beac] shadow-[0_0_15px_rgba(0,229,255,0.4)] scale-110"
                         : isActive
-                        ? "bg-[#836ef9] border-[#836ef9] text-black"
+                        ? "bg-[#c8beac] border-[#c8beac] text-black"
                         : "bg-zinc-950 border-zinc-850 text-zinc-600"
                     }`}
                   >
                     {i + 1}
                   </div>
                   <span className={`mt-2 text-[10px] font-semibold uppercase tracking-wider hidden sm:block ${
-                    isCurrent ? "text-[#00E5FF]" : isActive ? "text-zinc-300" : "text-zinc-650"
+                    isCurrent ? "text-[#c8beac]" : isActive ? "text-zinc-300" : "text-zinc-650"
                   }`}>
                     {stepLabels[i]}
                   </span>
@@ -787,13 +781,11 @@ function Header({ step }: { step: Step }) {
 function Intro({ onStart }: { onStart: () => void }) {
   return (
     <Card>
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-purple-900/10 via-black/0 to-cyan-950/10 p-2">
-        <h2 className="heading-font text-3xl font-extrabold leading-snug tracking-tight text-white sm:text-4xl">
+      <div className="relative p-2">
+        <h2 className="heading-font text-4xl font-normal leading-[1.15] tracking-tight text-ink sm:text-5xl">
           GitHub shows code.<br/>
           LinkedIn shows claims.<br/>
-          <span className="bg-gradient-to-r from-purple-400 via-[#836ef9] to-cyan-300 bg-clip-text text-transparent">
-            We verify what neither can.
-          </span>
+          <span className="italic text-accent">We remember what neither can.</span>
         </h2>
         
         <p className="mt-5 text-[15px] leading-relaxed text-zinc-400">
@@ -851,7 +843,7 @@ function Intro({ onStart }: { onStart: () => void }) {
           </button>
           <Link
             href="/dashboard"
-            className="btn-ghost w-full sm:w-auto px-8 py-4 text-base font-semibold border-[#00E5FF]/30 text-[#00E5FF] hover:bg-[#00E5FF]/10 flex items-center justify-center gap-2"
+            className="btn-ghost w-full sm:w-auto px-8 py-4 text-base font-semibold border-[#c8beac]/30 text-[#c8beac] hover:bg-[#c8beac]/10 flex items-center justify-center gap-2"
           >
             🧠 See a 6-month Career Memory demo
           </Link>

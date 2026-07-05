@@ -201,7 +201,7 @@ function MemoryHeader({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest font-bold">
-            <span className="text-[#00E5FF]">Cognee Career Memory</span>
+            <span className="text-[#c8beac]">Cognee Career Memory</span>
             <span className={`rounded px-1.5 py-0.5 border ${cogneeConfigured ? "text-emerald-300 border-emerald-500/30 bg-emerald-500/10" : "text-purple-300 border-purple-500/30 bg-purple-500/10"}`}>
               {cogneeConfigured ? "Cognee backend live" : "Local graph engine"}
             </span>
@@ -218,8 +218,8 @@ function MemoryHeader({
         </div>
       </div>
       {cogneeInsight && (
-        <div className="mt-4 rounded-xl border border-[#00E5FF]/25 bg-[#00E5FF]/5 p-3">
-          <div className="text-[10px] uppercase tracking-widest font-bold text-[#00E5FF] mb-1">
+        <div className="mt-4 rounded-xl border border-[#c8beac]/25 bg-[#c8beac]/5 p-3">
+          <div className="text-[10px] uppercase tracking-widest font-bold text-[#c8beac] mb-1">
             Ask Cognee · {company ? `what to study before ${company}` : "what should I study next"}
           </div>
           <p className="text-[13px] text-zinc-200 whitespace-pre-line">{cogneeInsight}</p>
@@ -511,7 +511,7 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 function Meter({ label, value, tone }: { label: string; value: number; tone: "purple" | "cyan" }) {
-  const color = tone === "purple" ? "#836ef9" : "#06b6d4";
+  const color = tone === "purple" ? "#c8beac" : "#a29c8e";
   return (
     <div>
       <div className="flex justify-between text-zinc-400">
@@ -540,7 +540,7 @@ function TrendCard({ title, points, labels, suffix = "", higherBetter }: { title
       <div className="mt-3 flex items-end gap-2 h-16">
         {points.map((p, i) => (
           <div key={i} className="flex-1 flex flex-col items-center justify-end gap-1">
-            <div className="w-full rounded-t" style={{ height: `${(p / max) * 100}%`, minHeight: 3, background: improved ? "#10b981" : "#f59e0b", opacity: 0.4 + (0.6 * (i + 1)) / points.length }} />
+            <div className="w-full rounded-t" style={{ height: `${(p / max) * 100}%`, minHeight: 3, background: improved ? "#7f9a78" : "#b8965c", opacity: 0.4 + (0.6 * (i + 1)) / points.length }} />
             <span className="text-[9px] text-zinc-600">{labels[i]}</span>
           </div>
         ))}

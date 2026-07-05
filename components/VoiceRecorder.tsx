@@ -111,7 +111,7 @@ export default function VoiceRecorder({
             } disabled:opacity-40 disabled:cursor-not-allowed`}
           >
             <svg
-              className={`h-4.5 w-4.5 ${hasClip ? "text-zinc-400" : "text-[#a855f7]"}`}
+              className={`h-4.5 w-4.5 ${hasClip ? "text-zinc-400" : "text-[#c8beac]"}`}
               fill="none"
               stroke="currentColor"
               strokeWidth="2"
@@ -147,7 +147,7 @@ export default function VoiceRecorder({
               {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => (
                 <span
                   key={i}
-                  className="wavebar w-1 rounded-full bg-gradient-to-t from-[#836ef9] to-[#a855f7]"
+                  className="wavebar w-1 rounded-full bg-accent"
                   style={{
                     height: "100%",
                     animationDelay: `${i * 0.07}s`,
