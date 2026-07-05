@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Playfair_Display, Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+import GrainOverlay from "@/components/bits/GrainOverlay";
 
 // Editorial pairing: Playfair Display (serif) for headlines, Inter for body, JetBrains Mono for data.
 const display = Playfair_Display({
@@ -28,7 +29,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${display.variable} ${sans.variable} ${mono.variable}`}>
-      <body className="text-ink antialiased">{children}</body>
+      <body className="text-ink antialiased">
+        <GrainOverlay />
+        {children}
+      </body>
     </html>
   );
 }

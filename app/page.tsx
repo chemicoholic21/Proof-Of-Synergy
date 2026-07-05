@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import VoiceRecorder from "@/components/VoiceRecorder";
 import QuestionPlayer from "@/components/QuestionPlayer";
+import BlurText from "@/components/bits/BlurText";
 import { aggregateConfidence, buildVerdicts, overallScore } from "@/lib/verify";
 import { getCandidateId, setCandidateName } from "@/lib/candidate";
 import {
@@ -779,77 +780,54 @@ function Header({ step }: { step: Step }) {
 }
 
 function Intro({ onStart }: { onStart: () => void }) {
+  const features = [
+    { k: "remember()", t: "Structural memory", d: "Every interview writes to a lifelong Cognee knowledge graph — not chunks, relationships." },
+    { k: "recall()", t: "Adaptive by memory", d: "The next interview knows your weak, forgotten and unverified topics. No two are alike." },
+    { k: "improve()", t: "Evidence, not scores", d: "Reality gap, retention decay and a learning roadmap — every recommendation is traceable." },
+  ];
   return (
-    <Card>
-      <div className="relative p-2">
-        <h2 className="heading-font text-4xl font-normal leading-[1.15] tracking-tight text-ink sm:text-5xl">
-          GitHub shows code.<br/>
-          LinkedIn shows claims.<br/>
-          <span className="italic text-accent">We remember what neither can.</span>
-        </h2>
-        
-        <p className="mt-5 text-[15px] leading-relaxed text-zinc-400">
-          Upload your resume, undergo a voice-based smart interview in any Indian language, and watch every answer become permanent memory in a <b className="text-zinc-200">Cognee Career Knowledge Graph</b>. Each interview makes the next one smarter — personalized questions, evidence-backed feedback, and a learning roadmap that never forgets.
-        </p>
-
-        {/* Feature Grid */}
-        <div className="mt-8 grid gap-4 grid-cols-1 sm:grid-cols-2">
-          <div className="rounded-2xl border border-white/[0.03] bg-white/[0.01] p-5 hover:border-purple-500/20 transition-colors duration-300">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/20 mb-3.5">
-              <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z" />
-              </svg>
-            </div>
-            <h3 className="font-bold text-sm text-zinc-200">Multilingual Sarvam Voice AI</h3>
-            <p className="mt-1 text-xs text-zinc-400 leading-relaxed">
-              Native voice processing in local Indian languages. Translates, transcribes, and rates skill depth.
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-white/[0.03] bg-white/[0.01] p-5 hover:border-cyan-500/20 transition-colors duration-300">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 mb-3.5">
-              <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21 7.5V18a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 18V7.5m18 0V6a2.25 2.25 0 0 0-2.25-2.25H5.25A2.25 2.25 0 0 0 3 6v1.5m18 0h-18M12 12h.008v.008H12V12Zm3 0h.008v.008H15V12Zm-6 0h.008v.008H9V12Zm6 3h.008v.008H15V15Zm-3 0h.008v.008H12V15Zm-3 0h.008v.008H9V15Z" />
-              </svg>
-            </div>
-            <h3 className="font-bold text-sm text-zinc-200">Cognee Structural Memory</h3>
-            <p className="mt-1 text-xs text-zinc-400 leading-relaxed">
-              A lifelong knowledge graph of skills, concepts, projects and communication — remember, recall, improve, forget.
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-white/[0.03] bg-white/[0.01] p-5 hover:border-emerald-500/20 transition-colors duration-300 sm:col-span-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 mb-3.5">
-              <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.57-.598-3.75h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
-              </svg>
-            </div>
-            <h3 className="font-bold text-sm text-zinc-200">Real-Time Fraud Filter</h3>
-            <p className="mt-1 text-xs text-zinc-400 leading-relaxed">
-              Detects gaps between CV claiming tiers (beginner vs expert) and observed competency levels within ~90 seconds.
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-8 flex flex-col sm:flex-row gap-3">
-          <button
-            onClick={onStart}
-            className="btn-primary w-full sm:w-auto px-8 py-4 text-base font-bold shadow-lg hover:scale-102 flex items-center justify-center gap-2"
-          >
-            <span>Begin Verification Journey</span>
-            <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
-            </svg>
-          </button>
-          <Link
-            href="/dashboard"
-            className="btn-ghost w-full sm:w-auto px-8 py-4 text-base font-semibold border-[#c8beac]/30 text-[#c8beac] hover:bg-[#c8beac]/10 flex items-center justify-center gap-2"
-          >
-            🧠 See a 6-month Career Memory demo
-          </Link>
-        </div>
+    <div className="relative py-6 sm:py-10">
+      <div className="fade-up flex items-center gap-3" style={{ animationDelay: "60ms" }}>
+        <span className="h-px w-8 bg-accent/60 hairline-grow" style={{ animationDelay: "60ms" }} />
+        <span className="text-[11px] uppercase tracking-[0.25em] text-ink-soft">A lifelong AI interview twin</span>
       </div>
-    </Card>
+
+      <BlurText
+        as="h1"
+        text={"GitHub shows code.\nLinkedIn shows claims.\nWe remember what neither can."}
+        delay={55}
+        start={120}
+        className="heading-font mt-6 text-[2.6rem] leading-[1.08] tracking-tight text-ink sm:text-[3.6rem]"
+      />
+
+      <p className="fade-up mt-7 max-w-xl text-[15px] leading-relaxed text-ink-soft" style={{ animationDelay: "620ms" }}>
+        Upload your resume, take a voice interview in any Indian language, and watch every answer become
+        permanent memory in a <span className="text-ink">Cognee Career Knowledge Graph</span>. Each session
+        makes the next one smarter — personalized questions, evidence-backed feedback, a roadmap that never forgets.
+      </p>
+
+      <div className="fade-up mt-9 flex flex-col sm:flex-row gap-3" style={{ animationDelay: "740ms" }}>
+        <button onClick={onStart} className="btn-primary px-8 py-3.5 text-base flex items-center justify-center gap-2">
+          <span>Begin</span>
+          <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+          </svg>
+        </button>
+        <Link href="/dashboard" className="btn-ghost px-8 py-3.5 text-base flex items-center justify-center gap-2">
+          See a 6-month Career Memory demo
+        </Link>
+      </div>
+
+      <div className="mt-16 grid gap-px overflow-hidden border-t border-line sm:grid-cols-3">
+        {features.map((f, i) => (
+          <div key={f.k} className="fade-up border-line pt-5 sm:pr-6 sm:[&:not(:first-child)]:border-l sm:[&:not(:first-child)]:pl-6" style={{ animationDelay: `${860 + i * 110}ms` }}>
+            <div className="font-mono text-[11px] tracking-tight text-accent">{f.k}</div>
+            <h3 className="heading-font mt-2 text-lg text-ink">{f.t}</h3>
+            <p className="mt-1.5 text-[13px] leading-relaxed text-ink-soft">{f.d}</p>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
