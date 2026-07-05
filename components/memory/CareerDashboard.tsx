@@ -49,7 +49,7 @@ export default function CareerDashboard({ candidateId, company }: { candidateId:
     }
   }, [candidateId, company]);
 
-  // Cognee-driven "my next steps" - a graph-grounded answer straight from Cognee's memory.
+  // Cognee-driven "your next steps" - a graph-grounded answer straight from Cognee's memory.
   const loadInsight = useCallback(async () => {
     setCogneeInsight(null);
     try {
@@ -225,7 +225,7 @@ function MemoryHeader({
       {cogneeInsight && (
         <div className="mt-4 rounded-xl border border-[#c8beac]/25 bg-[#c8beac]/5 p-3">
           <div className="text-[10px] uppercase tracking-widest font-bold text-[#c8beac] mb-1">
-            What to focus on {company ? `will help prepare for ${company}` : "my next steps"}
+            Recommended focus {company ? `will prepare you for ${company}` : "your next steps"}
           </div>
           <p className="text-[13px] text-zinc-200 whitespace-pre-line">{cogneeInsight}</p>
           <p className="mt-1 text-[10px] text-zinc-500">Graph-grounded answer from Cognee&apos;s search() over your memory.</p>
@@ -233,7 +233,7 @@ function MemoryHeader({
       )}
       {recall.focusDirectives.length > 0 && (
         <div className="mt-4 rounded-xl border border-cyan-500/20 bg-cyan-950/10 p-3">
-          <div className="text-[10px] uppercase tracking-wider font-bold text-cyan-300 mb-1">recall() - what the next interview will focus on</div>
+          <div className="text-[10px] uppercase tracking-wider font-bold text-cyan-300 mb-1">recall() - what we will work on</div>
           <ul className="text-[13px] text-zinc-300 space-y-0.5 list-disc pl-4">
             {recall.focusDirectives.map((x, i) => (
               <li key={i}>{x}</li>
