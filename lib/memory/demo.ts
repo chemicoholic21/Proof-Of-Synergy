@@ -28,11 +28,23 @@ function ans(o: { questionId: number; targetSkill: string; score: number; q: str
   };
 }
 
-/** Build a fully-seeded demo graph for `candidateId`. Uses an injected clock so timestamps span months. */
+const DAY = 24 * 60 * 60 * 1000;
+
+/**
+ * Build a fully-seeded demo graph for `candidateId`. Uses an injected clock so the three interviews
+ * span the past ~6 months RELATIVE TO NOW — this guarantees retention has visibly decayed by the
+ * time the dashboard renders, so spaced-repetition, forgotten-concepts and the learning roadmap
+ * always light up regardless of the wall-clock date the demo is run on.
+ *
+ * IMPORTANT: the injected clock is restored in `finally` by re-installing the previous clock
+ * (calling the returned fn would only read a timestamp, not restore it) so seeding never leaks
+ * frozen time into the rest of the server process.
+ */
 export function buildDemoGraph(candidateId: string, name = "Aarav Sharma"): CareerGraph {
-  let virtual = Date.parse("2026-01-06T10:00:00.000Z");
+  const nowMs = Date.now();
+  let virtual = nowMs - 175 * DAY; // first resume + interview ~6 months ago
   const startNow = new Date(virtual).toISOString();
-  const restore = __setClock(() => new Date(virtual).toISOString());
+  const prev = __setClock(() => new Date(virtual).toISOString());
   try {
     const g = emptyGraph(candidateId, name, startNow);
 
@@ -58,8 +70,8 @@ export function buildDemoGraph(candidateId: string, name = "Aarav Sharma"): Care
     });
     improve(g);
 
-    // Interview #1 — baseline. Kubernetes fails, lots of fillers.
-    virtual += 0; // week 0
+    // Interview #1 — baseline (~6 months ago). Kubernetes fails, lots of fillers.
+    virtual += 5 * DAY;
     rememberInterview(g, {
       candidateId,
       name,
@@ -72,8 +84,8 @@ export function buildDemoGraph(candidateId: string, name = "Aarav Sharma"): Care
     });
     improve(g, { company: "Stripe" });
 
-    // Interview #2 — 4 weeks later. Learned Kubernetes basics, fewer fillers.
-    virtual += 28 * 24 * 60 * 60 * 1000;
+    // Interview #2 — ~10 weeks later. Learned Kubernetes basics, fewer fillers.
+    virtual += 70 * DAY;
     rememberInterview(g, {
       candidateId,
       name,
@@ -86,8 +98,8 @@ export function buildDemoGraph(candidateId: string, name = "Aarav Sharma"): Care
     });
     improve(g, { company: "Stripe" });
 
-    // Interview #3 — 6 weeks later, Google prep. Kubernetes confident, very few fillers.
-    virtual += 42 * 24 * 60 * 60 * 1000;
+    // Interview #3 — ~6 weeks later (~5 weeks ago), Google prep. Kubernetes confident, few fillers.
+    virtual += 55 * DAY;
     rememberInterview(g, {
       candidateId,
       name,
@@ -102,6 +114,6 @@ export function buildDemoGraph(candidateId: string, name = "Aarav Sharma"): Care
 
     return g;
   } finally {
-    restore();
+    __setClock(prev); // re-install the previous clock; never leak frozen demo time
   }
 }

@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { emptyGraph } from "./graph/model";
-import { __setClock } from "./graph/ops";
+import { __setClock, __resetClock, clock, nodesByKind } from "./graph/ops";
+import { buildDemoGraph } from "./demo";
 import { rememberInterview, rememberResume } from "./remember";
 import { recall } from "./recall";
 import { improve } from "./improve";
@@ -194,5 +195,29 @@ describe("forget()", () => {
     forget(g, { type: "all" });
     expect(Object.keys(g.nodes).length).toBe(0);
     expect(Object.keys(g.edges).length).toBe(0);
+  });
+});
+
+describe("demo seed", () => {
+  it("restores the global clock after seeding (no frozen-time leak)", () => {
+    const frozen = iso(); // from beforeEach
+    buildDemoGraph("demo", "Aarav");
+    expect(clock()).toBe(frozen); // the injected demo clock was re-installed, not leaked
+  });
+
+  it("produces a three-interview growth arc and an actionable, decayed roadmap", () => {
+    const g = buildDemoGraph("demo2", "Aarav");
+    expect(nodesByKind(g, "interview").length).toBe(3);
+    // Kubernetes visibly improves across the three interviews.
+    const k8s = improvementTimeline(g).find((s) => s.skill === "Kubernetes");
+    expect(k8s?.points).toEqual([30, 58, 84]);
+    // Evaluated at the real current time, the months-old interviews have decayed, so the roadmap is
+    // non-empty (spaced repetition surfaces something to review).
+    __resetClock();
+    try {
+      expect(recommendations(g).length).toBeGreaterThan(0);
+    } finally {
+      __setClock(iso);
+    }
   });
 });

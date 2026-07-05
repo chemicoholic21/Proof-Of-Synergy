@@ -1,9 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import VoiceRecorder from "@/components/VoiceRecorder";
 import QuestionPlayer from "@/components/QuestionPlayer";
 import { aggregateConfidence, buildVerdicts, overallScore } from "@/lib/verify";
+import { getCandidateId, setCandidateName } from "@/lib/candidate";
 import {
   ParsedResume,
   InterviewQuestion,
@@ -12,6 +14,24 @@ import {
   SkillVerdict,
   MintResult,
 } from "@/lib/types";
+
+/** Summary of what recall() steered + what improve() grew, surfaced so Cognee is visibly central. */
+interface RecallSummary {
+  interviewCount: number;
+  focusDirectives: string[];
+  weakConcepts: { name: string; confidence: number }[];
+  forgottenConcepts: { name: string; lastSeenDays: number }[];
+  unverifiedSkills: string[];
+  masteredConcepts: string[];
+  upcomingCompany: string | null;
+}
+interface ImproveSummary {
+  newEdges: number;
+  newRecommendations: number;
+  milestones: string[];
+  weakConceptsHighlighted: string[];
+  revision: number;
+}
 
 type Step = "intro" | "upload" | "interview" | "results" | "passport" | "private";
 
@@ -75,6 +95,13 @@ export default function Home() {
   const [mint, setMint] = useState<MintResult | null>(null);
   const [consent, setConsent] = useState(false);
 
+  // Cognee memory wiring: a stable per-browser candidate id + the recall/improve summaries so the
+  // UI can show the memory lifecycle working (adaptive questions in, graph growth out).
+  const [candidateId, setCandidateId] = useState<string>("anon");
+  const [recallSummary, setRecallSummary] = useState<RecallSummary | null>(null);
+  const [improveSummary, setImproveSummary] = useState<ImproveSummary | null>(null);
+  useEffect(() => setCandidateId(getCandidateId()), []);
+
   const overall = useMemo(
     () => (evaluations.length ? overallScore(aggregateConfidence(evaluations)) : 0),
     [evaluations]
@@ -90,14 +117,30 @@ export default function Home() {
       const r: ParsedResume = await readJsonOrThrow(res);
       setResume(r);
 
-      setBusy("Analyzing skill vectors & generating questions…");
+      // Promote identity from the resume name so memory is stable across sessions, then remember()
+      // the resume into the Career Knowledge Graph BEFORE generating questions.
+      const cid = r.name ? setCandidateName(r.name) : getCandidateId();
+      setCandidateId(cid);
+      setBusy("remember() — writing your resume into the Career Knowledge Graph…");
+      try {
+        await fetch("/api/memory/remember", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ kind: "resume", candidateId: cid, name: r.name, skills: r.skills, experience: r.experience, education: r.education }),
+        });
+      } catch {
+        /* memory is additive; never block the interview if it fails */
+      }
+
+      setBusy("recall() — consulting memory to personalize this interview…");
       const qRes = await fetch("/api/generate-questions", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ skills: r.skills }),
+        body: JSON.stringify({ skills: r.skills, candidateId: cid }),
       });
       const q = await readJsonOrThrow(qRes);
       setQuestions(q.questions);
+      setRecallSummary(q.recall ?? null);
       setQuestionsNotice(
         q.source === "fallback"
           ? q.reason ?? "Live question generation is unavailable, so these were generated from your resume skills in demo mode."
@@ -146,6 +189,37 @@ export default function Home() {
 
       const conf = aggregateConfidence(evals);
       setVerdicts(buildVerdicts(resume!.skills, conf));
+
+      // The interview-complete pipeline: remember() this interview + improve() the graph. This is
+      // the moment the candidate's memory permanently grows.
+      setBusy("remember() + improve() — updating your Career Knowledge Graph…");
+      try {
+        const answersPayload = questions.map((q) => {
+          const ev = evals.find((e) => e.questionId === q.id);
+          return {
+            questionId: q.id,
+            questionText: q.text,
+            targetSkill: q.targetSkill,
+            rubric: q.rubric,
+            transcript: newTranscripts[q.id]?.text ?? "",
+            language: newTranscripts[q.id]?.language,
+            score: ev?.score ?? 0,
+            feedback: ev?.feedback,
+            strengths: ev?.strengths,
+            improvements: ev?.improvements,
+          };
+        });
+        const memRes = await fetch("/api/memory/remember", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ kind: "interview", candidateId, name: resume?.name ?? null, company: recallSummary?.upcomingCompany ?? null, answers: answersPayload }),
+        });
+        const mem = await memRes.json().catch(() => null);
+        if (mem?.improve) setImproveSummary(mem.improve);
+      } catch {
+        /* memory is additive; results still render if it fails */
+      }
+
       setBusy(null);
       setStep("results");
     } catch (err) {
@@ -292,6 +366,24 @@ export default function Home() {
 
         {step === "interview" && resume && (
           <div className="step-container flex flex-col gap-6">
+            {recallSummary && recallSummary.interviewCount > 0 && (
+              <div className="rounded-2xl border border-cyan-500/25 bg-cyan-950/10 px-5 py-4">
+                <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-cyan-300">
+                  <span>recall()</span>
+                  <span className="text-zinc-500 normal-case tracking-normal font-normal">
+                    · personalized from {recallSummary.interviewCount} past interview{recallSummary.interviewCount === 1 ? "" : "s"}
+                  </span>
+                </div>
+                <p className="mt-1.5 text-[13px] text-zinc-300">
+                  This interview is <b className="text-cyan-200">not random</b>. Cognee steered it using your history:
+                </p>
+                <ul className="mt-1.5 space-y-0.5 text-[12px] text-zinc-400 list-disc pl-4">
+                  {recallSummary.focusDirectives.slice(0, 4).map((d, i) => (
+                    <li key={i}>{d}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
             {resume.source === "fallback" && (
               <div className="flex items-start gap-3 rounded-2xl border border-amber-500/30 bg-amber-950/20 px-5 py-4 text-amber-200">
                 <svg className="h-5 w-5 shrink-0 mt-0.5 text-amber-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -419,6 +511,38 @@ export default function Home() {
 
         {step === "results" && (
           <div className="step-container flex flex-col gap-6">
+            <div className="rounded-2xl border border-purple-500/30 bg-gradient-to-br from-purple-950/30 to-cyan-950/10 px-6 py-5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-purple-300">
+                    <span>remember() + improve()</span>
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    <span className="text-emerald-400 normal-case tracking-normal">graph updated</span>
+                  </div>
+                  <p className="mt-1.5 text-[14px] text-zinc-200">
+                    This interview is now <b>permanent memory</b>.
+                    {improveSummary && (
+                      <>
+                        {" "}Your Career Knowledge Graph grew by <b className="text-purple-200">+{improveSummary.newEdges} relationships</b>
+                        {improveSummary.newRecommendations > 0 && <> and <b className="text-purple-200">{improveSummary.newRecommendations} learning resources</b></>}.
+                      </>
+                    )}
+                  </p>
+                  {improveSummary && improveSummary.milestones.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {improveSummary.milestones.map((m, i) => (
+                        <span key={i} className="rounded-full bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-300">
+                          🎉 {m}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <Link href="/dashboard" className="btn-primary shrink-0 px-6 py-3 text-sm font-bold whitespace-nowrap">
+                  🧠 View Career Memory →
+                </Link>
+              </div>
+            </div>
             <Card>
               <div className="flex flex-col md:flex-row items-center gap-8 justify-between">
                 <div>
@@ -693,14 +817,23 @@ function Header({ step }: { step: Step }) {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 self-start sm:self-center">
-          <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-          <span className="font-mono text-xs text-zinc-400 font-semibold">Deploy Node: sandbox.monad.dev</span>
+        <div className="flex items-center gap-3 self-start sm:self-center">
+          <Link
+            href="/dashboard"
+            className="rounded-full border border-[#00E5FF]/30 bg-[#00E5FF]/10 px-4 py-1.5 text-xs font-bold text-[#00E5FF] hover:bg-[#00E5FF]/20 transition-colors"
+          >
+            🧠 Career Memory
+          </Link>
+          <span className="hidden sm:flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="font-mono text-xs text-zinc-400 font-semibold">Cognee memory: live</span>
+          </span>
         </div>
       </div>
 
       <p className="mt-3 text-[14px] leading-relaxed text-zinc-400 max-w-xl">
-        Portable, on-chain skill reputation on Monad, verified by AI interview nodes, not self-claimed.
+        A lifelong <b className="text-zinc-200">AI Interview Twin</b>: every interview writes to a Cognee-powered Career
+        Knowledge Graph, so feedback, questions and learning get more personal over time — and skill reputation is minted on Monad.
       </p>
 
       {/* Futuristic Timeline Stepper */}
@@ -802,15 +935,23 @@ function Intro({ onStart }: { onStart: () => void }) {
           </div>
         </div>
 
-        <button 
-          onClick={onStart} 
-          className="btn-primary mt-8 w-full sm:w-auto px-8 py-4 text-base font-bold shadow-lg hover:scale-102 flex items-center justify-center gap-2"
-        >
-          <span>Begin Verification Journey</span>
-          <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
-          </svg>
-        </button>
+        <div className="mt-8 flex flex-col sm:flex-row gap-3">
+          <button
+            onClick={onStart}
+            className="btn-primary w-full sm:w-auto px-8 py-4 text-base font-bold shadow-lg hover:scale-102 flex items-center justify-center gap-2"
+          >
+            <span>Begin Verification Journey</span>
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+            </svg>
+          </button>
+          <Link
+            href="/dashboard"
+            className="btn-ghost w-full sm:w-auto px-8 py-4 text-base font-semibold border-[#00E5FF]/30 text-[#00E5FF] hover:bg-[#00E5FF]/10 flex items-center justify-center gap-2"
+          >
+            🧠 See a 6-month Career Memory demo
+          </Link>
+        </div>
       </div>
     </Card>
   );
