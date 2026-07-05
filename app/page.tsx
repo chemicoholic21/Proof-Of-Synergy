@@ -710,10 +710,6 @@ function Header({ step }: { step: Step }) {
         </Link>
 
         <nav className="flex items-center gap-5">
-          <span className="hidden sm:flex items-center gap-2 text-[11px] text-ink-soft">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-            memory live
-          </span>
           <Link
             href="/dashboard"
             className="text-sm text-ink border-b border-transparent hover:border-accent pb-0.5 transition-colors"
