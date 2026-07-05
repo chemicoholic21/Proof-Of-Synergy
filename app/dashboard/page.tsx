@@ -37,7 +37,7 @@ function DashboardInner() {
       <div className="cyber-bg" />
       <div className="cyber-glow-1" />
       <div className="cyber-glow-2" />
-      <main className="mx-auto max-w-5xl px-5 py-10 relative z-10">
+      <main className="mx-auto w-full max-w-6xl px-6 sm:px-10 lg:px-16 py-10 relative z-10">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
             <Link href="/" className="text-xs text-zinc-500 hover:text-zinc-300">← Interview</Link>
