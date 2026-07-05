@@ -2,6 +2,26 @@
 
 > **Every AI interviewer forgets everything. Proof of Synergy never forgets.**
 
+<p>
+  <a href="https://www.cognee.ai/"><img alt="Powered by Cognee" src="https://img.shields.io/badge/memory-Cognee-8B5CF6"></a>
+  <img alt="Next.js" src="https://img.shields.io/badge/Next.js-14-black">
+  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5-3178C6">
+  <img alt="tests" src="https://img.shields.io/badge/tests-65%20passing-brightgreen">
+</p>
+
+### 🏆 Built for *The Hangover Part AI: Where's My Context?* — WeMakeDevs × Cognee (Jun 29 – Jul 5, 2026)
+
+The hackathon attacks **"AI Amnesia"**: standard LLM agents are structurally stateless — they forget
+your preferences, overflow their context window, and reset every session. Proof of Synergy answers
+that head-on. It uses **Cognee's hybrid graph-vector memory** to give an AI interviewer a *lifelong*
+memory of a candidate's career, so context is retained across **infinite** interview sessions instead
+of starting from "tell me about yourself" every time.
+
+**Track:** _Best Use of Cognee Cloud_ (Cognee Cloud, access code `COGNEE-35`). The same build also runs
+against **self-hosted open-source Cognee** by changing one env var — see [Connect Cognee](#-connect-cognee-pick-your-track).
+
+---
+
 LinkedIn shows your network. GitHub shows your code. Proof of Synergy proves your communication —
 and, more importantly, it **remembers**. It has evolved from a single-session AI interviewer into a
 persistent **AI Interview Twin**: every interview, answer, weakness, project and communication
@@ -92,46 +112,92 @@ Part 2 : https://www.loom.com/share/48f0ebcbbcfa42d689c8a4af2697f9ef
 
 
 
+## 🧠 The memory service layer
+
+Everything routes through one abstraction ([`lib/memory/`](lib/memory)) so Cognee is the app's brain,
+not a scattered dependency. The UI never calls Cognee directly.
+
+```
+Frontend ─► /api/* ─► lib/memory (orchestrator)
+                          ├─ remember()  ─► Career Knowledge Graph ──► Cognee (add + cognify)
+                          ├─ recall()   ◄── graph traversal + Cognee search  ─► steers the LLM
+                          ├─ improve()   ─► relate concepts · node weights · retention · roadmap
+                          └─ forget()    ─► prune + keep graph consistent
+```
+
+```
+lib/memory/
+  cognee/client.ts     the ONLY seam to Cognee (add / cognify / search / forget)
+  graph/               canonical node+edge model · per-candidate store · consistency ops
+  remember.ts recall.ts improve.ts forget.ts   the lifecycle
+  evidence.ts recommendations.ts learning.ts   evidence + roadmap engines
+  concepts.ts          concept ontology + spaced-repetition retention decay
+  interview-memory.ts  semantic extraction + Interview DNA (voice/comm metrics)
+  derive.ts            dashboard read-models (reality gap, timeline, trends, replay, graph view)
+  orchestrator.ts      owns the interview-complete pipeline
+```
+
+### Memory API
+
+| Endpoint | Lifecycle | Purpose |
+| --- | --- | --- |
+| `POST /api/memory/remember` | `remember()` | ingest a resume version or a completed interview |
+| `POST /api/memory/recall`   | `recall()`   | the Career Reasoner state (weak/forgotten/unverified/…) |
+| `GET  /api/memory/graph`    | derived      | full dashboard payload: graph, reality gap, evidence, trends, roadmap |
+| `POST /api/memory/replay`   | derived      | every answer to a topic across all interviews |
+| `POST /api/memory/forget`   | `forget()`   | prune an interview / resume / company / project / all |
+| `POST /api/memory/seed`     | demo         | one-click 6-month, 3-interview history |
+| `POST /api/generate-questions` | `recall()`-driven | adaptive questions when a `candidateId` is supplied |
+
+## 🔌 Connect Cognee (pick your track)
+
+The app works with **zero credentials** (a deterministic local graph engine mirrors the exact
+`remember/recall/improve/forget` semantics) so you can try it immediately — but to compete, point it
+at a real Cognee backend:
+
+**Best Use of Cognee Cloud** (iPhone 17 track) — grab dev-tier credits with access code `COGNEE-35`:
+
+```env
+COGNEE_API_URL=https://api.cognee.ai   # your Cognee Cloud base URL
+COGNEE_API_KEY=sk-...                  # from Cognee Cloud (code COGNEE-35)
+COGNEE_DATASET=career-memory
+```
+
+**Best Use of Open Source** (MacBook track) — run self-hosted Cognee and point at it:
+
+```bash
+pip install cognee && python -m cognee.api.server   # or the official docker image
+```
+```env
+COGNEE_API_URL=http://localhost:8000
+COGNEE_API_KEY=local
+```
+
+When these are set, every `remember()` is mirrored into Cognee (`add` + `cognify`) and `recall()` is
+enriched by Cognee's semantic + graph `search`. Remove Cognee and the product loses adaptivity,
+evidence, reality gap, retention decay and the roadmap — i.e. it stops being intelligent.
+
+> The Cognee client (`lib/memory/cognee/client.ts`) is a REST scaffold. Verify the exact
+> endpoints/payloads against your Cognee version's API before the live demo.
+
 ## 📦 Getting Started
 
-To get a local copy up and running, follow these simple steps.
-
 ### Prerequisites
+- Node.js ≥ 18.18 and `npm`
 
-- Node.js installed on your local machine
-- `npm`, `yarn`, or `pnpm`
+### Run it
 
-### Installation
+```bash
+git clone https://github.com/chemicoholic21/ProofOfSynergy.git
+cd ProofOfSynergy
+npm install
+cp .env.local.example .env.local     # optional: add Cognee + Sarvam + Monad keys
+npm run dev                          # http://localhost:3000
+```
 
-1. **Clone the repository:**
-
-   ```bash
-   git clone https://github.com/chemicoholic21/ProofOfSynergy.git
-   ```
-
-2. **Navigate into the project directory:**
-
-   ```bash
-   cd ProofOfSynergy
-   ```
-
-3. **Install NPM packages:**
-
-   ```bash
-   npm install
-   ```
-
-4. **Set up your `.env.local` file with the required environment variables:**
-
-   ```env
-   # Add your environment variables here
-   ```
-
-5. **Start the development server:**
-
-   ```bash
-   npm run dev
-   ```
+Then open **http://localhost:3000/dashboard** and click **Load demo** for the full memory story.
+Everything degrades gracefully: without Sarvam/Monad/Cognee keys it runs in clearly-labelled local
+mode. Useful scripts: `npm run check` (typecheck + lint + test), `npm test` (65 tests), `npm run build`.
 
 ---
 
