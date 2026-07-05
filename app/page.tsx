@@ -239,8 +239,9 @@ export default function Home() {
   return (
     <div className="min-h-screen relative overflow-hidden bg-black">
       {/* The Hangover Part AI - solving AI amnesia */}
-      <div className="absolute inset-0 -z-10 opacity-15">
-        <img src="/hangover.jpg" alt="" className="w-full h-full object-cover" />
+      <div className="absolute inset-0 -z-10">
+        <img src="/hangover.jpg" alt="" className="w-full h-full object-cover opacity-20" />
+        <div className="absolute inset-0 bg-black/70"></div>
       </div>
 
       <main className="mx-auto w-full max-w-6xl px-6 sm:px-10 lg:px-16 py-10 relative z-10">
