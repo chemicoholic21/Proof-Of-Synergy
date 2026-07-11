@@ -28,8 +28,12 @@ export async function POST(req: NextRequest) {
   try {
     const recentMessages = body.recentMessages?.map((m) => ({ content: m.content }));
     const result = await analyzeWithGemma(body.transcript, recentMessages);
-    log.info("gemma coaching complete", { transcriptChars: body.transcript.length, events: result.coachingEvents.length });
-    return NextResponse.json({ ...result, model: "gemma" });
+    log.info("gemma coaching complete", {
+      transcriptChars: body.transcript.length,
+      events: result.coachingEvents.length,
+      engine: result.engine,
+    });
+    return NextResponse.json({ ...result, model: result.engine });
   } catch (e) {
     log.error("gemma analysis failed", { error: e });
     return errorResponse(502, "gemma_failed", `Gemma analysis failed: ${(e as Error).message}`, requestId);

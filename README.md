@@ -21,7 +21,7 @@ that shows exactly how your communication is developing over time.
 | Role | Powered by | What it does |
 | --- | --- | --- |
 | **Conversation partner** | **Gemini** | Drives the live conversation: natural dialogue, follow-up questions, pushback, tone adaptation. Never scripted. |
-| **Private coach** | **Gemma** | Watches each response for filler words, hesitation, rambling, weak structure, confidence drops and repetition — and coaches in real time. Heuristics run without any API; coaching state stays with the learner. |
+| **Private coach** | **Gemma** | Watches each response for filler words, hesitation, rambling, weak structure, confidence drops and repetition — and coaches in real time. Runs locally via Ollama (`GEMMA_URL`) so transcripts never leave the machine; falls back to Sarvam, then to built-in heuristics. |
 | **Skill memory** | **Cognee** | Every completed session updates your Skill Knowledge Graph: skills gain confidence, weaknesses surface, growth is replayable session by session. |
 | **Voice** | **Sarvam AI** | Saarika speech-to-text (multilingual, code-mixing across Indian languages) and Bulbul text-to-speech make the whole session feel like a real spoken conversation. |
 
@@ -110,8 +110,22 @@ light up each integration:
 ```env
 GEMINI_API_KEY=...      # realistic conversation partner
 SARVAM_API_KEY=...      # speech-to-text + text-to-speech (Indian languages + English)
+GEMMA_URL=...           # local Gemma coach via Ollama (e.g. http://localhost:11434)
 COGNEE_API_URL=...      # skill graph semantic layer (Cognee Cloud or self-hosted)
 COGNEE_API_KEY=...
+```
+
+For the local Gemma coach, point `GEMMA_URL` at any local model server — both protocols are
+auto-detected, and the closest Gemma model the server lists is picked automatically:
+
+```bash
+# Option A: Ollama
+ollama pull gemma3:4b                       # or gemma3:1b on a small machine
+echo "GEMMA_URL=http://localhost:11434" >> .env.local
+
+# Option B: LM Studio
+# Load a Gemma model (e.g. gemma-3n-e2b), start the server (default port 1234)
+echo "GEMMA_URL=http://localhost:1234" >> .env.local
 ```
 
 `GET /api/health` reports whether each dependency is configured **and reachable**, so a silent

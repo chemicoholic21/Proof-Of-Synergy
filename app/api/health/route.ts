@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { env, sarvamConfigured, geminiConfigured } from "@/lib/env";
 import { cogneePing, cogneeConfigured } from "@/lib/cognee";
 import { geminiPing, resolvedGeminiModel } from "@/lib/gemini";
+import { gemmaPing, gemmaConfigured } from "@/lib/gemma";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,6 +15,7 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const cognee = cogneeConfigured() ? await cogneePing() : { ok: false, status: null };
   const gemini = geminiConfigured() ? await geminiPing() : { ok: false, status: null };
+  const gemma = await gemmaPing();
   return NextResponse.json({
     status: "ok",
     demoMode: env.DEMO_MODE,
@@ -26,6 +28,10 @@ export async function GET() {
       geminiReachable: gemini.ok,
       geminiModelConfigured: env.GEMINI_MODEL,
       geminiModelInUse: resolvedGeminiModel(),
+      gemmaLocalConfigured: gemmaConfigured(),
+      gemmaLocalReachable: gemma.ok,
+      gemmaLocalModel: gemma.model,
+      gemmaLocalProtocol: gemma.protocol,
     },
   });
 }
