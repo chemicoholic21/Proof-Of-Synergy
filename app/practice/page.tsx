@@ -463,7 +463,7 @@ function CoachingOverlay({
   const chips = [
     ...fillerWords.map((w) => ({ label: `“${w}”`, tone: "amber" as const })),
     ...hesitations.map((w) => ({ label: `hesitation: ${w}`, tone: "amber" as const })),
-    ...repetitivePhrases.map((w) => ({ label: `repeat: ${w}`, tone: "ochre" as const })),
+    ...repetitivePhrases.map((w) => ({ label: `repeat: ${w}`, tone: "repeat" as const })),
   ];
   return (
     <div className="rounded-2xl border border-accent/30 bg-accent/5 p-5">
@@ -480,7 +480,7 @@ function CoachingOverlay({
               className={`rounded-full border px-2.5 py-0.5 text-[11px] ${
                 c.tone === "amber"
                   ? "border-amber-500/30 bg-amber-950/20 text-amber-300"
-                  : "border-ochre-500/30 bg-ochre-950/20 text-ochre-300"
+                  : "border-line-strong bg-surface-2 text-ink-soft"
               }`}
             >
               {c.label}

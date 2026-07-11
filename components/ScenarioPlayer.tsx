@@ -73,8 +73,8 @@ export default function ScenarioPlayer({
       title={engine === "browser" ? "Scenario voice unavailable, using browser voice" : "Listen to scenario (AI voice)"}
       className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold border transition-all duration-300 ${
         state === "playing"
-          ? "bg-cyan-500/15 border-cyan-500/40 text-cyan-300"
-          : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-cyan-300 hover:border-cyan-500/30"
+          ? "bg-accent/15 border-accent/40 text-accent"
+          : "bg-surface border-line text-ink-soft hover:text-accent hover:border-accent/30"
       }`}
     >
       {state === "loading" ? (

@@ -1,24 +1,7 @@
 import type { Config } from "tailwindcss";
 
-// Minimal editorial palette. The old build leaned on a purple→cyan neon gradient look; we remap
-// those Tailwind scales (used throughout the components) to a single quiet, warm monochrome so the
-// whole app becomes restrained and paper-like without touching every className. Semantic scales
-// (emerald = positive, amber = needs-attention) are kept but heavily desaturated.
-
-// Warm near-monochrome "stone" - replaces both purple and cyan.
-const stone = {
-  50: "#f7f6f3",
-  100: "#ecebe6",
-  200: "#dcd9d1",
-  300: "#c3bfb4",
-  400: "#a29c8e",
-  500: "#837c6d",
-  600: "#665f52",
-  700: "#4b463c",
-  800: "#302c25",
-  900: "#201d18",
-  950: "#161310",
-};
+// Minimal editorial palette: a quiet, warm monochrome with two desaturated semantic scales
+// (emerald = positive/strong, amber = needs-attention/developing).
 
 // Desaturated sage for "good / strong / demonstrated".
 const sage = {
@@ -35,7 +18,7 @@ const sage = {
   950: "#111710",
 };
 
-// Muted ochre for "attention / developing / needs evidence".
+// Muted ochre for "attention / developing / practice next".
 const ochre = {
   50: "#f5f0e4",
   100: "#ebe1c9",
@@ -58,8 +41,11 @@ const config: Config = {
         ink: "#ece9e3",
         "ink-soft": "#8f887b",
         accent: "#c8beac",
-        purple: stone,
-        cyan: stone,
+        background: "#0e0d0b",
+        surface: "#16140f",
+        "surface-2": "#1b1813",
+        line: "#2a2620",
+        "line-strong": "#3a352c",
         emerald: sage,
         amber: ochre,
       },

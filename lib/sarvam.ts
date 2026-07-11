@@ -265,15 +265,15 @@ function matchBalanced(s: string, start: number): number {
  */
 export function extractJson<T = unknown>(raw: string): T {
   const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
-  const candidate = fenced ? fenced[1] : raw;
-  const objStart = candidate.indexOf("{");
-  const arrStart = candidate.indexOf("[");
+  const source = fenced ? fenced[1] : raw;
+  const objStart = source.indexOf("{");
+  const arrStart = source.indexOf("[");
   let begin = -1;
   if (objStart !== -1 && arrStart !== -1) begin = Math.min(objStart, arrStart);
   else begin = Math.max(objStart, arrStart);
   if (begin === -1) throw new Error("No JSON found in LLM output");
-  const end = matchBalanced(candidate, begin);
-  const slice = end === -1 ? candidate.slice(begin) : candidate.slice(begin, end);
+  const end = matchBalanced(source, begin);
+  const slice = end === -1 ? source.slice(begin) : source.slice(begin, end);
   return JSON.parse(slice) as T;
 }
 

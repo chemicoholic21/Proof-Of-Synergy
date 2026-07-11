@@ -5,7 +5,7 @@ import Link from "next/link";
 export default function Home() {
   return (
     <div className="min-h-screen relative overflow-hidden bg-background">
-      <div className="absolute inset-0 -z-10 cyber-bg" />
+      <div className="absolute inset-0 -z-10 quiet-bg" />
 
       <main className="mx-auto w-full max-w-6xl px-6 sm:px-10 lg:px-16 py-10 relative z-10">
         <Header />

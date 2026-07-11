@@ -107,11 +107,11 @@ export default function VoiceRecorder({
             className={`flex items-center gap-2 rounded-full px-5 py-2.5 text-[14px] font-medium transition-all duration-300 active:scale-[0.98] ${
               hasClip
                 ? "bg-white/10 text-white border border-white/10 hover:bg-white/15"
-                : "bg-purple-500/10 text-purple-300 border border-purple-500/20 hover:bg-purple-500/20 hover:border-purple-500/35"
+                : "bg-accent/10 text-accent border border-accent/20 hover:bg-accent/20 hover:border-accent/35"
             } disabled:opacity-40 disabled:cursor-not-allowed`}
           >
             <svg
-              className={`h-4.5 w-4.5 ${hasClip ? "text-zinc-400" : "text-[#c8beac]"}`}
+              className={`h-4.5 w-4.5 ${hasClip ? "text-zinc-400" : "text-accent"}`}
               fill="none"
               stroke="currentColor"
               strokeWidth="2"
