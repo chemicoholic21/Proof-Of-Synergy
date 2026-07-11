@@ -12,13 +12,13 @@ We will acknowledge your report and credit you in the release notes unless you p
 
 ## Deployment notes
 
-This app handles resumes, voice recordings, and a persistent Career Knowledge Graph. When deploying:
+This app handles voice recordings and a persistent Skill Knowledge Graph. When deploying:
 
 - Never enable `DEMO_MODE` in production. It substitutes mock data that must not be presented as
   real results.
-- The Career Knowledge Graph is personal data. The local store (`.career-memory/`) and any Cognee
-  dataset are keyed per candidate; scope access to the authenticated user and honour `forget()`
-  (`/api/memory/forget`) so candidates can delete their memories.
+- The Skill Knowledge Graph is personal data. The local store (`.skill-memory/`) and any Cognee
+  dataset are keyed per learner; scope access to the authenticated user and honour `forget()`
+  (`/api/skill-graph/forget`) so learners can delete their memories.
 - Never commit secrets. `COGNEE_API_KEY`, `SARVAM_API_KEY` and tokenized URLs belong in environment
   variables only.
 - Rate limiting is in-memory by default. For multi-instance deployments, back the limiter in

@@ -1,234 +1,133 @@
-# Proof of Synergy - a Cognee-powered Career Memory
+# Proof of Synergy — the AI Communication Gym
 
-> **Every AI interviewer forgets everything. Proof of Synergy never forgets.**
+> You don't become a better communicator by reading feedback after the fact.
+> You get better the way athletes do: **practice, coaching in the moment, and another rep.**
 
 <p>
-  <a href="https://www.cognee.ai/"><img alt="Powered by Cognee" src="https://img.shields.io/badge/memory-Cognee-8B5CF6"></a>
   <img alt="Next.js" src="https://img.shields.io/badge/Next.js-14-black">
   <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5-3178C6">
-  <img alt="tests" src="https://img.shields.io/badge/tests-65%20passing-brightgreen">
+  <a href="https://www.cognee.ai/"><img alt="Skill graph by Cognee" src="https://img.shields.io/badge/skill%20graph-Cognee-8B5CF6"></a>
+  <a href="https://www.sarvam.ai/"><img alt="Voice by Sarvam" src="https://img.shields.io/badge/voice-Sarvam%20AI-F97316"></a>
 </p>
 
-### 🏆 Built for *The Hangover Part AI: Where's My Context?* - WeMakeDevs × Cognee (Jun 29 – Jul 5, 2026)
+Proof of Synergy is a gym for high-stakes conversations. Pick a scenario — a technical deep dive,
+a startup pitch, a design review, a public talk, a leadership conversation, a thesis defense —
+and rehearse it out loud with a realistic AI partner. A private coach listens alongside you and
+nudges you in the moment; every session you complete grows a persistent **Skill Knowledge Graph**
+that shows exactly how your communication is developing over time.
 
-The hackathon attacks **"AI Amnesia"**: standard LLM agents are structurally stateless - they forget
-your preferences, overflow their context window, and reset every session. Proof of Synergy answers
-that head-on. It uses **Cognee's hybrid graph-vector memory** to give an AI interviewer a *lifelong*
-memory of a candidate's career, so context is retained across **infinite** interview sessions instead
-of starting from "tell me about yourself" every time.
+## How it works
 
-**Track:** _Best Use of Cognee Cloud_ (Cognee Cloud, access code `COGNEE-35`). The same build also runs
-against **self-hosted open-source Cognee** by changing one env var - see [Connect Cognee](#-connect-cognee-pick-your-track).
-
----
-
-LinkedIn shows your network. GitHub shows your code. Proof of Synergy proves your communication -
-and, more importantly, it **remembers**. It has evolved from a single-session AI interviewer into a
-persistent **AI Interview Twin**: every interview, answer, weakness, project and communication
-pattern is written into a lifelong **Career Knowledge Graph** powered by **[Cognee](https://www.cognee.ai/)**
-(structural memory, not another vector DB). Future interviews are personalized from that memory,
-every recommendation is backed by traceable evidence, and skills decay over time until you revisit
-them - just like real learning.
-
-Cognee is the brain. Remove it and the product stops being intelligent.
-
-## Why Cognee is central
-
-Cognee stores **relationships, not chunks**. The whole app is built around its memory lifecycle:
-
-| Lifecycle | Where it happens | What it does |
+| Role | Powered by | What it does |
 | --- | --- | --- |
-| `remember()` | after resume upload & every interview | writes structured nodes + relationships (candidate → resume → CLAIMS → skill → TESTS → concept → EVIDENCE) - never flat JSON |
-| `recall()`   | **before** generating any interview | the Career Reasoner: which concepts are weak, forgotten (retention-decayed), never verified, already mastered, or relevant to an upcoming company - this steers question generation |
-| `improve()`  | after every interview | relates concepts, raises node weights, recomputes confidence + retention, emits evidence-backed recommendations, learning missions and improvement milestones |
-| `forget()`   | candidate-controlled | prunes an interview / resume / company / project while preserving graph consistency and recomputing scores |
+| **Conversation partner** | **Gemini** | Drives the live conversation: natural dialogue, follow-up questions, pushback, tone adaptation. Never scripted. |
+| **Private coach** | **Gemma** | Watches each response for filler words, hesitation, rambling, weak structure, confidence drops and repetition — and coaches in real time. Heuristics run without any API; coaching state stays with the learner. |
+| **Skill memory** | **Cognee** | Every completed session updates your Skill Knowledge Graph: skills gain confidence, weaknesses surface, growth is replayable session by session. |
+| **Voice** | **Sarvam AI** | Saarika speech-to-text (multilingual, code-mixing across Indian languages) and Bulbul text-to-speech make the whole session feel like a real spoken conversation. |
 
-The memory layer lives in [`lib/memory/`](lib/memory) behind one abstraction; nothing in the UI
-calls Cognee directly. When `COGNEE_API_URL`/`COGNEE_API_KEY` are configured it mirrors into a real
-Cognee backend; otherwise a deterministic local graph engine gives identical semantics so the demo
-runs with zero credentials. See [docs/cognee-career-memory-architecture.md](docs/cognee-career-memory-architecture.md).
-
-## The 5-minute demo
-
-Open **`/dashboard`** and click **Load demo** (or run one interview from the home page):
-
-1. A six-month, three-interview career history seeds instantly.
-2. **Knowledge Graph** - click any node to see why it exists, its confidence/retention and connections. Weak nodes glow.
-3. **Reality Gap** - resume claims vs demonstrated evidence, framed as coaching (Highly Demonstrated / Developing / Needs Evidence).
-4. **Memory Replay** - watch Kubernetes grow 30% → 58% → 84% across interviews.
-5. **Communication trends** - filler words drop, confidence rises, tracked as persistent Interview DNA.
-6. **Learning Roadmap** - every weakness becomes an evidence-backed mission with spaced-repetition review dates.
-7. Start a new interview and the **recall()** banner shows it being personalized from memory.
-
-https://proof-of-synergy.vercel.app/
-
-## Reality
-
-<img width="769" height="574" alt="image" src="https://github.com/user-attachments/assets/2d3cabf6-c953-4516-aa23-e86d074b7dfc" />
-
-## Demo Video
-
-Part 1  : https://www.loom.com/share/2bfb990f8b9f4dd8aea5122f678b4e06
-Part 2 : https://www.loom.com/share/48f0ebcbbcfa42d689c8a4af2697f9ef
-
-
-## 🚀 Overview
-
-
-
-**Live Link:** [https://proof-of-synergy.vercel.app/](https://proof-of-synergy.vercel.app/)
-
-<img width="1697" height="927" alt="image" src="https://github.com/user-attachments/assets/a9d0162f-2a81-410b-8c1e-0e13d524347e" />
-
-
-<img width="1919" height="992" alt="Screenshot 2026-06-07 163953" src="https://github.com/user-attachments/assets/b7eb759f-3bfb-4ee7-b2f0-56b8fc4c02f4" />
-
-
-
-
-
-## 🛠️ Features
-
-- **Career Knowledge Graph:** a living graph of skills, concepts, projects, companies, interviews and communication patterns - the centrepiece, powered by Cognee.
-- **Adaptive interviews:** questions are generated from `recall()`, targeting weak / forgotten / never-verified topics and biasing toward an upcoming company. No two interviews are the same.
-- **Reality Gap:** resume claims cross-checked against demonstrated evidence, always framed as coaching.
-- **Evidence engine:** every score and recommendation is traceable ("Improve Kafka because: scored 40%, no project, last discussed 96 days ago").
-- **GitHub evidence:** import a public GitHub profile and the technologies you actually ship become a third evidence source - matched skills gain repo evidence, unmatched claims visibly show 0 repos.
-- **Learning loop:** each weakness becomes a mission (read → practice → quiz → re-interview → improvement recorded) with spaced-repetition scheduling.
-- **Interview DNA + Memory Replay:** persistent communication metrics over time (fillers, confidence, vocabulary, speaking pace), and replay of every answer to a topic across months.
-- **Ask Cognee:** a graph-grounded "what should I study before my Stripe interview?" answer straight from Cognee's `search()`.
-- **Persistent across sessions:** your Career Knowledge Graph survives every visit - the whole point.
-
-
-
-## 💻 Tech Stack
-
-| Layer            | Technology                          |
-|------------------|-------------------------------------|
-| Structural memory| **Cognee** (Career Knowledge Graph) |
-| Frontend         | React / Next.js / TypeScript        |
-| Voice / LLM      | Sarvam AI (STT / TTS / chat)        |
-| Styling          | Tailwind CSS                        |
-| Deployment       | Vercel                              |
-
-
-
-## 🧠 The memory service layer
-
-Everything routes through one abstraction ([`lib/memory/`](lib/memory)) so Cognee is the app's brain,
-not a scattered dependency. The UI never calls Cognee directly.
+## The experience
 
 ```
-Frontend ─► /api/* ─► lib/memory (orchestrator)
-                          ├─ remember()  ─► Career Knowledge Graph ──► Cognee (add + cognify)
-                          ├─ recall()   ◄── graph traversal + Cognee search  ─► steers the LLM
-                          ├─ improve()   ─► relate concepts · node weights · retention · roadmap
-                          └─ forget()    ─► prune + keep graph consistent
+Home ─► Choose a practice scenario ─► Live conversation (speak or type)
+                                            │
+                                   Gemma coaches in real time
+                                            │
+                              Session summary (warm, specific)
+                                            │
+                          Skill Knowledge Graph grows and remembers
 ```
 
+The graph is the centerpiece: a radial visualization where **you** sit at the center, the skills
+you've practised orbit you (weak ones pulse ochre, strong ones glow sage), and every session that
+earned them connects back. Click any node to see why it exists; click **replay** to watch one
+skill's confidence climb across weeks of practice.
+
+## Architecture
+
+Every module has a single responsibility; nothing talks to an external service except through its
+dedicated client.
+
 ```
-lib/memory/
-  cognee/client.ts     the ONLY seam to Cognee (add / cognify / search / forget)
-  graph/               canonical node+edge model · per-candidate store · consistency ops
-  remember.ts recall.ts improve.ts forget.ts   the lifecycle
-  evidence.ts recommendations.ts learning.ts   evidence + roadmap engines
-  concepts.ts          concept ontology + spaced-repetition retention decay
-  github.ts            public GitHub profile -> technology + evidence signals
-  interview-memory.ts  semantic extraction + Interview DNA (voice/comm metrics)
-  derive.ts            dashboard read-models (reality gap, timeline, trends, replay, graph view)
-  orchestrator.ts      owns the interview-complete pipeline
+app/
+  page.tsx                      home
+  practice/                     scenario picker -> live conversation -> summary
+  knowledge-graph/              the Skill Knowledge Graph experience
+  api/
+    gemini/                     conversation turns (Gemini)
+    gemma/                      real-time coaching analysis (Gemma)
+    coaching/summary            end-of-session coaching summary
+    coaching/metrics            communication metrics from a transcript (pure, no LLM)
+    transcribe/  tts/           Sarvam voice (Saarika STT, Bulbul TTS)
+    skill-graph/                the memory lifecycle: remember / recall / replay / forget / seed
+    health/                     live dependency probes (no silent fallbacks in a demo)
+
+components/
+  VoiceRecorder.tsx             segmented mic capture (<=25s clips for real-time STT)
+  ScenarioPlayer.tsx            reads partner lines aloud (Bulbul, browser fallback)
+  knowledge-graph/              GraphCanvas (SVG radial graph) + SkillGraphExplorer
+
+lib/
+  gemini.ts                     Gemini client (conversation partner)
+  gemma.ts                      Gemma coaching agent (heuristics + optional LLM lift)
+  sarvam.ts                     Sarvam client (chat / STT / TTS / JSON extraction)
+  cognee.ts                     Cognee client (add / cognify / search / forget)
+  skill-graph.ts                the Skill Knowledge Graph: lifecycle + projections
+  scenarios.ts                  the practice scenario catalogue
+  communication-metrics.ts      filler/hedge/confidence analysis (pure functions)
+  learner.ts                    client-side identity + browser-held graph copy
+  env.ts http.ts logger.ts rateLimit.ts schemas.ts prompts.ts types.ts
 ```
 
-### Memory API
+### The memory lifecycle
 
-| Endpoint | Lifecycle | Purpose |
-| --- | --- | --- |
-| `POST /api/memory/remember` | `remember()` | ingest a resume version or a completed interview |
-| `POST /api/memory/github`   | `remember()` | ingest a public GitHub profile as evidence |
-| `POST /api/memory/recall`   | `recall()`   | the Career Reasoner state (weak/forgotten/unverified/…) |
-| `GET  /api/memory/graph`    | derived      | full dashboard payload: graph, reality gap, evidence, trends, roadmap |
-| `POST /api/memory/replay`   | derived      | every answer to a topic across all interviews |
-| `POST /api/memory/forget`   | `forget()`   | prune an interview / resume / company / project / all |
-| `POST /api/memory/seed`     | demo         | one-click 6-month, 3-interview history |
-| `POST /api/generate-questions` | `recall()`-driven | adaptive questions when a `candidateId` is supplied |
+The skill graph follows a strict lifecycle, with Cognee as the semantic layer:
 
-## 🔌 Connect Cognee (pick your track)
+- **remember()** — `POST /api/skill-graph/remember` folds a completed session into the graph and
+  mirrors *normalized skill statements* (never raw transcripts) into a per-learner Cognee dataset.
+- **recall()** — `POST /api/skill-graph/recall` returns strong / weak / fading skills, and when
+  Cognee is configured, its graph-grounded answer to "what should I practice next?".
+- **replay()** — `POST /api/skill-graph/replay` shows one skill's growth across every session.
+- **forget()** — `POST /api/skill-graph/forget` deletes a skill, a session, or everything —
+  locally *and* in Cognee. Privacy is a feature, not a setting.
 
-The app works with **zero credentials** (a deterministic local graph engine mirrors the exact
-`remember/recall/improve/forget` semantics) so you can try it immediately - but to compete, point it
-at a real Cognee backend:
+The browser holds the durable copy of the graph (localStorage) and sends it with each request, so
+memory survives serverless deployments where instances share no disk.
 
-**Best Use of Cognee Cloud** (iPhone 17 track) - grab dev-tier credits with access code `COGNEE-35`:
+## Getting started
 
-```env
-COGNEE_API_URL=https://tenant-<id>.aws.cognee.ai   # your Cognee Cloud tenant URL
-COGNEE_API_KEY=<your key>                          # from Cognee Cloud (code COGNEE-35)
-COGNEE_DATASET=career-memory
-COGNEE_DATA_DIR=/tmp/career-memory                 # writable path on serverless (Vercel)
-```
-
-**Best Use of Open Source** (MacBook track) - run self-hosted Cognee and point at it:
+Requirements: Node.js ≥ 18.18.
 
 ```bash
-pip install cognee && python -m cognee.api.server   # or the official docker image
-```
-```env
-COGNEE_API_URL=http://localhost:8000
-COGNEE_API_KEY=local
-```
-
-When these are set, every `remember()` is mirrored into Cognee (`add_text` + `cognify`) and
-`recall()` is enriched by Cognee's graph-grounded `search` - that answer is injected into interview
-generation and shown in the UI. Remove Cognee and the product loses adaptivity, evidence, reality
-gap, retention decay and the roadmap - i.e. it stops being intelligent.
-
-> The client (`lib/memory/cognee/client.ts`) is wired against Cognee Cloud's live API, verified from
-> its OpenAPI spec: `X-Api-Key` auth, `POST /api/v1/add_text`, background `POST /api/v1/cognify`,
-> `POST /api/v1/search` (`GRAPH_COMPLETION`). `GET /api/health` reports `cogneeReachable` via a live
-> ping so a silent local-fallback can't hide during a demo.
-
-## 📦 Getting Started
-
-### Prerequisites
-- Node.js ≥ 18.18 and `npm`
-
-### Run it
-
-```bash
-git clone https://github.com/chemicoholic21/ProofOfSynergy.git
-cd ProofOfSynergy
 npm install
-cp .env.local.example .env.local     # optional: add Cognee + Sarvam keys
-npm run dev                          # http://localhost:3000
+cp .env.local.example .env.local   # optional: add Gemini / Sarvam / Cognee keys
+npm run dev                        # http://localhost:3000
 ```
 
-Then open **http://localhost:3000/dashboard** and click **Load demo** for the full memory story.
-Everything degrades gracefully: without Sarvam/Cognee keys it runs in clearly-labelled local
-mode. Useful scripts: `npm run check` (typecheck + lint + test), `npm test` (65 tests), `npm run build`.
+The app degrades gracefully with zero credentials: the conversation uses a deterministic local
+partner, coaching runs on heuristics, and the skill graph runs on the local engine. Add keys to
+light up each integration:
 
----
+```env
+GEMINI_API_KEY=...      # realistic conversation partner
+SARVAM_API_KEY=...      # speech-to-text + text-to-speech (Indian languages + English)
+COGNEE_API_URL=...      # skill graph semantic layer (Cognee Cloud or self-hosted)
+COGNEE_API_KEY=...
+```
 
-## 🤝 Contributing
+`GET /api/health` reports whether each dependency is configured **and reachable**, so a silent
+fallback can never masquerade as a working integration during a demo.
 
-Contributions are what make the open-source community such an amazing place to learn, inspire, and create. Any contributions you make are **greatly appreciated**.
+Useful scripts: `npm run check` (typecheck + tests), `npm test`, `npm run build`.
 
-1. Fork the Project
-2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the Branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+### Two-minute demo
 
----
+1. Open **/knowledge-graph** and click **Load a demo history** — three sessions over three weeks
+   seed instantly with a visible growth arc (52% → 64% → 71% confidence).
+2. Explore the graph: click nodes, replay "persuasion", check the Growth tab.
+3. Go to **/practice**, pick a scenario, and speak. Watch Gemma coach you mid-conversation.
+4. End the session — the summary appears and the graph grows by one more rep.
 
-## 📝 License
+## Contributing & license
 
-Distributed under the MIT License. See [`LICENSE`](LICENSE) for more information.
-
----
-
-## 📫 Contact
-
-**Taniya Souza**
-
-- 🔗 Repository: [github.com/chemicoholic21/ProofOfSynergy](https://github.com/chemicoholic21/ProofOfSynergy/)
-- 🌐 Live Application: [proof-of-synergy.vercel.app](https://proof-of-synergy.vercel.app/)
+See [CONTRIBUTING.md](./CONTRIBUTING.md). Distributed under the MIT License — see
+[LICENSE](./LICENSE).

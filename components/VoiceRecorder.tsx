@@ -107,11 +107,11 @@ export default function VoiceRecorder({
             className={`flex items-center gap-2 rounded-full px-5 py-2.5 text-[14px] font-medium transition-all duration-300 active:scale-[0.98] ${
               hasClip
                 ? "bg-white/10 text-white border border-white/10 hover:bg-white/15"
-                : "bg-purple-500/10 text-purple-300 border border-purple-500/20 hover:bg-purple-500/20 hover:border-purple-500/35"
+                : "bg-accent/10 text-accent border border-accent/20 hover:bg-accent/20 hover:border-accent/35"
             } disabled:opacity-40 disabled:cursor-not-allowed`}
           >
             <svg
-              className={`h-4.5 w-4.5 ${hasClip ? "text-zinc-400" : "text-[#c8beac]"}`}
+              className={`h-4.5 w-4.5 ${hasClip ? "text-zinc-400" : "text-accent"}`}
               fill="none"
               stroke="currentColor"
               strokeWidth="2"
@@ -123,7 +123,7 @@ export default function VoiceRecorder({
                 d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z"
               />
             </svg>
-            <span>{hasClip ? "Re-record audio" : "Record answer"}</span>
+            <span>{hasClip ? "Re-record audio" : "Speak"}</span>
           </button>
         ) : (
           <button

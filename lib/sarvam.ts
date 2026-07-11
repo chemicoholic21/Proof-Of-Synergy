@@ -12,8 +12,8 @@ const CHAT_MODEL = env.SARVAM_CHAT_MODEL;
 // leaving `content` empty -> the "finish_reason=length, empty content" bug. On the starter tier
 // (max_tokens capped at 4096) even "low" effort exhausts the budget before any JSON is emitted, so
 // we DISABLE reasoning by default (reasoning_effort: null). Every task here returns structured
-// JSON, where thinking adds little (and the judge rubrics are explicit, where CoT is known to add
-// minimal value). Override per-call or via SARVAM_REASONING_EFFORT if on a higher tier.
+// JSON or short coaching text, where thinking adds little. Override per-call or via
+// SARVAM_REASONING_EFFORT if on a higher tier.
 const REASONING_EFFORT = env.SARVAM_REASONING_EFFORT;
 
 /** Map an effort string to the wire value. "none"/"off"/"null"/""/unknown -> null (disabled). */
@@ -22,9 +22,8 @@ function reasoningWireValue(effort: string | undefined): "low" | "medium" | "hig
   return v === "low" || v === "medium" || v === "high" ? v : null;
 }
 
-// Lightweight FIFO semaphore bounding concurrent Sarvam chat calls. The judge panel multiplies
-// outbound requests (3 per answer x parallel answers), which easily exceeds the tier's request
-// rate limit; this caps total in-flight calls without changing any caller's code.
+// Lightweight FIFO semaphore bounding concurrent Sarvam chat calls, so bursts of coaching
+// requests never exceed the account tier's request rate limit.
 let activeChatCalls = 0;
 const chatQueue: Array<() => void> = [];
 
@@ -127,8 +126,8 @@ export async function sarvamChat(
   opts: { temperature?: number; maxTokens?: number; timeoutMs?: number; reasoningEffort?: string } = {}
 ): Promise<string> {
   if (!KEY) throw new Error("SARVAM_API_KEY not set");
-  // One slot covers both the attempt and its retry, so the bound is on concurrent answers/judges
-  // rather than individual HTTP calls.
+  // One slot covers both the attempt and its retry, so the bound is on logical requests rather
+  // than individual HTTP calls.
   return withChatSlot(async () => {
     try {
       return await sarvamChatOnce(system, user, opts);
@@ -230,33 +229,6 @@ export async function sarvamTTS(
   return audio; // base64 WAV
 }
 
-/** Sarvam Parse (OCR). Returns extracted text/markdown from a document. */
-export async function sarvamParse(file: Blob, filename: string, timeoutMs = 25000): Promise<string> {
-  if (!KEY) throw new Error("SARVAM_API_KEY not set");
-  const form = new FormData();
-  form.append("file", file, filename);
-  form.append("page_number", "1");
-  form.append("sarvam_mode", "small");
-  const res = await fetchWithTimeout(
-    `${SARVAM_BASE}/parse/parsepdf`,
-    {
-      method: "POST",
-      headers: authHeaders(),
-      body: form,
-    },
-    timeoutMs
-  );
-  if (!res.ok) throw new Error(`Sarvam Parse ${res.status}: ${await res.text()}`);
-  const data = await res.json();
-  // Parse returns base64-encoded XML/markdown depending on mode; normalize to text.
-  const out = data?.output ?? data?.content ?? "";
-  try {
-    return Buffer.from(out, "base64").toString("utf-8") || out;
-  } catch {
-    return out;
-  }
-}
-
 /**
  * Scan from `start` and return the index just past the balanced JSON value that begins there,
  * correctly skipping braces/brackets that appear inside string literals (and their escapes).
@@ -293,52 +265,23 @@ function matchBalanced(s: string, start: number): number {
  */
 export function extractJson<T = unknown>(raw: string): T {
   const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
-  const candidate = fenced ? fenced[1] : raw;
-  const objStart = candidate.indexOf("{");
-  const arrStart = candidate.indexOf("[");
+  const source = fenced ? fenced[1] : raw;
+  const objStart = source.indexOf("{");
+  const arrStart = source.indexOf("[");
   let begin = -1;
   if (objStart !== -1 && arrStart !== -1) begin = Math.min(objStart, arrStart);
   else begin = Math.max(objStart, arrStart);
   if (begin === -1) throw new Error("No JSON found in LLM output");
-  const end = matchBalanced(candidate, begin);
-  const slice = end === -1 ? candidate.slice(begin) : candidate.slice(begin, end);
+  const end = matchBalanced(source, begin);
+  const slice = end === -1 ? source.slice(begin) : source.slice(begin, end);
   return JSON.parse(slice) as T;
 }
 
 /**
  * Extract JSON from an LLM response and validate it against a Zod schema. The schema is the
  * contract: a structurally-valid-but-semantically-wrong response is rejected here rather than
- * flowing downstream into scores and on-chain attestations.
+ * flowing downstream into coaching signals.
  */
 export function extractValidatedJson<T>(raw: string, schema: { parse: (v: unknown) => T }): T {
   return schema.parse(extractJson(raw));
-}
-
-/**
- * Salvage the complete `{...}` objects from the first JSON array in `raw`, tolerating a TRUNCATED
- * response (e.g. the model hit max_tokens mid-object). Walks the array element by element using
- * string-aware brace matching and stops at the first object that does not close, so a cut-off
- * final element is dropped rather than failing the whole parse. Returns [] if no array is found.
- */
-export function extractJsonArrayItems<T = unknown>(raw: string): T[] {
-  const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
-  const candidate = fenced ? fenced[1] : raw;
-  const arrStart = candidate.indexOf("[");
-  if (arrStart === -1) return [];
-  const items: T[] = [];
-  let i = arrStart + 1;
-  while (i < candidate.length) {
-    while (i < candidate.length && /[\s,]/.test(candidate[i])) i++; // skip whitespace/commas
-    if (i >= candidate.length || candidate[i] === "]") break;
-    if (candidate[i] !== "{") break; // not an object array, or trailing garbage
-    const end = matchBalanced(candidate, i);
-    if (end === -1) break; // final object was truncated -> stop, keep what we have
-    try {
-      items.push(JSON.parse(candidate.slice(i, end)) as T);
-    } catch {
-      break;
-    }
-    i = end;
-  }
-  return items;
 }

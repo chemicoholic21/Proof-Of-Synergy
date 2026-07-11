@@ -30,18 +30,12 @@ body {
   overflow-x: hidden;
 }
 
-/* Background: flat, quiet. A single hairline vignette instead of neon grids/glows. */
-.cyber-bg {
+/* Background: flat and quiet. */
+.quiet-bg {
   position: fixed;
   inset: 0;
   z-index: -1;
   background-color: var(--background);
-}
-/* The old neon glow orbs are intentionally neutralized to nothing. */
-.cyber-glow-1,
-.cyber-glow-2,
-.cyber-glow-3 {
-  display: none;
 }
 
 @layer components {
@@ -61,12 +55,6 @@ body {
   }
   .glass-card:hover {
     border-color: var(--line-strong);
-  }
-
-  .glass-subtle {
-    @apply rounded-lg border;
-    background-color: transparent;
-    border-color: var(--line);
   }
 
   /* Solid monochrome primary - near-white on ink, no gradient/shine. */
@@ -90,13 +78,6 @@ body {
   .btn-ghost:hover:not(:disabled) {
     background-color: rgba(255, 255, 255, 0.04);
   }
-
-  .chip {
-    @apply rounded-full border px-3 py-1 text-xs font-medium;
-    border-color: var(--line);
-    color: var(--ink-soft);
-    background-color: transparent;
-  }
 }
 
 /* Recording pulse - desaturated, no colored glow ring. */
@@ -114,17 +95,12 @@ body {
 }
 
 @keyframes pulseBar {
-  0%, 100% { transform: scaleY(0.25); }
-  50% { transform: scaleY(1); }
+   0%, 100% { transform: scaleY(0.25); }
+   50% { transform: scaleY(1); }
 }
 .wavebar {
   animation: pulseBar 0.9s ease-in-out infinite;
   transform-origin: center;
-}
-
-/* Legacy class kept referenced in JSX - neutralized to a flat surface. */
-.cyber-card-attestation {
-  background-color: var(--surface);
 }
 
 /* Scrollbar */
@@ -142,11 +118,7 @@ body {
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* React Bits-style reveals for the landing hero */
-@keyframes blurReveal {
-  0% { opacity: 0; filter: blur(14px); transform: translateY(0.42em); }
-  100% { opacity: 1; filter: blur(0); transform: translateY(0); }
-}
+/* Reveals for the landing hero */
 @keyframes fadeUp {
   0% { opacity: 0; transform: translateY(14px); }
   100% { opacity: 1; transform: translateY(0); }
