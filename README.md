@@ -121,8 +121,8 @@ Useful scripts: `npm run check` (typecheck + tests), `npm test`, `npm run build`
 
 ### Two-minute demo
 
-1. Open **/knowledge-graph** and click **Load a demo history** — three sessions over three weeks
-   seed instantly with a visible growth arc (52% → 64% → 71% confidence).
+1. Open **/knowledge-graph** — a first visit opens with a three-week practice baseline and a
+   visible growth arc (52% → 64% → 71% confidence), so the graph is never empty.
 2. Explore the graph: click nodes, replay "persuasion", check the Growth tab.
 3. Go to **/practice**, pick a scenario, and speak. Watch Gemma coach you mid-conversation.
 4. End the session — the summary appears and the graph grows by one more rep.

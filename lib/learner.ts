@@ -42,8 +42,16 @@ export function loadGraphLocal(learnerId: string): unknown | null {
   const s = localStorage.getItem(graphKey(learnerId));
   if (!s) return null;
   try {
-    return JSON.parse(s);
+    const g = JSON.parse(s) as { skills?: unknown; sessions?: unknown } | null;
+    // A graph written by an older build (or corrupted) is discarded rather than sent to the
+    // server - the server responds with a fresh graph and this copy heals on the next save.
+    if (!g || typeof g !== "object" || typeof g.skills !== "object" || typeof g.sessions !== "object") {
+      localStorage.removeItem(graphKey(learnerId));
+      return null;
+    }
+    return g;
   } catch {
+    localStorage.removeItem(graphKey(learnerId));
     return null;
   }
 }
