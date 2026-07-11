@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import TrueFocus from "@/components/bits/TrueFocus";
 
 export default function Home() {
   return (
@@ -19,7 +20,12 @@ export default function Home() {
           </div>
 
           <h1 className="heading-font mt-8 block text-[2.5rem] leading-[1.06] tracking-tight text-ink sm:text-[3.5rem] lg:text-[4rem]">
-            A gym for how you communicate.
+            <TrueFocus
+              sentence="A gym for how you communicate."
+              blurAmount={4}
+              animationDuration={0.5}
+              pauseBetweenAnimations={1.1}
+            />
           </h1>
 
           <p className="fade-up mt-8 max-w-2xl text-base leading-relaxed text-ink-soft sm:text-[17px]">

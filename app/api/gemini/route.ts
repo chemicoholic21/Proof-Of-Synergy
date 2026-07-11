@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GeminiChatBody } from "@/lib/schemas";
-import { geminiChat, geminiConfigured } from "@/lib/gemini";
+import { geminiChat, geminiConfigured, resolvedGeminiModel } from "@/lib/gemini";
 import { SCENARIO_SYSTEM, scenarioUserPrompt } from "@/lib/prompts";
 import { getScenario } from "@/lib/scenarios";
 import { logger } from "@/lib/logger";
@@ -42,8 +42,9 @@ export async function POST(req: NextRequest) {
 
   try {
     const reply = await geminiChat(SCENARIO_SYSTEM, userPrompt, { temperature: 0.7, maxTokens: 800 });
-    log.info("gemini reply generated", { scenarioId: body.scenarioId, chars: reply.length });
-    return NextResponse.json({ reply, model: "gemini", scenarioId: body.scenarioId });
+    const model = resolvedGeminiModel() ?? "gemini";
+    log.info("gemini reply generated", { scenarioId: body.scenarioId, model, chars: reply.length });
+    return NextResponse.json({ reply, model, scenarioId: body.scenarioId });
   } catch (e) {
     log.error("gemini chat failed", { error: e });
     return errorResponse(502, "gemini_failed", `Gemini failed: ${(e as Error).message}`, requestId);

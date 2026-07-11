@@ -14,6 +14,14 @@ const log = logger.child({ module: "gemini" });
 const FALLBACK_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"];
 let workingModel: string | null = null;
 
+/** The model id that actually answered the last successful call (null before the first one).
+ *  Surfaced in /api/gemini responses and /api/health so a fallback is always observable -
+ *  e.g. a `-live`-only model id (Live API / bidiGenerateContent) can't silently masquerade
+ *  as the model in use. */
+export function resolvedGeminiModel(): string | null {
+  return workingModel;
+}
+
 function candidateModels(): string[] {
   const configured = env.GEMINI_MODEL;
   const chain = [configured, ...FALLBACK_MODELS.filter((m) => m !== configured)];

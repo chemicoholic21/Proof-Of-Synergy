@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { env, sarvamConfigured, geminiConfigured } from "@/lib/env";
 import { cogneePing, cogneeConfigured } from "@/lib/cognee";
-import { geminiPing } from "@/lib/gemini";
+import { geminiPing, resolvedGeminiModel } from "@/lib/gemini";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,6 +24,8 @@ export async function GET() {
       cogneeReachable: cognee.ok,
       geminiConfigured: geminiConfigured(),
       geminiReachable: gemini.ok,
+      geminiModelConfigured: env.GEMINI_MODEL,
+      geminiModelInUse: resolvedGeminiModel(),
     },
   });
 }
