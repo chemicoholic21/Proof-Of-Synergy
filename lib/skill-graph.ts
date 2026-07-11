@@ -51,6 +51,8 @@ export interface PracticeSessionNode {
   fillerCount: number;
   coachingEvents: number;
   skills: string[];
+  /** Projects / companies the learner talked about in this session (graph context nodes). */
+  topics: string[];
   summary: string;
 }
 
@@ -185,6 +187,7 @@ export async function deleteSkillGraph(learnerId: string): Promise<void> {
 function migrate(g: SkillGraph): SkillGraph {
   g.skills ||= {};
   g.sessions ||= {};
+  for (const s of Object.values(g.sessions)) s.topics ||= [];
   g.schemaVersion ||= SCHEMA_VERSION;
   return g;
 }
@@ -267,6 +270,7 @@ export async function rememberSession(input: RememberSessionInput): Promise<{
     fillerCount: metrics.fillerCount,
     coachingEvents: input.session.coachingEvents.length,
     skills: skillIds,
+    topics: [],
     summary: input.session.summary,
   };
 
@@ -291,6 +295,9 @@ export function serializeSessionForCognee(learnerId: string, session: PracticeSe
     const s = g.skills[id];
     if (!s) continue;
     lines.push(`${who} practiced the communication skill "${s.name}" (${s.category}), now at ${s.level} level with ${s.confidence}% confidence after ${s.sessions} sessions.`);
+  }
+  for (const t of session.topics ?? []) {
+    lines.push(`${who} discussed the project "${t}" during this session.`);
   }
   if (session.fillerCount > 3) {
     lines.push(`${who} has a weakness in filler words: ${session.fillerCount} fillers were detected in this session.`);
@@ -430,7 +437,7 @@ export function practiceReplay(graph: SkillGraph, skill: string): { skill: strin
 // Dashboard + visualization read-models (pure projections of the graph).
 // ---------------------------------------------------------------------------
 
-export type VizKind = "learner" | "category" | "skill" | "session";
+export type VizKind = "learner" | "category" | "skill" | "session" | "topic";
 
 export interface VizNode {
   id: string;
@@ -446,7 +453,7 @@ export interface VizNode {
 export interface VizEdge {
   from: string;
   to: string;
-  type: "PRACTICES" | "BELONGS_TO" | "DEMONSTRATED_IN";
+  type: "PRACTICES" | "BELONGS_TO" | "DEMONSTRATED_IN" | "DISCUSSED";
 }
 
 export interface GraphView {
@@ -501,6 +508,7 @@ export function graphView(g: SkillGraph): GraphView {
       strong: false,
     });
   }
+  const topics = new Map<string, { label: string; weight: number }>();
   for (const s of Object.values(g.sessions)) {
     nodes.push({
       id: s.id,
@@ -515,6 +523,24 @@ export function graphView(g: SkillGraph): GraphView {
     for (const sk of s.skills) {
       if (g.skills[sk]) edges.push({ from: s.id, to: sk, type: "DEMONSTRATED_IN" });
     }
+    for (const t of s.topics ?? []) {
+      const id = `topic:${slug(t)}`;
+      const existing = topics.get(id);
+      topics.set(id, { label: t, weight: (existing?.weight ?? 0) + 1 });
+      edges.push({ from: s.id, to: id, type: "DISCUSSED" });
+    }
+  }
+  for (const [id, t] of topics) {
+    nodes.push({
+      id,
+      kind: "topic",
+      label: t.label,
+      confidence: 0,
+      freshness: 100,
+      weight: t.weight,
+      weak: false,
+      strong: false,
+    });
   }
   return { nodes, edges };
 }
@@ -571,69 +597,210 @@ export function buildDashboard(g: SkillGraph): Dashboard {
 }
 
 // ---------------------------------------------------------------------------
-// seed(): a believable starter history with a clear growth arc. Used to
-// populate a first visit so the graph experience never opens empty.
+// seed(): a believable starter history with a clear growth arc, spanning three
+// months of practice across every scenario - technical and non-technical
+// skills, plus the projects and companies talked about. Used to populate a
+// first visit so the graph experience never opens empty (or thin).
 // ---------------------------------------------------------------------------
+
+function nameHash(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) & 0x7fffffff;
+  return h;
+}
+
+interface DemoSession {
+  scenarioId: string;
+  daysAgo: number;
+  confidence: number;
+  wordCount: number;
+  fillerCount: number;
+  coachingEvents: number;
+  summary: string;
+  extraSkills: Array<{ name: string; category: string }>;
+  topics: string[];
+}
+
+const DEMO_SESSIONS: DemoSession[] = [
+  {
+    scenarioId: "technical-deep-dive",
+    daysAgo: 92,
+    confidence: 46,
+    wordCount: 220,
+    fillerCount: 12,
+    coachingEvents: 8,
+    summary:
+      "Good instincts on the architecture but the explanation wandered. Lead with the problem, then the design, then the trade-offs.",
+    extraSkills: [
+      { name: "APIs", category: "technical" },
+      { name: "Databases", category: "technical" },
+      { name: "SQL Optimization", category: "technical" },
+    ],
+    topics: ["Campus ERP Portal", "Inventory Management System"],
+  },
+  {
+    scenarioId: "viva",
+    daysAgo: 84,
+    confidence: 50,
+    wordCount: 260,
+    fillerCount: 10,
+    coachingEvents: 6,
+    summary:
+      "Methodology was defended well; limitations answers were hedged. Own the constraints instead of apologising for them.",
+    extraSkills: [
+      { name: "Machine Learning", category: "technical" },
+      { name: "Research Methodology", category: "technical" },
+      { name: "Structured Thinking", category: "communication" },
+    ],
+    topics: ["Final-Year Thesis - NIT Trichy", "ML Recommendation Engine"],
+  },
+  {
+    scenarioId: "public-speaking",
+    daysAgo: 73,
+    confidence: 55,
+    wordCount: 340,
+    fillerCount: 9,
+    coachingEvents: 6,
+    summary:
+      "Strong opening story. Pace dropped mid-talk and fillers crept in - plant your transitions in advance.",
+    extraSkills: [
+      { name: "Audience Engagement", category: "communication" },
+      { name: "Pacing", category: "communication" },
+      { name: "Confidence", category: "communication" },
+    ],
+    topics: ["College Tech Fest Keynote"],
+  },
+  {
+    scenarioId: "design-review",
+    daysAgo: 61,
+    confidence: 58,
+    wordCount: 290,
+    fillerCount: 7,
+    coachingEvents: 5,
+    summary:
+      "Held your ground on the queueing choice with real numbers. Edge-case answers still need tighter structure.",
+    extraSkills: [
+      { name: "System Design", category: "technical" },
+      { name: "Distributed Systems", category: "technical" },
+      { name: "Event Streaming", category: "technical" },
+      { name: "Caching", category: "technical" },
+    ],
+    topics: ["Realtime Analytics Pipeline", "Notification Service - Zomato"],
+  },
+  {
+    scenarioId: "technical-deep-dive",
+    daysAgo: 49,
+    confidence: 63,
+    wordCount: 310,
+    fillerCount: 6,
+    coachingEvents: 5,
+    summary:
+      "Clear problem-design-tradeoff structure this time - big improvement. Go one level deeper on failure modes.",
+    extraSkills: [
+      { name: "Microservices", category: "technical" },
+      { name: "Kubernetes", category: "technical" },
+      { name: "Observability", category: "technical" },
+    ],
+    topics: ["Payments Platform - Razorpay", "UPI Settlement Service"],
+  },
+  {
+    scenarioId: "product-demo",
+    daysAgo: 38,
+    confidence: 66,
+    wordCount: 280,
+    fillerCount: 5,
+    coachingEvents: 4,
+    summary:
+      "Value story landed; the metrics slide did the persuading. Practise handling the pricing objection without hedging.",
+    extraSkills: [
+      { name: "Handling Objections", category: "communication" },
+      { name: "Concise Answers", category: "communication" },
+      { name: "React", category: "technical" },
+    ],
+    topics: ["Design System Revamp", "Merchant Dashboard - Razorpay"],
+  },
+  {
+    scenarioId: "startup-pitch",
+    daysAgo: 26,
+    confidence: 70,
+    wordCount: 320,
+    fillerCount: 4,
+    coachingEvents: 4,
+    summary:
+      "Hook, market, traction in ninety seconds - investors stayed engaged. Sharpen the competitive-moat answer.",
+    extraSkills: [
+      { name: "Negotiation", category: "communication" },
+      { name: "Executive Presence", category: "leadership" },
+    ],
+    topics: ["FinEdge - Fintech Startup Idea"],
+  },
+  {
+    scenarioId: "leadership",
+    daysAgo: 12,
+    confidence: 75,
+    wordCount: 240,
+    fillerCount: 3,
+    coachingEvents: 3,
+    summary:
+      "Empathetic, specific feedback with concrete next steps. You listened more than you spoke - exactly right.",
+    extraSkills: [
+      { name: "Active Listening", category: "leadership" },
+      { name: "Conflict Resolution", category: "leadership" },
+      { name: "Mentoring", category: "leadership" },
+    ],
+    topics: ["Platform Team Restructure"],
+  },
+  {
+    scenarioId: "technical-deep-dive",
+    daysAgo: 3,
+    confidence: 82,
+    wordCount: 330,
+    fillerCount: 2,
+    coachingEvents: 2,
+    summary:
+      "Confident, structured, almost filler-free. The failure-mode walkthrough was interview-ready. Keep this sharp.",
+    extraSkills: [
+      { name: "Cloud Architecture", category: "technical" },
+      { name: "Security", category: "technical" },
+      { name: "CI/CD", category: "technical" },
+      { name: "AI", category: "technical" },
+    ],
+    topics: ["Fraud Detection Engine", "Search Relevance - Flipkart"],
+  },
+];
 
 export function buildDemoSkillGraph(learnerId: string, name: string | null = null): SkillGraph {
   const now = Date.now();
-  const g = emptySkillGraph(learnerId, name, new Date(now - 21 * 86400_000).toISOString());
-  const demos: Array<{
-    scenarioId: string;
-    daysAgo: number;
-    confidence: number;
-    wordCount: number;
-    fillerCount: number;
-    coachingEvents: number;
-    summary: string;
-  }> = [
-    {
-      scenarioId: "technical-deep-dive",
-      daysAgo: 21,
-      confidence: 52,
-      wordCount: 240,
-      fillerCount: 8,
-      coachingEvents: 6,
-      summary:
-        "Solid technical substance but several filler words. Structure the answer with a clear opening point next time.",
-    },
-    {
-      scenarioId: "startup-pitch",
-      daysAgo: 10,
-      confidence: 64,
-      wordCount: 300,
-      fillerCount: 5,
-      coachingEvents: 4,
-      summary: "Compelling hook and clear value story. Tighten the traction numbers and reduce hedging.",
-    },
-    {
-      scenarioId: "leadership",
-      daysAgo: 2,
-      confidence: 71,
-      wordCount: 210,
-      fillerCount: 3,
-      coachingEvents: 3,
-      summary: "Empathetic and clear. Strong framing of the feedback conversation with concrete next steps.",
-    },
-  ];
+  const oldest = Math.max(...DEMO_SESSIONS.map((d) => d.daysAgo));
+  const g = emptySkillGraph(learnerId, name, new Date(now - oldest * 86400_000).toISOString());
 
-  for (const d of demos) {
+  for (const d of [...DEMO_SESSIONS].sort((a, b) => b.daysAgo - a.daysAgo)) {
     const at = new Date(now - d.daysAgo * 86400_000).toISOString();
     const scenario = getScenario(d.scenarioId);
     const scenarioTitle = scenario?.title ?? d.scenarioId;
     const tags = scenario?.tags ?? ["communication"];
-    const skillNames = Array.from(new Set<string>([...tags, scenarioTitle]));
+    const skillDefs = [
+      ...tags.map((t) => ({ name: t, category: tags[0] ?? "communication" })),
+      { name: scenarioTitle, category: tags[0] ?? "communication" },
+      ...d.extraSkills,
+    ];
     const sessionId = `session:${g.revision + 1}:${slug(scenarioTitle)}`;
     const skillIds: string[] = [];
-    for (const n of skillNames) {
-      const id = skillId(n);
+    const seen = new Set<string>();
+    for (const def of skillDefs) {
+      const id = skillId(def.name);
+      if (seen.has(id)) continue;
+      seen.add(id);
       skillIds.push(id);
       const existing = g.skills[id];
-      const conf = existing ? Math.round((existing.confidence + d.confidence) / 2) : d.confidence;
+      // Deterministic per-skill variation so the graph doesn't look uniformly scored.
+      const jitter = (nameHash(def.name) % 17) - 8;
+      const sessionSkillConf = Math.max(25, Math.min(95, d.confidence + jitter));
+      const conf = existing ? Math.round((existing.confidence + sessionSkillConf) / 2) : sessionSkillConf;
       g.skills[id] = {
         id,
-        name: n,
-        category: tags[0] ?? "communication",
+        name: def.name,
+        category: existing?.category ?? def.category,
         level: levelFromConfidence(conf),
         confidence: conf,
         exposure: (existing?.exposure ?? 0) + 1,
@@ -648,12 +815,13 @@ export function buildDemoSkillGraph(learnerId: string, name: string | null = nul
       scenarioId: d.scenarioId,
       scenarioTitle,
       completedAt: at,
-      durationSec: 180,
+      durationSec: 150 + (nameHash(sessionId) % 120),
       wordCount: d.wordCount,
       confidence: d.confidence,
       fillerCount: d.fillerCount,
       coachingEvents: d.coachingEvents,
       skills: skillIds,
+      topics: d.topics,
       summary: d.summary,
     };
     g.revision += 1;

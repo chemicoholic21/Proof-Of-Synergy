@@ -101,27 +101,47 @@ describe("skill graph lifecycle", () => {
 });
 
 describe("dashboard + visualization projections", () => {
-  it("graphView links learner -> skills and sessions -> skills", () => {
+  it("graphView links learner -> skills, sessions -> skills, sessions -> topics", () => {
     const g = buildDemoSkillGraph("t-viz");
     const view = graphView(g);
     const kinds = new Set(view.nodes.map((n) => n.kind));
     expect(kinds).toContain("learner");
     expect(kinds).toContain("skill");
     expect(kinds).toContain("session");
+    expect(kinds).toContain("topic");
     const ids = new Set(view.nodes.map((n) => n.id));
     for (const e of view.edges) {
       expect(ids.has(e.from)).toBe(true);
       expect(ids.has(e.to)).toBe(true);
     }
+    // The starter baseline should read as a rich, lived-in graph.
+    expect(view.nodes.filter((n) => n.kind === "skill").length).toBeGreaterThanOrEqual(30);
+    expect(view.nodes.filter((n) => n.kind === "topic").length).toBeGreaterThanOrEqual(10);
+    expect(view.nodes.length).toBeGreaterThanOrEqual(50);
   });
 
-  it("buildDashboard orders sessions chronologically and computes overall confidence", () => {
+  it("the baseline covers technical and non-technical skills with projects attached", () => {
+    const g = buildDemoSkillGraph("t-mix");
+    const categories = new Set(Object.values(g.skills).map((s) => s.category));
+    expect(categories).toContain("technical");
+    expect(categories).toContain("communication");
+    expect(categories).toContain("leadership");
+    const names = new Set(Object.values(g.skills).map((s) => s.name));
+    expect(names).toContain("Distributed Systems");
+    expect(names).toContain("Active Listening");
+    const topics = Object.values(g.sessions).flatMap((s) => s.topics);
+    expect(topics).toContain("Payments Platform - Razorpay");
+  });
+
+  it("buildDashboard orders sessions chronologically with a rising confidence arc", () => {
     const d = buildDashboard(buildDemoSkillGraph("t-dash"));
-    expect(d.sessionCount).toBe(3);
+    expect(d.sessionCount).toBe(9);
     expect(d.overallConfidence).toBeGreaterThan(0);
     const dates = d.sessions.map((s) => s.completedAt);
     expect([...dates].sort()).toEqual(dates);
-    expect(d.trend.map((t) => t.confidence)).toEqual([52, 64, 71]); // the demo growth arc
+    const trend = d.trend.map((t) => t.confidence);
+    expect(trend[0]).toBeLessThan(trend[trend.length - 1]); // visible growth arc
+    expect(trend[trend.length - 1]).toBeGreaterThanOrEqual(80);
   });
 
   it("an empty graph produces an empty dashboard", () => {

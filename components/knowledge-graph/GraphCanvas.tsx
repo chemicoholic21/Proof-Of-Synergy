@@ -17,6 +17,7 @@ const KIND_STYLE: Record<string, { fill: string; ring: string; label: string }> 
   skill: { fill: "#c8beac", ring: "#d8cfbe", label: "Skill" },
   category: { fill: "#8f887b", ring: "#a29c8e", label: "Category" },
   session: { fill: "#7d7466", ring: "#948b7c", label: "Session" },
+  topic: { fill: "#9da36a", ring: "#c2c98e", label: "Project / Company" },
 };
 
 interface Placed extends VizNode {
@@ -35,6 +36,7 @@ export default function GraphCanvas({ graph, onReplay }: { graph: GraphView; onR
 
   const placed = useMemo(() => layout(graph), [graph]);
   const byId = useMemo(() => new Map(placed.map((n) => [n.id, n])), [placed]);
+  const dense = useMemo(() => graph.nodes.filter((n) => n.kind === "skill").length > 16, [graph.nodes]);
 
   const selectedNode = selected ? byId.get(selected) : null;
   const connectedIds = useMemo(() => {
@@ -110,12 +112,12 @@ export default function GraphCanvas({ graph, onReplay }: { graph: GraphView; onR
                 )}
                 <text
                   textAnchor="middle"
-                  y={n.r + 13}
-                  fontSize={n.kind === "learner" || n.kind === "skill" ? 13 : 11}
+                  y={n.r + 12}
+                  fontSize={n.kind === "learner" ? 13 : n.kind === "skill" ? (dense ? 10.5 : 13) : dense ? 9.5 : 11}
                   fontWeight={n.kind === "skill" || n.kind === "learner" ? 600 : 400}
                   fill={dim ? "#52525b" : "#d4d4d8"}
                 >
-                  {truncate(n.label, 18)}
+                  {truncate(n.label, dense ? 16 : 18)}
                 </text>
               </g>
             );
@@ -226,20 +228,23 @@ function Bar({ label, value, tone }: { label: string; value: number; tone: "ochr
   );
 }
 
-// ---- deterministic radial layout: learner center, skills ring 1, sessions/categories ring 2 ----
+// ---- deterministic radial layout: learner center, skills ring 1, sessions/categories/topics
+// ring 2. Radii and ring-2 jitter adapt to node count so a dense graph stays legible. ----
 function layout(graph: GraphView): Placed[] {
   const nodes = graph.nodes;
   const learner = nodes.find((n) => n.kind === "learner");
   const primaries = nodes.filter((n) => n.kind === "skill");
-  const secondaries = nodes.filter((n) => n.kind === "session" || n.kind === "category");
+  const secondaries = nodes.filter((n) => n.kind === "session" || n.kind === "category" || n.kind === "topic");
+  const dense = primaries.length > 16;
 
   const pos = new Map<string, { x: number; y: number }>();
   const placed: Placed[] = [];
 
   const radiusFor = (n: VizNode) => {
     if (n.kind === "learner") return 26;
-    if (n.kind === "skill") return 15 + Math.min(8, n.weight);
-    if (n.kind === "session") return 13;
+    if (n.kind === "skill") return (dense ? 11 : 15) + Math.min(dense ? 5 : 8, n.weight);
+    if (n.kind === "session") return dense ? 11 : 13;
+    if (n.kind === "topic") return 9 + Math.min(3, n.weight);
     return 9;
   };
 
@@ -248,19 +253,22 @@ function layout(graph: GraphView): Placed[] {
     placed.push({ ...learner, x: CX, y: CY, r: radiusFor(learner) });
   }
 
-  // Ring 1: skills evenly, alphabetical so the layout is stable.
+  // Ring 1: skills evenly, alphabetical so the layout is stable. A slight alternating radius
+  // staggers neighbouring labels apart when the ring is crowded.
   const ordered = [...primaries].sort((a, b) => a.label.localeCompare(b.label));
-  const R1 = 205;
+  const R1 = dense ? 235 : 205;
   ordered.forEach((n, i) => {
+    const r1 = R1 + (dense ? (i % 2 === 0 ? -26 : 26) : 0);
     const ang = (i / Math.max(1, ordered.length)) * Math.PI * 2 - Math.PI / 2;
-    const x = CX + Math.cos(ang) * R1;
-    const y = CY + Math.sin(ang) * R1 * 0.82;
+    const x = CX + Math.cos(ang) * r1;
+    const y = CY + Math.sin(ang) * r1 * 0.82;
     pos.set(n.id, { x, y });
     placed.push({ ...n, x, y, r: radiusFor(n) });
   });
 
-  // Ring 2: each session/category near a placed neighbour (a skill it touches), else spread.
-  const R2 = 330;
+  // Ring 2: each session/category/topic near a placed neighbour (a skill or session it touches),
+  // with per-node radius jitter so a crowded outer ring doesn't overlap into a solid band.
+  const R2 = dense ? 352 : 330;
   const adjacency = new Map<string, string[]>();
   for (const e of graph.edges) {
     (adjacency.get(e.to) ?? adjacency.set(e.to, []).get(e.to)!).push(e.from);
@@ -268,20 +276,21 @@ function layout(graph: GraphView): Placed[] {
   }
   let spreadIdx = 0;
   secondaries.forEach((n) => {
+    const r2 = R2 + ((hash(n.id) % 48) - 24);
     const neigh = (adjacency.get(n.id) ?? []).map((id) => pos.get(id)).find(Boolean);
     let x: number, y: number;
     if (neigh) {
       const dx = neigh.x - CX;
       const dy = neigh.y - CY;
       const base = Math.atan2(dy, dx);
-      const jitter = (hash(n.id) % 40 - 20) / 100;
+      const jitter = (hash(n.id) % 60 - 30) / 100;
       const ang = base + jitter;
-      x = CX + Math.cos(ang) * R2;
-      y = CY + Math.sin(ang) * R2 * 0.82;
+      x = CX + Math.cos(ang) * r2;
+      y = CY + Math.sin(ang) * r2 * 0.82;
     } else {
       const ang = (spreadIdx++ / Math.max(1, secondaries.length)) * Math.PI * 2;
-      x = CX + Math.cos(ang) * R2;
-      y = CY + Math.sin(ang) * R2 * 0.82;
+      x = CX + Math.cos(ang) * r2;
+      y = CY + Math.sin(ang) * r2 * 0.82;
     }
     pos.set(n.id, { x, y });
     placed.push({ ...n, x, y, r: radiusFor(n) });

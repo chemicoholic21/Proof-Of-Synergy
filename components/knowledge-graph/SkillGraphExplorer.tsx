@@ -29,8 +29,13 @@ export default function SkillGraphExplorer({ learnerId }: { learnerId: string })
   const [replay, setReplay] = useState<{ skill: string; entries: ReplayEntry[] } | null>(null);
   const [cogneeInsight, setCogneeInsight] = useState<string | null>(null);
 
-  // Once a learner has explicitly forgotten everything, we never auto-populate again.
+  // Marker semantics: absent = never seeded; a version number = seeded with that baseline
+  // version; "forgotten" = the learner explicitly wiped everything (never auto-populate again).
   const seededKey = `synergy.seeded.${learnerId}`;
+  const SEED_VERSION = "2";
+  // The v1 baseline had 3 sessions; more than that means real practice was added on top,
+  // and a baseline upgrade must never overwrite real history.
+  const OLD_SEED_MAX_SESSIONS = 3;
 
   const fetchDashboard = useCallback(
     async (graph: unknown): Promise<GraphResponse> => {
@@ -51,8 +56,18 @@ export default function SkillGraphExplorer({ learnerId }: { learnerId: string })
   const load = useCallback(async () => {
     try {
       let d = await fetchDashboard(loadGraphLocal(learnerId));
+      const marker = localStorage.getItem(seededKey);
       const isEmpty = d.dashboard.sessionCount === 0 && d.dashboard.skillCount === 0;
-      if (isEmpty && learnerId !== "anon" && !localStorage.getItem(seededKey)) {
+      // Seed a first visit; also upgrade a previously-seeded-but-unused graph when the
+      // baseline improves (never after an explicit forget, never over real practice history).
+      const firstVisit = isEmpty && !marker;
+      const staleSeed =
+        !isEmpty &&
+        !!marker &&
+        marker !== "forgotten" &&
+        marker !== SEED_VERSION &&
+        d.dashboard.sessionCount <= OLD_SEED_MAX_SESSIONS;
+      if ((firstVisit || staleSeed) && learnerId !== "anon") {
         const seeded = await fetch("/api/skill-graph/seed", {
           method: "POST",
           headers: { "content-type": "application/json" },
@@ -60,7 +75,7 @@ export default function SkillGraphExplorer({ learnerId }: { learnerId: string })
         });
         if (seeded.ok) {
           const s = await seeded.json();
-          localStorage.setItem(seededKey, "1");
+          localStorage.setItem(seededKey, SEED_VERSION);
           saveGraphLocal(learnerId, s.graph);
           d = await fetchDashboard(s.graph);
         }
@@ -103,8 +118,8 @@ export default function SkillGraphExplorer({ learnerId }: { learnerId: string })
         body: JSON.stringify({ learnerId, target: { type: "all" } }),
       });
       clearGraphLocal(learnerId);
-      // Forgetting is final: mark as seeded so the starter baseline never reappears.
-      localStorage.setItem(seededKey, "1");
+      // Forgetting is final: the starter baseline never reappears.
+      localStorage.setItem(seededKey, "forgotten");
       setData(null);
       await load();
     } finally {
@@ -311,6 +326,15 @@ function SessionTimeline({ d }: { d: Dashboard }) {
             <div className="text-[12px] text-ink-soft">
               Confidence {s.confidence}% · {s.wordCount} words · {s.fillerCount} fillers · {s.coachingEvents} coaching moments
             </div>
+            {s.topics?.length > 0 && (
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {s.topics.map((t) => (
+                  <span key={t} className="rounded-full border border-line bg-white/5 px-2 py-0.5 text-[10px] text-ink-soft">
+                    {t}
+                  </span>
+                ))}
+              </div>
+            )}
             {s.summary && <p className="mt-1.5 text-[12px] leading-relaxed text-ink-soft/90 max-w-xl">{s.summary}</p>}
           </li>
         ))}
