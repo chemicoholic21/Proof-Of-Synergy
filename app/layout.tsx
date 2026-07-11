@@ -22,8 +22,8 @@ const mono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Proof of Synergy - Career Memory",
-  description: "Your AI Interview Twin that never forgets - every interview grows a Cognee Career Knowledge Graph.",
+  title: "Proof of Synergy - AI Communication Gym",
+  description: "Practice real conversations with AI partners. Gemini Live conversations, Gemma local coaching, the Cognee Skill Knowledge Graph, and Sarvam voice - a gym for your communication.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sarvamTranscribe, sarvamConfigured } from "@/lib/sarvam";
-import { FALLBACK_TRANSCRIPTS } from "@/lib/fallbackData";
 import { Transcript } from "@/lib/types";
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
@@ -20,6 +19,15 @@ const LANG_LABEL: Record<string, string> = {
   unknown: "English",
 };
 
+// Demo fallback used only when transcription is unavailable AND we are in demo mode. We never
+// fabricate a learner's answer in production.
+const DEMO_FALLBACK: Transcript = {
+  text: "This is a demo transcript of a practice answer. I structured my response clearly and gave a concrete example to back it up.",
+  language: "English",
+  languagesDetected: ["English"],
+  source: "fallback",
+};
+
 export async function POST(req: NextRequest) {
   const requestId = newRequestId();
   const log = logger.child({ requestId, route: "transcribe" });
@@ -27,13 +35,13 @@ export async function POST(req: NextRequest) {
   const limited = enforceRateLimit(req, "transcribe", requestId);
   if (limited) return limited;
 
-  let qid = 0;
+  let sessionId = 0;
   // Saarika's real-time STT caps each clip at 30s, so a long answer arrives as several ordered
   // <=25s segments (field name "audio", repeated). getAll handles both single and multi-segment.
   let segments: File[] = [];
   try {
     const form = await req.formData();
-    qid = Number(form.get("questionId") || 0);
+    sessionId = Number(form.get("sessionId") || 0);
     segments = form.getAll("audio").filter((v): v is File => v instanceof File);
   } catch {
     return errorResponse(400, "bad_request", "Expected multipart/form-data with audio.", requestId);
@@ -72,7 +80,7 @@ export async function POST(req: NextRequest) {
     const fullText = parts.join(" ").trim();
     if (fullText.length < 2) throw new Error("Empty transcript returned.");
     const primaryLanguage = languages[0] || "English";
-    log.info("transcription complete", { questionId: qid, segments: segments.length, languages });
+    log.info("transcription complete", { sessionId, segments: segments.length, languages });
     return NextResponse.json({
       text: fullText,
       language: primaryLanguage,
@@ -81,12 +89,11 @@ export async function POST(req: NextRequest) {
     } satisfies Transcript);
   } catch (e) {
     const message = (e as Error).message;
-    log.error("transcription failed", { questionId: qid, error: e });
+    log.error("transcription failed", { sessionId, error: e });
 
-    // INTEGRITY: never fabricate a candidate's answer in production.
+    // INTEGRITY: never fabricate a learner's answer in production.
     if (env.DEMO_MODE) {
-      const fb = FALLBACK_TRANSCRIPTS[qid] || FALLBACK_TRANSCRIPTS[1];
-      return NextResponse.json(fb);
+      return NextResponse.json(DEMO_FALLBACK);
     }
     if (!sarvamConfigured()) {
       return errorResponse(503, "service_unconfigured", "Transcription is unavailable: SARVAM_API_KEY is not configured.", requestId);

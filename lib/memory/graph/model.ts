@@ -1,5 +1,5 @@
 /**
- * Canonical Career Knowledge Graph model.
+ * Canonical Communication Skill Graph model.
  *
  * This is the stable contract for the whole memory layer. The *representation* (how it is stored,
  * whether it is mirrored into Cognee) may evolve, but these entity kinds and relationship types are
@@ -8,48 +8,39 @@
  */
 
 export type NodeKind =
-  | "candidate"
-  | "resume"
+  | "learner"
   | "skill"
   | "concept"
-  | "project"
-  | "technology"
-  | "company"
-  | "interview"
-  | "question"
+  | "session"
+  | "scenario"
   | "answer"
   | "evidence"
-  | "communication" // Interview DNA / communication metric snapshot
-  | "resource" // learning resource / mission
+  | "communication"
+  | "resource"
   | "recommendation"
   | "milestone";
 
 export type EdgeType =
-  | "OWNS" // candidate -> resume / interview / project ...
-  | "CLAIMS" // resume -> skill
-  | "HAS_SKILL" // candidate -> skill
-  | "USES" // project -> technology
-  | "TESTS" // interview/question -> concept/skill
-  | "ANSWERS" // answer -> question
-  | "DEMONSTRATED_IN" // skill/concept -> interview
-  | "EVIDENCE_FOR" // evidence -> skill/concept/claim
-  | "WEAK_IN" // candidate -> concept
-  | "STRONG_IN" // candidate -> concept
-  | "RELATED_TO" // concept <-> concept
-  | "PREREQ_OF" // concept -> concept
-  | "IMPROVES" // resource -> skill/concept
-  | "RECOMMENDS" // recommendation -> resource/concept
-  | "DISCUSSED_IN" // project -> interview
-  | "PREP_FOR" // interview/concept -> company
-  | "UPDATES_COMMUNICATION" // communication -> candidate
-  | "RETENTION_DECAY"; // bookkeeping edge candidate -> concept (spaced repetition)
+  | "PRACTICES"
+  | "DEMONSTRATED_IN"
+  | "EVIDENCE_FOR"
+  | "WEAK_IN"
+  | "STRONG_IN"
+  | "RELATED_TO"
+  | "PREREQ_OF"
+  | "IMPROVES"
+  | "RECOMMENDS"
+  | "UPDATES_COMMUNICATION"
+  | "TESTS"
+  | "ANSWERS"
+  | "RETENTION_DECAY";
 
 export type SkillLevel = "beginner" | "intermediate" | "advanced" | "expert";
 
 /**
- * A node in the career graph. `weight` is reinforcement (how many times this has been encountered /
- * how important it is). `confidence` is the system's current belief in the candidate's command of
- * the node (0-100). `retention` decays with time-since-last-seen for skills/concepts.
+ * A node in the communication skill graph. `weight` is reinforcement (how many times this has been
+ * encountered / how important it is). `confidence` is the system's current belief in the learner's
+ * command of the node (0-100). `retention` decays with time-since-last-seen for skills/concepts.
  */
 export interface GNode {
   id: string;
@@ -74,8 +65,8 @@ export interface GEdge {
   createdAt: string;
 }
 
-export interface CareerGraph {
-  candidateId: string;
+export interface CommGraph {
+  learnerId: string;
   name: string | null;
   nodes: Record<string, GNode>;
   edges: Record<string, GEdge>;
@@ -92,9 +83,9 @@ export const SCHEMA_VERSION = 1;
 // ---------------------------------------------------------------------------
 // Deterministic, mergeable identifiers.
 //
-// Skills / concepts / technologies / companies collapse to a slug so the SAME real-world entity is
-// ONE node no matter how many interviews mention it - that is what makes the graph accumulate
-// meaning instead of piling up duplicates. Per-event entities (interviews, questions, answers)
+// Skills / concepts collapse to a slug so the SAME real-world entity is ONE node no
+// matter how many sessions mention it - that is what makes the graph accumulate meaning
+// instead of piling up duplicates. Per-event entities (sessions, scenarios, answers)
 // carry their own scope so history is preserved.
 // ---------------------------------------------------------------------------
 
@@ -108,26 +99,23 @@ export function slug(s: string): string {
 }
 
 export const ID = {
-  candidate: (candidateId: string) => `candidate:${candidateId}`,
-  resume: (candidateId: string, version: number) => `resume:${candidateId}:v${version}`,
+  learner: (learnerId: string) => `learner:${learnerId}`,
   skill: (name: string) => `skill:${slug(name)}`,
   concept: (name: string) => `concept:${slug(name)}`,
-  technology: (name: string) => `tech:${slug(name)}`,
-  company: (name: string) => `company:${slug(name)}`,
-  project: (candidateId: string, name: string) => `project:${candidateId}:${slug(name)}`,
-  interview: (candidateId: string, n: number) => `interview:${candidateId}:${n}`,
-  question: (interviewId: string, qid: number | string) => `question:${interviewId}:${qid}`,
-  answer: (interviewId: string, qid: number | string) => `answer:${interviewId}:${qid}`,
-  communication: (interviewId: string) => `dna:${interviewId}`,
+  session: (learnerId: string, n: number) => `session:${learnerId}:${n}`,
+  scenario: (sessionId: string, sid: number | string) => `scenario:${sessionId}:${sid}`,
+  answer: (sessionId: string, sid: number | string) => `answer:${sessionId}:${sid}`,
+  communication: (sessionId: string) => `comm:${sessionId}`,
   resource: (concept: string) => `resource:${slug(concept)}`,
   evidence: (subjectId: string, kind: string, ref: string) => `evidence:${subjectId}:${slug(kind)}:${slug(ref)}`,
   recommendation: (concept: string) => `rec:${slug(concept)}`,
+  milestone: (learnerId: string, skill: string, idx: number) => `milestone:${learnerId}:${slug(skill)}:${idx}`,
   edge: (from: string, type: EdgeType, to: string) => `${from}|${type}|${to}`,
 };
 
-export function emptyGraph(candidateId: string, name: string | null, now: string): CareerGraph {
+export function emptyGraph(learnerId: string, name: string | null, now: string): CommGraph {
   return {
-    candidateId,
+    learnerId,
     name,
     nodes: {},
     edges: {},

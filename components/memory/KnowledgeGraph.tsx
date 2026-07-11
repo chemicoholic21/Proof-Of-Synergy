@@ -4,23 +4,25 @@ import { useMemo, useState } from "react";
 import type { GraphView, VizNode } from "@/lib/memory";
 
 /**
- * User-facing Career Knowledge Graph visualization (not a developer graph). Deterministic radial
- * layout so it is stable across renders; nodes animate in on mount, weak nodes glow amber, strong
- * nodes glow emerald, and clicking any node explains why it exists and what it connects to. This is
- * the demo centrepiece - the audience literally sees the candidate's memory.
+ * User-facing Communication Skill Graph visualization. Deterministic radial layout so it is stable
+ * across renders; nodes animate in on mount, weak nodes glow amber, strong nodes glow sage, and
+ * clicking any node explains why it exists and what it connects to. The audience literally
+ * sees the learner's communication memory grow.
  */
 
-// Muted, earthy palette - one restrained system, not a rainbow. Ink for the candidate, warm bone
+// Muted, earthy palette - one restrained system, not a rainbow. Ink for the learner, warm bone
 // for skills, quiet neutrals for the rest; semantic sage/ochre only for strong/weak states.
 const KIND_STYLE: Record<string, { fill: string; ring: string; label: string }> = {
-  candidate: { fill: "#ece9e3", ring: "#ece9e3", label: "You" },
+  learner: { fill: "#ece9e3", ring: "#ece9e3", label: "You" },
   skill: { fill: "#c8beac", ring: "#d8cfbe", label: "Skill" },
   concept: { fill: "#8f887b", ring: "#a29c8e", label: "Concept" },
-  interview: { fill: "#b8965c", ring: "#ccb07f", label: "Interview" },
-  company: { fill: "#7d7466", ring: "#948b7c", label: "Company" },
-  project: { fill: "#7f9a78", ring: "#a1b69b", label: "Project" },
-  recommendation: { fill: "#5e574b", ring: "#746c5d", label: "To improve" },
-  resource: { fill: "#4b463c", ring: "#615a4e", label: "Resource" },
+  scenario: { fill: "#b8965c", ring: "#ccb07f", label: "Scenario" },
+  session: { fill: "#7d7466", ring: "#948b7c", label: "Session" },
+  answer: { fill: "#7f9a78", ring: "#a1b69b", label: "Answer" },
+  evidence: { fill: "#9da36a", ring: "#c2c98e", label: "Evidence" },
+  resource: { fill: "#5e574b", ring: "#746c5d", label: "Resource" },
+  recommendation: { fill: "#4b463c", ring: "#615a4e", label: "To improve" },
+  milestone: { fill: "#6a7d6a", ring: "#8faf8f", label: "Milestone" },
 };
 
 interface Placed extends VizNode {
@@ -60,7 +62,7 @@ export default function KnowledgeGraph({ graph, onReplay }: { graph: GraphView; 
 
   return (
     <div className="relative">
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto select-none" role="img" aria-label="Career knowledge graph">
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto select-none" role="img" aria-label="Communication skill graph">
         {/* edges */}
         <g>
           {graph.edges.map((e, i) => {
@@ -107,7 +109,7 @@ export default function KnowledgeGraph({ graph, onReplay }: { graph: GraphView; 
                   </circle>
                 )}
                 <circle r={n.r} fill={st.fill} stroke={glow} strokeWidth={n.id === selected ? 3 : 1.5} />
-                {n.kind === "candidate" && (
+                {n.kind === "learner" && (
                   <text textAnchor="middle" dy="0.35em" fontSize="13" fontWeight="700" fill="#fff">
                     {initials(n.label)}
                   </text>
@@ -115,8 +117,8 @@ export default function KnowledgeGraph({ graph, onReplay }: { graph: GraphView; 
                 <text
                   textAnchor="middle"
                   y={n.r + 13}
-                  fontSize={n.kind === "candidate" || n.kind === "skill" ? 13 : 11}
-                  fontWeight={n.kind === "skill" || n.kind === "candidate" ? 600 : 400}
+                  fontSize={n.kind === "learner" || n.kind === "skill" ? 13 : 11}
+                  fontWeight={n.kind === "skill" || n.kind === "learner" ? 600 : 400}
                   fill={dim ? "#52525b" : "#d4d4d8"}
                 >
                   {truncate(n.label, 18)}
@@ -162,7 +164,7 @@ export default function KnowledgeGraph({ graph, onReplay }: { graph: GraphView; 
               <Bar label="Retention" value={selectedNode.retention} tone="cyan" />
               <div className="text-[11px] text-zinc-400">
                 {selectedNode.weak
-                  ? "Weak - repeatedly scored low. On the learning roadmap."
+                  ? "Weak - repeatedly scored low. Keep practising it."
                   : selectedNode.strong
                   ? "Strong - consistently well demonstrated."
                   : "Developing - some evidence, keep reinforcing."}
@@ -224,23 +226,23 @@ function Bar({ label, value, tone }: { label: string; value: number; tone: "ambe
 // ---- deterministic radial layout ----
 function layout(graph: GraphView): Placed[] {
   const nodes = graph.nodes;
-  const candidate = nodes.find((n) => n.kind === "candidate");
-  const primaries = nodes.filter((n) => ["skill", "interview", "company", "project"].includes(n.kind));
-  const secondaries = nodes.filter((n) => ["concept", "recommendation", "resource"].includes(n.kind));
+  const learner = nodes.find((n) => n.kind === "learner");
+  const primaries = nodes.filter((n) => ["skill", "session", "scenario"].includes(n.kind));
+  const secondaries = nodes.filter((n) => ["concept", "answer", "evidence", "resource", "recommendation", "milestone"].includes(n.kind));
 
   const pos = new Map<string, { x: number; y: number }>();
   const placed: Placed[] = [];
 
   const radiusFor = (n: VizNode) => {
-    if (n.kind === "candidate") return 26;
+    if (n.kind === "learner") return 26;
     if (n.kind === "skill") return 15 + Math.min(8, n.weight);
-    if (n.kind === "interview" || n.kind === "company" || n.kind === "project") return 13;
+    if (n.kind === "session" || n.kind === "scenario" || n.kind === "answer") return 13;
     return 8 + Math.min(5, n.weight / 2);
   };
 
-  if (candidate) {
-    pos.set(candidate.id, { x: CX, y: CY });
-    placed.push({ ...candidate, x: CX, y: CY, r: radiusFor(candidate) });
+  if (learner) {
+    pos.set(learner.id, { x: CX, y: CY });
+    placed.push({ ...learner, x: CX, y: CY, r: radiusFor(learner) });
   }
 
   // Ring 1: primaries evenly, grouped so same kinds cluster.

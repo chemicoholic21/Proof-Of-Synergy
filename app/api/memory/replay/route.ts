@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { memoryReplay } from "@/lib/memory";
 import { loadOrInit } from "@/lib/memory/graph/store";
-import { emptyGraph, CareerGraph } from "@/lib/memory/graph/model";
+import { emptyGraph, CommGraph } from "@/lib/memory/graph/model";
 import { clock } from "@/lib/memory/graph/ops";
 import { ReplayBody } from "@/lib/memory/api-schemas";
 import { logger } from "@/lib/logger";
@@ -11,9 +11,9 @@ export const runtime = "nodejs";
 export const maxDuration = 30;
 
 /**
- * Memory Replay - every time the candidate answered a given skill/concept across all interviews,
- * so growth (or remaining weakness) is visible over months.
- */
+  * Memory Replay - every time the learner answered a given skill/concept across all sessions,
+  * so growth (or remaining weakness) is visible over months.
+  */
 export async function POST(req: NextRequest) {
   const requestId = newRequestId();
   const log = logger.child({ requestId, route: "memory/replay" });
@@ -29,12 +29,12 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const p = body.graph as Partial<CareerGraph> | undefined;
+    const p = body.graph as Partial<CommGraph> | undefined;
     const g = p && p.nodes && p.edges
-      ? { ...emptyGraph(body.candidateId, p.name ?? null, clock()), nodes: p.nodes as CareerGraph["nodes"], edges: p.edges as CareerGraph["edges"] }
-      : await loadOrInit(body.candidateId, null);
+      ? { ...emptyGraph(body.learnerId, p.name ?? null, clock()), nodes: p.nodes as CommGraph["nodes"], edges: p.edges as CommGraph["edges"] }
+      : await loadOrInit(body.learnerId, null);
     const entries = memoryReplay(g, body.concept);
-    log.info("replay served", { candidateId: body.candidateId, concept: body.concept, entries: entries.length });
+    log.info("replay served", { learnerId: body.learnerId, concept: body.concept, entries: entries.length });
     return NextResponse.json({ concept: body.concept, entries });
   } catch (e) {
     log.error("replay failed", { error: e });

@@ -9,9 +9,10 @@ export const runtime = "nodejs";
 export const maxDuration = 30;
 
 /**
- * recall() endpoint - the Career Reasoner state. Used before generating an adaptive interview and
- * by the dashboard. When a real Cognee backend is configured we also attach its semantic answer.
- */
+  * recall() endpoint - the Communication Reasoner state. Used before generating an adaptive practice
+  * session and by the dashboard. When a real Cognee backend is configured we also attach its semantic
+  * answer.
+  */
 export async function POST(req: NextRequest) {
   const requestId = newRequestId();
   const log = logger.child({ requestId, route: "memory/recall" });
@@ -27,11 +28,11 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const result = await reason(body.candidateId, { company: body.company ?? null, withCognee: true, provided: body.graph });
+    const result = await reason(body.learnerId, { focus: body.focus ?? null, withCognee: true, provided: body.graph });
     log.info("recall complete", {
-      candidateId: body.candidateId,
-      weak: result.weakConcepts.length,
-      forgotten: result.forgottenConcepts.length,
+      learnerId: body.learnerId,
+      weak: result.weakSkills.length,
+      forgotten: result.forgottenSkills.length,
       cognee: Boolean(result.cogneeInsight),
     });
     return NextResponse.json({ ...result, cogneeConfigured: cogneeConfigured() });

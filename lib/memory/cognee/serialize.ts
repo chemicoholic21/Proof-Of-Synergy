@@ -1,35 +1,36 @@
 /**
- * Normalize a memory into relationship-rich text before it is handed to Cognee.
+ * Normalize a practice session into relationship-rich text before it is handed to Cognee.
  *
- * The brief is explicit: don't store "I used Redis because it was faster" - store the MEANING.
+ * The brief is explicit: don't store "I said 'um' a lot" - store the MEANING.
  * Cognee builds its own knowledge graph from what we `add`, so we feed it normalized subject–
  * predicate–object statements, not raw transcripts. That way Cognee's graph and our local graph
  * agree on entities and relationships.
  */
 
-import { RememberInterviewInput, RememberResumeInput } from "../types";
+import { RememberSessionInput } from "../types";
 
-export function serializeResumeForCognee(input: RememberResumeInput): string {
+export function serializeSessionForCognee(input: RememberSessionInput): string {
   const lines: string[] = [];
-  const who = input.name || "The candidate";
-  lines.push(`${who} owns a resume.`);
-  for (const s of input.skills) lines.push(`Resume CLAIMS skill "${s.name}" at ${s.claimedLevel} level (category: ${s.category ?? "general"}).`);
-  for (const e of input.experience ?? []) lines.push(`${who} worked as ${e.role} at ${e.company} for ${e.years} years.`);
-  for (const p of input.projects ?? []) {
-    lines.push(`${who} built project "${p.name}"${p.summary ? `: ${p.summary}` : ""}.`);
-    for (const t of p.technologies ?? []) lines.push(`Project "${p.name}" USES technology "${t}".`);
+  const who = `Learner ${input.learnerId}`;
+  lines.push(`${who} practiced scenario "${input.scenarioId}".`);
+  
+  // Analyze the conversation for key themes
+  const learnerMessages = input.messages.filter(m => m.role === "learner");
+  const totalWords = learnerMessages.reduce((sum, m) => sum + m.content.split(/\s+/).length, 0);
+  
+  lines.push(`${who} spoke approximately ${totalWords} words during the practice session.`);
+  
+  // Extract key topics or phrases from learner responses (simplified)
+  const keyPhrases = learnerMessages
+    .map(m => m.content.trim())
+    .filter(m => m.length > 20)
+    .slice(0, 3);
+  
+  if (keyPhrases.length > 0) {
+    lines.push(`${who} demonstrated understanding of: "${keyPhrases.join('"; "')}."`);
   }
-  return lines.join("\n");
-}
-
-export function serializeInterviewForCognee(input: RememberInterviewInput, index: number): string {
-  const lines: string[] = [];
-  const who = input.name || "The candidate";
-  lines.push(`Interview #${index}${input.company ? ` (preparation for ${input.company})` : ""}.`);
-  for (const a of input.answers) {
-    const verdict = a.score >= 78 ? "STRONG" : a.score < 55 ? "WEAK" : "PARTIAL";
-    lines.push(`Interview #${index} TESTS concept "${a.targetSkill}". ${who} demonstrated ${verdict} understanding (score ${a.score}%).`);
-    if (a.feedback) lines.push(`Evaluation of "${a.targetSkill}": ${a.feedback}`);
-  }
+  
+  lines.push(`${who} completed the session with ${input.messages.length} total exchanges.`);
+  
   return lines.join("\n");
 }

@@ -7,7 +7,7 @@
  * terms of these primitives.
  */
 
-import { CareerGraph, EdgeType, GEdge, GNode, ID, NodeKind } from "./model";
+import { CommGraph, EdgeType, GEdge, GNode, ID, NodeKind } from "./model";
 
 const defaultNow = () => new Date().toISOString();
 let now = defaultNow;
@@ -42,7 +42,7 @@ export interface UpsertNodeInput {
  * and `lastSeenAt`/`updatedAt` advance. `confidence`/`retention`, when provided, overwrite because
  * they represent the latest belief, not an accumulation.
  */
-export function upsertNode(g: CareerGraph, input: UpsertNodeInput): GNode {
+export function upsertNode(g: CommGraph, input: UpsertNodeInput): GNode {
   const ts = now();
   const existing = g.nodes[input.id];
   if (existing) {
@@ -75,7 +75,7 @@ export function upsertNode(g: CareerGraph, input: UpsertNodeInput): GNode {
 
 /** Insert or reinforce an edge. Duplicate (from,type,to) triples merge and accumulate weight. */
 export function link(
-  g: CareerGraph,
+  g: CommGraph,
   from: string,
   type: EdgeType,
   to: string,
@@ -106,40 +106,40 @@ export function link(
   return edge;
 }
 
-export function getNode(g: CareerGraph, id: string): GNode | undefined {
+export function getNode(g: CommGraph, id: string): GNode | undefined {
   return g.nodes[id];
 }
 
-export function nodesByKind(g: CareerGraph, kind: NodeKind): GNode[] {
+export function nodesByKind(g: CommGraph, kind: NodeKind): GNode[] {
   return Object.values(g.nodes).filter((n) => n.kind === kind);
 }
 
-export function edgesFrom(g: CareerGraph, id: string, type?: EdgeType): GEdge[] {
+export function edgesFrom(g: CommGraph, id: string, type?: EdgeType): GEdge[] {
   return Object.values(g.edges).filter((e) => e.from === id && (!type || e.type === type));
 }
 
-export function edgesTo(g: CareerGraph, id: string, type?: EdgeType): GEdge[] {
+export function edgesTo(g: CommGraph, id: string, type?: EdgeType): GEdge[] {
   return Object.values(g.edges).filter((e) => e.to === id && (!type || e.type === type));
 }
 
 /** Neighbour nodes reachable from `id` via an edge of `type` (outgoing). */
-export function neighbors(g: CareerGraph, id: string, type?: EdgeType): GNode[] {
+export function neighbors(g: CommGraph, id: string, type?: EdgeType): GNode[] {
   return edgesFrom(g, id, type)
     .map((e) => g.nodes[e.to])
     .filter(Boolean);
 }
 
 /** All edges touching a node (either direction). */
-export function edgesTouching(g: CareerGraph, id: string): GEdge[] {
+export function edgesTouching(g: CommGraph, id: string): GEdge[] {
   return Object.values(g.edges).filter((e) => e.from === id || e.to === id);
 }
 
 /**
  * Delete a set of nodes and every edge touching them, then garbage-collect satellite nodes that
- * only existed to describe a deleted memory (evidence/answer/question/communication/recommendation
+ * only existed to describe a deleted memory (evidence/answer/scenario/recommendation
  * with no remaining connections). This is what keeps forget() from leaving a corrupt graph.
  */
-export function removeNodes(g: CareerGraph, ids: string[]): { removedNodes: number; removedEdges: number } {
+export function removeNodes(g: CommGraph, ids: string[]): { removedNodes: number; removedEdges: number } {
   const doomed = new Set(ids);
   let removedEdges = 0;
   for (const e of Object.values(g.edges)) {
@@ -156,7 +156,7 @@ export function removeNodes(g: CareerGraph, ids: string[]): { removedNodes: numb
     }
   }
   // GC pass: satellite kinds that are meaningless once disconnected.
-  const satellite: NodeKind[] = ["evidence", "answer", "question", "communication", "recommendation"];
+  const satellite: NodeKind[] = ["evidence", "answer", "scenario", "communication", "recommendation"];
   for (const n of Object.values(g.nodes)) {
     if (satellite.includes(n.kind) && edgesTouching(g, n.id).length === 0) {
       delete g.nodes[n.id];

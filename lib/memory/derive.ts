@@ -1,155 +1,147 @@
 /**
- * Derived read-models for the Career Intelligence Dashboard. Everything here is computed from the
+ * Derived read-models for the Communication Skill Dashboard. Everything here is computed from the
  * graph - no view has its own store - so the dashboard is always a faithful projection of memory.
  */
 
-import { CareerGraph, GNode, ID, NodeKind } from "./graph/model";
+import { CommunicationGraph, GNode, ID, NodeKind } from "./graph/model";
 import { clock, daysBetween, edgesFrom, edgesTo, nodesByKind } from "./graph/ops";
 import { currentRetention } from "./recall";
 import { evidenceForSkill, EvidenceItem } from "./evidence";
-import { InterviewDNA } from "./interview-memory";
-import { stalenessLabel } from "./concepts";
+import { communicationTrend } from "./communication-metrics";
+import { stalenessLabel } from "./skills";
 
-// ---- Reality Gap (positive framing, always) ----
-export type VerifiedTier = "highly-demonstrated" | "developing" | "needs-evidence";
+// ---- Growth Insights (positive framing, always) ----
+export type GrowthTier = "strong" | "developing" | "needs-practice";
 
-export interface RealityGapItem {
+export interface GrowthInsightItem {
   skill: string;
-  claimedLevel: string | null;
+  level: number;
   confidence: number;
   retention: number;
-  tier: VerifiedTier;
+  tier: GrowthTier;
   evidence: EvidenceItem[];
-  recommendedAction: string;
+  suggestedAction: string;
 }
 
-export function realityGap(g: CareerGraph): RealityGapItem[] {
+export function growthInsights(g: CommunicationGraph): GrowthInsightItem[] {
   const now = clock();
   return nodesByKind(g, "skill").map((s) => {
     const bundle = evidenceForSkill(g, s.label, now);
     const demonstrated = edgesFrom(g, s.id, "DEMONSTRATED_IN").length > 0;
     const retention = currentRetention(s, now);
-    let tier: VerifiedTier;
+    let tier: GrowthTier;
     let action: string;
-    if (demonstrated && s.confidence >= 75) {
-      tier = "highly-demonstrated";
-      action = retention < 60 ? `Keep ${s.label} fresh - a quick review interview will re-verify it.` : `${s.label} is well evidenced. Ready to showcase.`;
-    } else if (demonstrated && s.confidence >= 50) {
+    if (demonstrated && s.confidence >= 78) {
+      tier = "strong";
+      action = retention < 60 ? `Keep ${s.label} fresh - a quick practice session will re-verify it.` : `${s.label} is well demonstrated. Ready to showcase.`;
+    } else if (demonstrated && s.confidence >= 55) {
       tier = "developing";
-      action = `Practice ${s.label} once more to move it into highly-demonstrated.`;
+      action = `Practice ${s.label} once more to move it into strong.`;
     } else {
-      tier = "needs-evidence";
+      tier = "needs-practice";
       action = demonstrated
-        ? `Reinforce ${s.label} with a focused practice session, then re-interview.`
-        : `Verify ${s.label} in an interview to turn the claim into evidence.`;
+        ? `Reinforce ${s.label} with a focused practice session, then practice again.`
+        : `Practice ${s.label} to turn potential into demonstrated skill.`;
     }
-    return { skill: s.label, claimedLevel: bundle.claimedLevel, confidence: s.confidence, retention, tier, evidence: bundle.items, recommendedAction: action };
-  });
+    return { skill: s.label, level: s.level, confidence: s.confidence, retention, tier, evidence: bundle.items, suggestedAction: action };
+  }
 }
 
-// ---- Skill evidence cards (Feature 1: Persistent Skill Verification) ----
-export interface SkillCard {
+// ---- Skill progress cards (Feature 1: Persistent Skill Verification) ----
+export interface SkillProgress {
   skill: string;
-  claimedLevel: string | null;
+  level: number;
   confidence: number;
   retention: number;
-  timesTested: number;
-  supportingProjects: string[];
-  githubEvidence: number;
+  timesPracticed: number;
+  supportingScenarios: string[];
   lastSeen: string;
-  trend: number[]; // confidence per interview it appeared in
+  trend: number[]; // confidence per session it appeared in
 }
 
-export function skillCards(g: CareerGraph): SkillCard[] {
+export function skillProgress(g: CommunicationGraph): SkillProgress[] {
   const now = clock();
   return nodesByKind(g, "skill").map((s) => {
-    const projects = edgesTo(g, s.id, "USES").map((e) => g.nodes[e.from]?.label).filter(Boolean) as string[];
-    const github = edgesTo(g, s.id, "EVIDENCE_FOR")
-      .map((e) => g.nodes[e.from])
-      .filter((n): n is GNode => Boolean(n) && n.data?.source === "github").length;
+    const scenarios = edgesTo(g, s.id, "DEMONSTRATED_IN")
+      .map((e) => g.nodes[e.from]?.data.scenarioId)
+      .filter((sc): sc is string => Boolean(sc));
     const trend = edgesFrom(g, s.id, "DEMONSTRATED_IN")
-      .map((e) => (e.data?.score as number) ?? 0)
+      .map((e) => (e.data?.confidence as number) ?? 0)
       .filter((x) => x > 0);
     return {
       skill: s.label,
-      claimedLevel: (s.data.claimedLevel as string) ?? null,
+      level: s.level,
       confidence: s.confidence,
       retention: currentRetention(s, now),
-      timesTested: (s.data.timesTested as number) ?? 0,
-      supportingProjects: projects,
-      githubEvidence: github,
+      timesPracticed: scenarios.length,
+      supportingScenarios: [...new Set(scenarios)],
       lastSeen: stalenessLabel(daysBetween(now, s.lastSeenAt)),
       trend,
     };
-  });
+  }
 }
 
 // ---- Communication trend (Voice Memory) ----
-export interface CommunicationPoint extends InterviewDNA {
-  interviewIndex: number;
-  date: string;
+export interface CommunicationPoint extends ReturnType<typeof extractCommunicationDNA> {
+  sessionIndex: number;
+  timestamp: string;
 }
-export function communicationTrend(g: CareerGraph): CommunicationPoint[] {
+export function communicationTrend(g: CommunicationGraph): CommunicationPoint[] {
   return nodesByKind(g, "communication")
-    .map((n) => ({ ...(n.data as unknown as InterviewDNA), interviewIndex: (n.data.interviewIndex as number) ?? 0, date: (n.data.date as string) ?? n.createdAt }))
-    .sort((a, b) => a.interviewIndex - b.interviewIndex);
+    .map((n) => ({ ...(n.data as unknown as ReturnType<typeof extractCommunicationDNA>), sessionIndex: (n.data.sessionIndex as number) ?? 0, timestamp: (n.data.timestamp as string) ?? n.createdAt }))
+    .sort((a, b) => (a.timestamp ?? "").localeCompare(b.timestamp ?? ""));
 }
 
-// ---- Career timeline (Feature 2) ----
+// ---- Practice timeline (Feature 2) ----
 export interface TimelineEvent {
   date: string;
-  kind: "resume" | "interview" | "milestone";
+  kind: "session" | "milestone";
   title: string;
   detail: string;
 }
-export function careerTimeline(g: CareerGraph): TimelineEvent[] {
+export function practiceTimeline(g: CommunicationGraph): TimelineEvent[] {
   const events: TimelineEvent[] = [];
-  for (const r of nodesByKind(g, "resume"))
-    events.push({ date: r.createdAt, kind: "resume", title: r.label, detail: `${(r.data.skillNames as string[] | undefined)?.length ?? 0} skills claimed` });
-  for (const iv of nodesByKind(g, "interview"))
-    events.push({ date: (iv.data.date as string) ?? iv.createdAt, kind: "interview", title: iv.label, detail: `Avg ${iv.data.avgScore ?? 0}% · ${iv.data.questionCount ?? 0} questions${iv.data.company ? ` · ${iv.data.company}` : ""}` });
+  for (const s of nodesByKind(g, "session"))
+    events.push({ date: (s.data.startedAt as string) ?? s.createdAt, kind: "session", title: s.label, detail: `Scenario: ${s.data.scenarioId ?? "unknown"} · ${s.data.messageCount ?? 0} messages` });
   for (const m of nodesByKind(g, "milestone"))
     events.push({ date: (m.data.date as string) ?? m.createdAt, kind: "milestone", title: m.label, detail: "Improvement recorded" });
   return events.sort((a, b) => a.date.localeCompare(b.date));
 }
 
-// ---- Improvement timeline per skill (Digital Career DNA) ----
+// ---- Improvement timeline per skill (Digital Skill DNA) ----
 export interface ImprovementSeries {
   skill: string;
   points: number[];
 }
-export function improvementTimeline(g: CareerGraph): ImprovementSeries[] {
+export function improvementTimeline(g: CommunicationGraph): ImprovementSeries[] {
   return nodesByKind(g, "skill")
-    .map((s) => ({ skill: s.label, points: edgesFrom(g, s.id, "DEMONSTRATED_IN").map((e) => (e.data?.score as number) ?? 0).filter((x) => x > 0) }))
+    .map((s) => ({ skill: s.label, points: edgesFrom(g, s.id, "DEMONSTRATED_IN").map((e) => (e.data?.confidence as number) ?? 0).filter((x) => x > 0) }))
     .filter((s) => s.points.length >= 1);
 }
 
-// ---- Memory Replay: every answer to a concept across all interviews ----
+// ---- Memory Replay: every message to a skill across all sessions ----
 export interface ReplayEntry {
-  interviewIndex: number;
-  question: string;
-  answer: string;
-  score: number;
-  feedback: string;
+  sessionIndex: number;
+  messageId: string;
+  content: string;
+  confidence: number;
 }
-export function memoryReplay(g: CareerGraph, conceptOrSkill: string): ReplayEntry[] {
-  const target = conceptOrSkill.toLowerCase();
+export function memoryReplay(g: CommunicationGraph, skillOrScenario: string): ReplayEntry[] {
+  const target = skillOrScenario.toLowerCase();
   const entries: ReplayEntry[] = [];
-  for (const q of nodesByKind(g, "question")) {
-    const ts = (q.data.targetSkill as string) ?? "";
+  for (const msg of nodesByKind(g, "message")) {
+    const ts = (msg.data.role as string) ?? "";
     if (ts.toLowerCase() !== target) continue;
-    // find the interview index + the answer
-    const interviewEdge = edgesTo(g, q.id, "TESTS").map((e) => g.nodes[e.from]).find((n) => n?.kind === "interview");
-    const answer = edgesTo(g, q.id, "ANSWERS").map((e) => g.nodes[e.from]).find((n) => n?.kind === "answer");
+    // find the session index + the message
+    const sessionEdge = edgesTo(g, msg.id, "BELONGS_TO").map((e) => g.nodes[e.from]).find((n) => n?.kind === "session");
     entries.push({
-      interviewIndex: (interviewEdge?.data.index as number) ?? 0,
-      question: (q.data.text as string) ?? q.label,
-      answer: (answer?.data.transcript as string) ?? "",
-      score: (q.data.score as number) ?? answer?.confidence ?? 0,
-      feedback: (answer?.data.feedback as string) ?? "",
+      sessionIndex: (sessionEdge?.data.index as number) ?? 0,
+      messageId: msg.data.messageId as string,
+      content: (msg.data.text as string) ?? msg.label,
+      confidence: (msg.data.confidence as number) ?? 0,
     });
   }
-  return entries.sort((a, b) => a.interviewIndex - b.interviewIndex);
+  return entries.sort((a, b) => a.sessionIndex - b.sessionIndex);
 }
 
 // ---- Graph visualization payload (user-facing, not a developer graph) ----
@@ -172,25 +164,22 @@ export interface GraphView {
   nodes: VizNode[];
   edges: VizEdge[];
 }
-
-/** A readable subset of the graph for visualization: the candidate, skills, top concepts, projects,
- *  companies, interviews and the recommendations - not every low-level answer/evidence node. */
-export function graphView(g: CareerGraph): GraphView {
-  const keepKinds: NodeKind[] = ["candidate", "skill", "concept", "project", "company", "interview", "recommendation", "resource"];
+export function graphView(g: CommunicationGraph): GraphView {
+  const keepKinds: NodeKind[] = ["learner", "skill", "session", "scenario", "recommendation", "resource"];
   const now = clock();
   const nodes = Object.values(g.nodes)
     .filter((n) => keepKinds.includes(n.kind))
-    // trim derived-but-untouched concepts to keep the picture legible
-    .filter((n) => !(n.kind === "concept" && n.weight === 0 && edgesTo(g, n.id, "TESTS").length === 0))
+    // trim derived-but-untouched skills to keep the picture legible
+    .filter((n) => !(n.kind === "skill" && n.weight === 0 && edgesTo(g, n.id, "DEMONSTRATED_IN").length === 0))
     .map<VizNode>((n) => ({
       id: n.id,
       kind: n.kind,
       label: n.label,
-      confidence: n.confidence,
-      retention: n.kind === "skill" || n.kind === "concept" ? currentRetention(n, now) : n.retention,
+      confidence: n.kind === "skill" || n.kind === "session" ? n.confidence : n.confidence,
+      retention: n.kind === "skill" ? currentRetention(n, now) : n.retention,
       weight: n.weight,
-      weak: (n.kind === "skill" || n.kind === "concept") && edgesTo(g, n.id, "TESTS").length > 0 && n.confidence < 55,
-      strong: (n.kind === "skill" || n.kind === "concept") && n.confidence >= 78,
+      weak: (n.kind === "skill" || n.kind === "session") && edgesTo(g, n.id, "DEMONSTRATED_IN").length > 0 && n.confidence < 55,
+      strong: (n.kind === "skill" || n.kind === "session") && n.confidence >= 78,
     }));
   const keep = new Set(nodes.map((n) => n.id));
   const edges = Object.values(g.edges)
@@ -201,35 +190,34 @@ export function graphView(g: CareerGraph): GraphView {
 
 // ---- Top-level dashboard bundle ----
 export interface Dashboard {
-  candidateId: string;
+  learnerId: string;
   name: string | null;
   revision: number;
-  interviewCount: number;
+  sessionCount: number;
   overallConfidence: number;
-  realityGap: RealityGapItem[];
-  skills: SkillCard[];
+  growthInsights: GrowthInsightItem[];
+  skillProgress: SkillProgress[];
   communication: CommunicationPoint[];
   timeline: TimelineEvent[];
   improvement: ImprovementSeries[];
   graph: GraphView;
 }
-
-export function buildDashboard(g: CareerGraph): Dashboard {
+export function buildDashboard(g: CommunicationGraph): Dashboard {
   const skills = nodesByKind(g, "skill");
-  const demonstrated = skills.filter((s) => edgesFrom(g, s.id, "DEMONSTRATED_IN").length > 0);
-  const overallConfidence = demonstrated.length
-    ? Math.round(demonstrated.reduce((a, s) => a + s.confidence, 0) / demonstrated.length)
+  const practiced = skills.filter((s) => edgesFrom(g, s.id, "DEMONSTRATED_IN").length > 0);
+  const overallConfidence = practiced.length
+    ? Math.round(practiced.reduce((a, s) => a + s.confidence, 0) / practiced.length)
     : 0;
   return {
-    candidateId: g.candidateId,
+    learnerId: g.learnerId,
     name: g.name,
     revision: g.revision,
-    interviewCount: nodesByKind(g, "interview").length,
+    sessionCount: nodesByKind(g, "session").length,
     overallConfidence,
-    realityGap: realityGap(g),
-    skills: skillCards(g),
+    growthInsights: growthInsights(g),
+    skillProgress: skillProgress(g),
     communication: communicationTrend(g),
-    timeline: careerTimeline(g),
+    timeline: practiceTimeline(g),
     improvement: improvementTimeline(g),
     graph: graphView(g),
   };

@@ -1,16 +1,16 @@
 /**
- * Concept ontology + spaced-repetition retention model.
- *
- * A skill named on a resume ("Kafka") is shallow. The graph becomes intelligent when a single weak
- * answer expands into a *connected* sub-graph of the concepts that skill really involves
- * (Kafka → Consumer Groups → Partitions → Offset Management → Distributed Systems). That is the
- * "Weakness Graph" and it is also what lets improve() build meaningful RELATED_TO / PREREQ_OF edges
- * and what lets the Learning Engine target the exact weak node.
- *
- * This ontology is deliberately deterministic (no LLM required) so the demo works with zero
-* credentials. When Sarvam/Cognee are configured, extracted concepts are UNIONED with this map -
+  * Communication skill ontology + spaced-repetition retention model.
+  *
+  * A skill named on a profile ("Storytelling") is shallow. The graph becomes intelligent when a single
+  * weak answer expands into a *connected* sub-graph of the concepts that skill really involves
+  * (Storytelling -> Hook -> Emotional Arc -> Call to Action -> Audience Awareness). That is the
+  * "Weakness Graph" and it is also what lets improve() build meaningful RELATED_TO / PREREQ_OF edges
+  * and what lets the Practice Mission engine target the exact weak node.
+  *
+  * This ontology is deliberately deterministic (no LLM required) so the demo works with zero
+  * credentials. When Sarvam/Cognee are configured, extracted concepts are UNIONED with this map -
   * the ontology is a floor, not a ceiling.
- */
+  */
 
 export interface ConceptDef {
   /** sub-concepts this skill/concept decomposes into (RELATED_TO edges) */
@@ -19,92 +19,92 @@ export interface ConceptDef {
   prereqs?: string[];
   /** how quickly confidence decays without practice: higher = forgets faster (half-life days) */
   halfLifeDays?: number;
-  /** curated learning resources for the weakness -> learning-mission engine */
+  /** curated learning resources for the weakness -> practice-mission engine */
   resources?: { title: string; kind: "docs" | "video" | "exercise" | "quiz"; url?: string }[];
 }
 
 /** Keyed by concept slug-ish lowercase name. Skills map onto the same space. */
 export const ONTOLOGY: Record<string, ConceptDef> = {
-  kafka: {
-    related: ["Consumer Groups", "Partitions", "Offset Management", "Message Ordering", "Distributed Systems"],
-    prereqs: ["Distributed Systems"],
+  storytelling: {
+    related: ["Hook", "Emotional Arc", "Call to Action", "Audience Awareness", "Narrative Structure"],
+    prereqs: ["Clarity"],
     halfLifeDays: 45,
     resources: [
-      { title: "Kafka: The Definitive Guide (Consumer chapter)", kind: "docs" },
-      { title: "Build a partitioned consumer group demo", kind: "exercise" },
-      { title: "Quiz: rebalance & offset semantics", kind: "quiz" },
+      { title: "Storytelling at Work: The Power of Narrative", kind: "docs" },
+      { title: "Build a 30-second elevator pitch", kind: "exercise" },
+      { title: "Quiz: narrative structure and hooks", kind: "quiz" },
     ],
   },
-  "consumer groups": {
-    related: ["Partitions", "Offset Management", "Rebalancing"],
-    prereqs: ["Kafka"],
+  hook: {
+    related: ["Opening Line", "Curiosity Gap", "Bold Claim"],
+    prereqs: ["Storytelling"],
     halfLifeDays: 40,
   },
-  redis: {
-    related: ["Persistence", "Replication", "Cluster", "Sentinel", "Transactions", "Caching"],
-    halfLifeDays: 50,
-    resources: [
-      { title: "Redis persistence & replication docs", kind: "docs" },
-      { title: "Set up a Redis Sentinel failover locally", kind: "exercise" },
-    ],
-  },
-  docker: {
-    related: ["Networking", "Volumes", "Compose", "Image Layers", "Multi-stage Builds"],
-    prereqs: ["Linux"],
+  clarity: {
+    related: ["Conciseness", "Structure", "Jargon-Free Language", "Active Voice"],
     halfLifeDays: 60,
     resources: [
-      { title: "Docker networking deep-dive", kind: "docs" },
-      { title: "Containerize a service with a multi-stage build", kind: "exercise" },
+      { title: "The Pyramid Principle for clear communication", kind: "docs" },
+      { title: "Rewrite a paragraph for clarity", kind: "exercise" },
     ],
   },
-  kubernetes: {
-    related: ["Deployments", "StatefulSets", "Services", "Ingress", "Pods", "Scheduling"],
-    prereqs: ["Docker", "Networking"],
-    halfLifeDays: 40,
+  confidence: {
+    related: ["Eye Contact", "Pace Control", "Voice Projection", "Body Language", "Hedge Removal"],
+    halfLifeDays: 50,
     resources: [
-      { title: "Kubernetes workloads: Deployment vs StatefulSet", kind: "docs" },
-      { title: "Deploy a stateful app with a StatefulSet", kind: "exercise" },
-      { title: "Quiz: core workload primitives", kind: "quiz" },
+      { title: "Presence and vocal confidence guide", kind: "docs" },
+      { title: "Record and review a 2-minute pitch", kind: "exercise" },
     ],
   },
-  react: {
-    related: ["Rendering", "State Management", "Hooks", "Memoization", "Virtualization"],
-    prereqs: ["JavaScript"],
+  "technical depth": {
+    related: ["Analogy", "Simplification", "System Thinking", "Tradeoff Articulation"],
+    prereqs: ["Clarity"],
     halfLifeDays: 70,
     resources: [
-      { title: "React rendering & memoization guide", kind: "docs" },
-      { title: "Profile and fix a slow list with virtualization", kind: "exercise" },
+      { title: "Explain Like I'm 5: technical simplification", kind: "docs" },
+      { title: "Explain a complex API to a non-engineer", kind: "exercise" },
     ],
   },
-  aws: {
-    related: ["EC2", "S3", "Lambda", "SQS", "Kinesis", "IAM", "VPC"],
+  empathy: {
+    related: ["Active Listening", "Validation", "Perspective Taking", "Emotional Regulation"],
     halfLifeDays: 55,
-    resources: [{ title: "AWS messaging: SQS vs Kinesis", kind: "docs" }],
+    resources: [
+      { title: "Nonviolent Communication basics", kind: "docs" },
+      { title: "Practice reflective listening in a mock conversation", kind: "exercise" },
+    ],
   },
-  python: {
-    related: ["Concurrency", "AsyncIO", "Data Structures", "Testing", "Packaging"],
-    halfLifeDays: 90,
+  persuasion: {
+    related: ["Social Proof", "Reciprocity", "Authority", "Scarcity"],
+    prereqs: ["Storytelling", "Clarity"],
+    halfLifeDays: 50,
   },
-  javascript: {
-    related: ["Event Loop", "Promises", "Closures", "Prototypes"],
-    halfLifeDays: 90,
+  "active listening": {
+    related: ["Paraphrasing", "Questioning", "Silence", "Validation"],
+    halfLifeDays: 65,
   },
-  typescript: { related: ["Generics", "Type Narrowing", "Utility Types"], prereqs: ["JavaScript"], halfLifeDays: 80 },
-  "system design": {
-    related: ["Scalability", "Caching", "Load Balancing", "Sharding", "Consistency", "Message Queues"],
+  negotiation: {
+    related: ["BATNA", "Anchoring", "Concessions", "Win-Win Framing"],
+    halfLifeDays: 60,
+    resources: [{ title: "Getting to Yes: essential negotiation concepts", kind: "docs" }],
+  },
+  "public speaking": {
+    related: ["Stage Presence", "Slides", "Pacing", "Pauses", "Audience Engagement"],
     halfLifeDays: 45,
-    resources: [{ title: "System Design Primer", kind: "docs" }],
   },
-  "distributed systems": {
-    related: ["Consistency", "Partitioning", "Replication", "Consensus", "Fault Tolerance"],
-    halfLifeDays: 40,
+  feedback: {
+    related: ["SBI Model", "Timing", "Tone", "Follow-Up"],
+    halfLifeDays: 55,
+    resources: [{ title: "Radical Candor: caring personally while challenging directly", kind: "docs" }],
   },
-  sql: { related: ["Indexing", "Query Planning", "Transactions", "Normalization"], halfLifeDays: 75 },
-  networking: { related: ["TCP/IP", "DNS", "Load Balancing", "TLS"], halfLifeDays: 65 },
-  go: { related: ["Goroutines", "Channels", "Concurrency", "Interfaces"], halfLifeDays: 80 },
-  java: { related: ["Concurrency", "JVM", "Garbage Collection", "Collections"], halfLifeDays: 85 },
-  leadership: { related: ["Mentorship", "Ownership", "Conflict Resolution", "Delegation"], halfLifeDays: 120 },
-  behavioral: { related: ["STAR Method", "Ownership", "Conflict Resolution", "Impact"], halfLifeDays: 100 },
+  presence: {
+    related: ["Posture", "Eye Contact", "Pauses", "Energy"],
+    halfLifeDays: 50,
+  },
+  structure: {
+    related: ["Opening", "Body", "Conclusion", "Signposting"],
+    prereqs: ["Clarity"],
+    halfLifeDays: 60,
+  },
 };
 
 /** Look up ontology by any casing; returns a default def for unknown concepts. */
@@ -119,11 +119,11 @@ export function relatedConcepts(name: string): string[] {
 }
 
 /**
- * Retention model: exponential forgetting curve. Confidence is what you *knew*; retention is how
- * much of it survives `days` of not practising, given this concept's half-life. Reinforcement
- * (answering it again) resets days-since to 0. This is what powers "Kafka last discussed 72 days
- * ago, confidence likely decaying → generate Kafka questions".
- */
+  * Retention model: exponential forgetting curve. Confidence is what you *knew*; retention is how
+  * much of it survives `days` of not practising, given this concept's half-life. Reinforcement
+  * (practicing it again) resets days-since to 0. This is what powers "Storytelling last practiced 72
+  * days ago, confidence likely decaying -> generate Storytelling scenarios".
+  */
 export function retentionAfter(days: number, halfLifeDays = 60): number {
   if (days <= 0) return 100;
   const decayed = 100 * Math.pow(0.5, days / halfLifeDays);

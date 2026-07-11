@@ -7,7 +7,7 @@ import { newRequestId, errorResponse, enforceRateLimit, parseJsonBody, Validatio
 export const runtime = "nodejs";
 export const maxDuration = 30;
 
-// Bulbul text-to-speech. Reads an interview question aloud. Returns base64 WAV audio.
+// Bulbul text-to-speech. Reads a practice prompt aloud. Returns base64 WAV audio.
 // On failure it returns { audio: null, source: "fallback", reason } so the client can fall back to
 // the browser's built-in SpeechSynthesis, TTS is a non-critical convenience, so this degradation
 // is acceptable in all modes and the explicit `source` flag keeps it observable.

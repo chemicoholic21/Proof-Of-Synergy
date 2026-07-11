@@ -2,10 +2,10 @@
 
 import { useRef, useState } from "react";
 
-// Plays an interview question aloud. Prefers Sarvam's Bulbul TTS (/api/tts); if that is
-// unavailable (no API key, timeout, etc.) it falls back to the browser's built-in
+// Plays a scenario / conversation line aloud. Prefers Sarvam's Bulbul TTS (/api/tts); if that
+// is unavailable (no API key, timeout, etc.) it falls back to the browser's built-in
 // SpeechSynthesis so the feature still works, and shows which engine was used.
-export default function QuestionPlayer({
+export default function ScenarioPlayer({
   text,
   language = "en-IN",
 }: {
@@ -70,7 +70,7 @@ export default function QuestionPlayer({
     <button
       type="button"
       onClick={play}
-      title={engine === "browser" ? "Bulbul unavailable, using browser voice" : "Listen (Bulbul AI voice)"}
+      title={engine === "browser" ? "Scenario voice unavailable, using browser voice" : "Listen to scenario (AI voice)"}
       className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold border transition-all duration-300 ${
         state === "playing"
           ? "bg-cyan-500/15 border-cyan-500/40 text-cyan-300"

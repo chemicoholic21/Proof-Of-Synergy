@@ -114,17 +114,12 @@ body {
 }
 
 @keyframes pulseBar {
-  0%, 100% { transform: scaleY(0.25); }
-  50% { transform: scaleY(1); }
+   0%, 100% { transform: scaleY(0.25); }
+   50% { transform: scaleY(1); }
 }
 .wavebar {
   animation: pulseBar 0.9s ease-in-out infinite;
   transform-origin: center;
-}
-
-/* Legacy class kept referenced in JSX - neutralized to a flat surface. */
-.cyber-card-attestation {
-  background-color: var(--surface);
 }
 
 /* Scrollbar */
@@ -161,6 +156,10 @@ body {
 .hairline-grow {
   transform-origin: left;
   animation: hairline 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@keyframes blurReveal {
+  0% { opacity: 0; filter: blur(14px); transform: translateY(0.42em); }
+  100% { opacity: 1; filter: blur(0); transform: translateY(0); }
 }
 
 @media (prefers-reduced-motion: reduce) {

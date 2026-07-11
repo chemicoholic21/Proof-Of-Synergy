@@ -3,99 +3,63 @@ import { SkillLevel } from "@/lib/schemas";
 
 /** Zod schemas for the memory API trust boundary. */
 
-const CandidateId = z.string().min(1).max(80).regex(/^[a-zA-Z0-9_-]+$/, "candidateId must be url-safe");
+const LearnerId = z.string().min(1).max(80).regex(/^[a-zA-Z0-9_-]+$/, "learnerId must be url-safe");
 
 const MemorySkill = z.object({
   name: z.string().min(1).max(120),
   category: z.string().max(120).optional(),
-  claimedLevel: SkillLevel.catch("intermediate"),
+  level: SkillLevel.catch("intermediate"),
 });
 
-const MemoryProject = z.object({
-  name: z.string().min(1).max(160),
-  technologies: z.array(z.string().max(80)).max(30).optional(),
-  summary: z.string().max(2000).optional(),
+const MemoryMessage = z.object({
+  id: z.string().min(1).max(100),
+  role: z.enum(["learner", "coach", "partner"]),
+  content: z.string().min(1).max(10000),
+  timestamp: z.coerce.number(),
 });
 
-const RememberAnswer = z.object({
-  questionId: z.coerce.number().int(),
-  questionText: z.string().min(1).max(2000),
-  targetSkill: z.string().min(1).max(200),
-  rubric: z.string().max(2000).optional(),
-  transcript: z.string().max(20000).default(""),
-  language: z.string().max(40).optional(),
-  score: z.coerce.number().min(0).max(100),
-  feedback: z.string().max(4000).optional(),
-  strengths: z.array(z.string().max(500)).max(20).optional(),
-  improvements: z.array(z.string().max(500)).max(20).optional(),
-  durationSec: z.coerce.number().min(0).max(3600).optional(),
+const MemoryPracticeSession = z.object({
+  sessionId: z.string().min(1).max(100),
+  scenarioId: z.string().min(1).max(100),
+  learnerId: LearnerId,
+  startedAt: z.string().datetime(),
+  endedAt: z.string().datetime().optional(),
+  messages: z.array(MemoryMessage).min(1),
 });
 
-// The caller's current graph (client is the durable source of truth on serverless). Passed as an
-// opaque object; the orchestrator sanitizes it. Kept loose on purpose - it is the user's own data.
-const Graph = z.any().optional();
-
-export const RememberBody = z.discriminatedUnion("kind", [
-  z.object({
-    kind: z.literal("resume"),
-    candidateId: CandidateId,
-    name: z.string().max(200).nullable().optional(),
-    skills: z.array(MemorySkill).min(1).max(30),
-    experience: z.array(z.object({ role: z.string().max(200), company: z.string().max(200), years: z.coerce.number().min(0).max(80) })).max(50).optional(),
-    education: z.array(z.object({ degree: z.string().max(200), institution: z.string().max(200), year: z.coerce.number().int().nullable() })).max(50).optional(),
-    projects: z.array(MemoryProject).max(30).optional(),
-    rawText: z.string().max(50000).optional(),
-    graph: Graph,
-  }),
-  z.object({
-    kind: z.literal("interview"),
-    candidateId: CandidateId,
-    name: z.string().max(200).nullable().optional(),
-    company: z.string().max(120).nullable().optional(),
-    answers: z.array(RememberAnswer).min(1).max(40),
-    graph: Graph,
-  }),
-]);
-
-export const RecallBody = z.object({
-  candidateId: CandidateId,
-  company: z.string().max(120).nullable().optional(),
-  graph: Graph,
+const RememberSessionBody = z.object({
+  learnerId: LearnerId,
+  scenarioId: z.string().min(1).max(100),
+  startedAt: z.string().datetime(),
+  endedAt: z.string().datetime(),
+  messages: z.array(MemoryMessage).min(1),
+  graph: z.any().optional(),
 });
 
-export const DashboardBody = z.object({
-  candidateId: CandidateId,
-  company: z.string().max(120).nullable().optional(),
-  graph: Graph,
+const RecallBody = z.object({
+  learnerId: LearnerId,
+  scenarioId: z.string().max(100).nullable().optional(),
+  graph: z.any().optional(),
 });
 
-export const ForgetBody = z.object({
-  candidateId: CandidateId,
+const ForgetBody = z.object({
+  learnerId: LearnerId,
   target: z.discriminatedUnion("type", [
-    z.object({ type: z.literal("interview"), index: z.coerce.number().int().min(1) }),
-    z.object({ type: z.literal("resume"), version: z.coerce.number().int().min(1) }),
-    z.object({ type: z.literal("company"), name: z.string().min(1).max(120) }),
-    z.object({ type: z.literal("project"), name: z.string().min(1).max(160) }),
+    z.object({ type: z.literal("session"), index: z.coerce.number().int().min(1) }),
     z.object({ type: z.literal("all") }),
   ]),
-  graph: Graph,
+  graph: z.any().optional(),
 });
 
-export const ReplayBody = z.object({
-  candidateId: CandidateId,
-  concept: z.string().min(1).max(200),
-  graph: Graph,
+const ReplayBody = z.object({
+  learnerId: LearnerId,
+  skill: z.string().min(1).max(100),
+  graph: z.any().optional(),
 });
 
-export const SeedBody = z.object({
-  candidateId: CandidateId,
+const SeedBody = z.object({
+  learnerId: LearnerId,
   name: z.string().max(200).optional(),
 });
 
-export const GithubBody = z.object({
-  candidateId: CandidateId,
-  username: z.string().min(1).max(39).regex(/^@?[a-zA-Z0-9-]+$/, "invalid GitHub username"),
-  graph: Graph,
-});
-
-export { CandidateId };
+export { RememberSessionBody, RecallBody, ForgetBody, ReplayBody, SeedBody, LearnerId };

@@ -10,9 +10,10 @@ export const runtime = "nodejs";
 export const maxDuration = 30;
 
 /**
- * One-click demo seed: builds a six-month career history (resume + three interviews across Stripe
- * and Google, with a clear growth arc) so the hackathon demo never needs manual data entry.
- */
+  * One-click demo seed: builds a six-month communication practice history (learner profile + three
+  * sessions across different coaches, with a clear growth arc) so the demo never needs manual data
+  * entry.
+  */
 export async function POST(req: NextRequest) {
   const requestId = newRequestId();
   const log = logger.child({ requestId, route: "memory/seed" });
@@ -28,10 +29,9 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const g = buildDemoGraph(body.candidateId, body.name ?? "Aarav Sharma");
+    const g = buildDemoGraph(body.learnerId, body.name ?? "Aarav Sharma");
     await saveGraph(g).catch(() => {});
-    log.info("demo seeded", { candidateId: body.candidateId, nodes: Object.keys(g.nodes).length });
-    // Return the graph so the client can persist it (durable source of truth on serverless).
+    log.info("demo seeded", { learnerId: body.learnerId, nodes: Object.keys(g.nodes).length });
     return NextResponse.json({ ok: true, dashboard: buildDashboard(g), graph: g });
   } catch (e) {
     log.error("seed failed", { error: e });

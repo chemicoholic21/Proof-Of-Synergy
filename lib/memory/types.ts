@@ -8,73 +8,54 @@ import { SkillLevel } from "@/lib/types";
 export interface MemorySkill {
   name: string;
   category?: string;
-  claimedLevel: SkillLevel;
+  level: SkillLevel;
 }
 
-export interface MemoryProject {
-  name: string;
-  technologies?: string[];
-  summary?: string;
+export interface MemoryPracticeSession {
+  sessionId: string;
+  scenarioId: string;
+  learnerId: string;
+  startedAt: string;
+  endedAt?: string;
+  messages: MemoryMessage[];
 }
 
-/** What remember() needs to ingest a resume (v1, v2, ...). */
-export interface RememberResumeInput {
-  candidateId: string;
-  name?: string | null;
-  skills: MemorySkill[];
-  experience?: { role: string; company: string; years: number }[];
-  education?: { degree: string; institution: string; year: number | null }[];
-  projects?: MemoryProject[];
-  /** raw resume text - used for Cognee ingestion + light project extraction */
-  rawText?: string;
+export interface MemoryMessage {
+  id: string;
+  role: "learner" | "coach" | "partner";
+  content: string;
+  timestamp: number;
 }
 
-/** One answered question, already transcribed + evaluated. */
-export interface RememberAnswer {
-  questionId: number;
-  questionText: string;
-  targetSkill: string;
-  rubric?: string;
-  transcript: string;
-  language?: string;
-  score: number; // 0-100
-  feedback?: string;
-  strengths?: string[];
-  improvements?: string[];
-  durationSec?: number;
+/** What remember() needs to ingest a completed practice session. */
+export interface RememberSessionInput {
+  learnerId: string;
+  scenarioId: string;
+  startedAt: string;
+  endedAt: string;
+  messages: MemoryMessage[];
 }
 
-/** What remember() needs to ingest a completed interview. */
-export interface RememberInterviewInput {
-  candidateId: string;
-  name?: string | null;
-  company?: string | null;
-  answers: RememberAnswer[];
-}
-
-/** The Career Reasoner's answer - everything an adaptive interview or dashboard needs. */
+/** The Skill Reasoner's answer - everything a practice session or dashboard needs. */
 export interface RecallResult {
-  candidateId: string;
-  isNew: boolean; // no interview history yet
-  weakConcepts: RecalledConcept[]; // low confidence
-  forgottenConcepts: RecalledConcept[]; // decayed retention (spaced repetition due)
-  unverifiedSkills: string[]; // claimed but never tested
-  weakEvidenceClaims: string[]; // claimed high but evidence thin
-  strongConcepts: RecalledConcept[]; // recently improved / high confidence
-  undiscussedProjects: string[]; // in resume, never talked about
-  masteredConcepts: string[]; // stop asking beginner questions about these
-  upcomingCompany: string | null;
-  interviewCount: number;
-  /** ready-made natural-language directives to steer question generation */
+  learnerId: string;
+  isNew: boolean; // no session history yet
+  weakSkills: RecalledSkill[]; // low confidence
+  forgottenSkills: RecalledSkill[]; // decayed retention (spaced repetition due)
+  practicedSkills: string[]; // skills that were practiced in recent sessions
+  masteredSkills: string[]; // stop asking basics about these
+  upcomingScenario: string | null;
+  sessionCount: number;
+  /** ready-made natural-language directives to steer scenario generation */
   focusDirectives: string[];
   /** optional Cognee semantic answer when a real backend is configured */
   cogneeInsight?: string | null;
 }
 
-export interface RecalledConcept {
+export interface RecalledSkill {
   name: string;
-  confidence: number;
-  retention: number;
+  level: number; // 0-100
+  retention: number; // 0-100 (100 = freshly reinforced)
   lastSeenDays: number;
   reason: string;
 }

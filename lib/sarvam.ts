@@ -230,33 +230,6 @@ export async function sarvamTTS(
   return audio; // base64 WAV
 }
 
-/** Sarvam Parse (OCR). Returns extracted text/markdown from a document. */
-export async function sarvamParse(file: Blob, filename: string, timeoutMs = 25000): Promise<string> {
-  if (!KEY) throw new Error("SARVAM_API_KEY not set");
-  const form = new FormData();
-  form.append("file", file, filename);
-  form.append("page_number", "1");
-  form.append("sarvam_mode", "small");
-  const res = await fetchWithTimeout(
-    `${SARVAM_BASE}/parse/parsepdf`,
-    {
-      method: "POST",
-      headers: authHeaders(),
-      body: form,
-    },
-    timeoutMs
-  );
-  if (!res.ok) throw new Error(`Sarvam Parse ${res.status}: ${await res.text()}`);
-  const data = await res.json();
-  // Parse returns base64-encoded XML/markdown depending on mode; normalize to text.
-  const out = data?.output ?? data?.content ?? "";
-  try {
-    return Buffer.from(out, "base64").toString("utf-8") || out;
-  } catch {
-    return out;
-  }
-}
-
 /**
  * Scan from `start` and return the index just past the balanced JSON value that begins there,
  * correctly skipping braces/brackets that appear inside string literals (and their escapes).
