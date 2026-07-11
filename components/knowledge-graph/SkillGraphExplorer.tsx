@@ -268,7 +268,11 @@ function SkillList({ skills, onReplay }: { skills: SkillNode[]; onReplay: (s: st
       <SectionTitle title="Skills" subtitle="Rolling confidence per skill, built from every session that exercised it." />
       <div className="grid gap-3 sm:grid-cols-2">
         {skills.map((s) => (
-          <div key={s.id} className="rounded-2xl border border-line bg-black/30 p-4">
+          <button
+            key={s.id}
+            onClick={() => onReplay(s.name)}
+            className="rounded-2xl border border-line bg-black/30 p-4 text-left transition-colors hover:border-accent/40 cursor-pointer"
+          >
             <div className="flex items-center justify-between">
               <div>
                 <span className="font-bold text-ink">{s.name}</span>
@@ -282,11 +286,9 @@ function SkillList({ skills, onReplay }: { skills: SkillNode[]; onReplay: (s: st
             <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-ink-soft">
               <span>Practised {s.sessions}×</span>
               <span>· {s.category}</span>
-              <button onClick={() => onReplay(s.name)} className="ml-auto text-accent hover:text-ink">
-                ▶ replay
-              </button>
+              <span className="ml-auto text-accent">▶ replay</span>
             </div>
-          </div>
+          </button>
         ))}
       </div>
     </section>
