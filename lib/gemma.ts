@@ -1,4 +1,3 @@
-import { env, sarvamConfigured } from "./env";
 import { sarvamChat, extractValidatedJson } from "./sarvam";
 import { GEMMA_COACHING_SYSTEM, gemmaCoachingUserPrompt } from "./prompts";
 import { logger } from "./logger";

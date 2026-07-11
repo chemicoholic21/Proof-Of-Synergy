@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { env, sarvamConfigured, geminiConfigured } from "@/lib/env";
-import { cogneePing, cogneeConfigured } from "@/lib/memory/cognee/client";
+import { cogneePing, cogneeConfigured } from "@/lib/cognee";
 import { geminiPing } from "@/lib/gemini";
 
 export const runtime = "nodejs";

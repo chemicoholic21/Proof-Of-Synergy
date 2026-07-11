@@ -17,8 +17,8 @@ const EnvSchema = z.object({
 
   COGNEE_API_URL: z.string().url().optional(),
   COGNEE_API_KEY: z.string().optional(),
-  COGNEE_DATASET: z.string().default("communication-skill"),
-  COGNEE_DATA_DIR: z.string().optional(),
+  COGNEE_DATASET: z.string().default("skill-graph"),
+  SKILL_GRAPH_DATA_DIR: z.string().optional(),
 
   MAX_AUDIO_BYTES: z.coerce.number().int().positive().default(25 * 1024 * 1024),
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60_000),

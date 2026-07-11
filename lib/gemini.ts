@@ -46,8 +46,15 @@ export async function geminiChat(
     try {
       const mod = await import("@google/generative-ai");
       const genAI = new mod.GoogleGenerativeAI(env.GEMINI_API_KEY || "");
-      const model = genAI.getGenerativeModel({ model: env.GEMINI_MODEL });
-      const result = await model.generateContent(`${system}\n\n${user}`);
+      const model = genAI.getGenerativeModel({
+        model: env.GEMINI_MODEL,
+        systemInstruction: system,
+        generationConfig: {
+          temperature: opts?.temperature ?? 0.7,
+          maxOutputTokens: opts?.maxTokens ?? 800,
+        },
+      });
+      const result = await model.generateContent(user);
       const text = result.response.text();
       if (!text) throw new Error("Empty Gemini response");
       return text;
@@ -71,27 +78,5 @@ export async function geminiPing(): Promise<{ ok: boolean; status: number | null
   } catch (e) {
     log.warn("gemini ping failed", { error: (e as Error).message });
     return { ok: false, status: null };
-  }
-}
-
-export async function geminiStream(
-  system: string,
-  user: string,
-  onChunk: (chunk: string) => void,
-  opts?: { temperature?: number; maxTokens?: number }
-): Promise<void> {
-  if (!geminiConfigured()) throw new Error("GEMINI_API_KEY not set");
-  try {
-    const mod = await import("@google/generative-ai");
-    const genAI = new mod.GoogleGenerativeAI(env.GEMINI_API_KEY || "");
-    const model = genAI.getGenerativeModel({ model: env.GEMINI_MODEL });
-    const result = await model.generateContentStream(`${system}\n\n${user}`);
-    for await (const chunk of result.stream) {
-      const text = chunk.text();
-      if (text) onChunk(text);
-    }
-  } catch (e) {
-    log.warn("gemini stream failed", { error: (e as Error).message });
-    throw e;
   }
 }

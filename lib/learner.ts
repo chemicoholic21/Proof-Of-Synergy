@@ -1,7 +1,12 @@
 "use client";
 
+/**
+ * Client-side learner identity + the browser-held copy of the Skill Knowledge Graph.
+ * The graph lives in localStorage so memory survives serverless deployments: every API call
+ * sends the graph up and persists the updated graph that comes back.
+ */
+
 const KEY = "synergy.learnerId";
-const NAME_KEY = "synergy.learnerName";
 
 function randomId(): string {
   try {
@@ -19,19 +24,6 @@ export function getLearnerId(): string {
     localStorage.setItem(KEY, id);
   }
   return id;
-}
-
-export function setLearnerName(name: string): string {
-  if (typeof window === "undefined") return "anon";
-  localStorage.setItem(NAME_KEY, name);
-  const id = name.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || "learner";
-  localStorage.setItem(KEY, id);
-  return id;
-}
-
-export function getLearnerName(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem(NAME_KEY);
 }
 
 const graphKey = (learnerId: string) => `synergy.graph.${learnerId}`;

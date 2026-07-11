@@ -1,13 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { GraphView, VizNode } from "@/lib/memory";
+import type { GraphView, VizNode } from "@/lib/skill-graph";
 
 /**
- * User-facing Communication Skill Graph visualization. Deterministic radial layout so it is stable
- * across renders; nodes animate in on mount, weak nodes glow amber, strong nodes glow sage, and
+ * The Skill Knowledge Graph visualization. Deterministic radial layout so it is stable across
+ * renders; nodes animate in on mount, weak skills glow ochre, strong skills glow sage, and
  * clicking any node explains why it exists and what it connects to. The audience literally
- * sees the learner's communication memory grow.
+ * watches the learner's communication memory grow.
  */
 
 // Muted, earthy palette - one restrained system, not a rainbow. Ink for the learner, warm bone
@@ -15,14 +15,8 @@ import type { GraphView, VizNode } from "@/lib/memory";
 const KIND_STYLE: Record<string, { fill: string; ring: string; label: string }> = {
   learner: { fill: "#ece9e3", ring: "#ece9e3", label: "You" },
   skill: { fill: "#c8beac", ring: "#d8cfbe", label: "Skill" },
-  concept: { fill: "#8f887b", ring: "#a29c8e", label: "Concept" },
-  scenario: { fill: "#b8965c", ring: "#ccb07f", label: "Scenario" },
+  category: { fill: "#8f887b", ring: "#a29c8e", label: "Category" },
   session: { fill: "#7d7466", ring: "#948b7c", label: "Session" },
-  answer: { fill: "#7f9a78", ring: "#a1b69b", label: "Answer" },
-  evidence: { fill: "#9da36a", ring: "#c2c98e", label: "Evidence" },
-  resource: { fill: "#5e574b", ring: "#746c5d", label: "Resource" },
-  recommendation: { fill: "#4b463c", ring: "#615a4e", label: "To improve" },
-  milestone: { fill: "#6a7d6a", ring: "#8faf8f", label: "Milestone" },
 };
 
 interface Placed extends VizNode {
@@ -36,7 +30,7 @@ const H = 760;
 const CX = W / 2;
 const CY = H / 2;
 
-export default function KnowledgeGraph({ graph, onReplay }: { graph: GraphView; onReplay?: (concept: string) => void }) {
+export default function GraphCanvas({ graph, onReplay }: { graph: GraphView; onReplay?: (skill: string) => void }) {
   const [selected, setSelected] = useState<string | null>(null);
 
   const placed = useMemo(() => layout(graph), [graph]);
@@ -62,7 +56,7 @@ export default function KnowledgeGraph({ graph, onReplay }: { graph: GraphView; 
 
   return (
     <div className="relative">
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto select-none" role="img" aria-label="Communication skill graph">
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto select-none" role="img" aria-label="Skill knowledge graph">
         {/* edges */}
         <g>
           {graph.edges.map((e, i) => {
@@ -88,7 +82,7 @@ export default function KnowledgeGraph({ graph, onReplay }: { graph: GraphView; 
         {/* nodes */}
         <g>
           {placed.map((n, i) => {
-            const st = KIND_STYLE[n.kind] ?? KIND_STYLE.concept;
+            const st = KIND_STYLE[n.kind] ?? KIND_STYLE.category;
             const dim = selected && n.id !== selected && !connectedIds.has(n.id);
             const glow = n.weak ? "#b8965c" : n.strong ? "#7f9a78" : st.ring;
             return (
@@ -110,7 +104,7 @@ export default function KnowledgeGraph({ graph, onReplay }: { graph: GraphView; 
                 )}
                 <circle r={n.r} fill={st.fill} stroke={glow} strokeWidth={n.id === selected ? 3 : 1.5} />
                 {n.kind === "learner" && (
-                  <text textAnchor="middle" dy="0.35em" fontSize="13" fontWeight="700" fill="#fff">
+                  <text textAnchor="middle" dy="0.35em" fontSize="13" fontWeight="700" fill="#1c1a15">
                     {initials(n.label)}
                   </text>
                 )}
@@ -130,7 +124,7 @@ export default function KnowledgeGraph({ graph, onReplay }: { graph: GraphView; 
       </svg>
 
       {/* Legend */}
-      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1.5 text-[11px] text-zinc-400">
+      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1.5 text-[11px] text-ink-soft">
         {Object.entries(KIND_STYLE).map(([k, v]) => (
           <span key={k} className="inline-flex items-center gap-1.5">
             <span className="h-2.5 w-2.5 rounded-full" style={{ background: v.fill }} />
@@ -138,18 +132,22 @@ export default function KnowledgeGraph({ graph, onReplay }: { graph: GraphView; 
           </span>
         ))}
         <span className="inline-flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-full ring-2 ring-amber-400" style={{ background: "transparent" }} />
-          Weak (needs practice)
+          <span className="h-2.5 w-2.5 rounded-full" style={{ background: "#b8965c" }} />
+          Weak (practice next)
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-full" style={{ background: "#7f9a78" }} />
+          Strong
         </span>
       </div>
 
       {/* Explainability panel */}
       {selectedNode && (
-        <div className="absolute right-2 top-2 w-64 rounded-2xl border border-purple-500/30 bg-black/85 backdrop-blur p-4 text-sm shadow-2xl">
+        <div className="absolute right-2 top-2 w-64 rounded-2xl border border-accent/30 bg-black/85 backdrop-blur p-4 text-sm shadow-2xl">
           <div className="flex items-start justify-between gap-2">
             <div>
-              <div className="text-[10px] uppercase tracking-wider text-purple-300 font-bold">
-                {(KIND_STYLE[selectedNode.kind] ?? KIND_STYLE.concept).label}
+              <div className="text-[10px] uppercase tracking-wider text-accent font-bold">
+                {(KIND_STYLE[selectedNode.kind] ?? KIND_STYLE.category).label}
               </div>
               <div className="heading-font text-lg font-bold text-white leading-tight">{selectedNode.label}</div>
             </div>
@@ -158,17 +156,22 @@ export default function KnowledgeGraph({ graph, onReplay }: { graph: GraphView; 
             </button>
           </div>
 
-          {(selectedNode.kind === "skill" || selectedNode.kind === "concept") && (
+          {selectedNode.kind === "skill" && (
             <div className="mt-3 space-y-2">
-              <Bar label="Confidence" value={selectedNode.confidence} tone={selectedNode.weak ? "amber" : selectedNode.strong ? "emerald" : "purple"} />
-              <Bar label="Retention" value={selectedNode.retention} tone="cyan" />
+              <Bar label="Confidence" value={selectedNode.confidence} tone={selectedNode.weak ? "ochre" : selectedNode.strong ? "sage" : "bone"} />
+              <Bar label="Freshness" value={selectedNode.freshness} tone="stone" />
               <div className="text-[11px] text-zinc-400">
                 {selectedNode.weak
-                  ? "Weak - repeatedly scored low. Keep practising it."
+                  ? "Weak - keep practising this in your next sessions."
                   : selectedNode.strong
                   ? "Strong - consistently well demonstrated."
-                  : "Developing - some evidence, keep reinforcing."}
+                  : "Developing - keep reinforcing it."}
               </div>
+            </div>
+          )}
+          {selectedNode.kind === "session" && (
+            <div className="mt-3 space-y-2">
+              <Bar label="Session confidence" value={selectedNode.confidence} tone="bone" />
             </div>
           )}
 
@@ -185,12 +188,12 @@ export default function KnowledgeGraph({ graph, onReplay }: { graph: GraphView; 
             </div>
           </div>
 
-          {onReplay && (selectedNode.kind === "skill" || selectedNode.kind === "concept") && (
+          {onReplay && selectedNode.kind === "skill" && (
             <button
               onClick={() => onReplay(selectedNode.label)}
-              className="btn-ghost mt-3 w-full text-xs py-1.5 border-cyan-500/30 text-cyan-300 hover:bg-cyan-950/20"
+              className="btn-ghost mt-3 w-full text-xs py-1.5"
             >
-              ▶ Replay every answer on {truncate(selectedNode.label, 14)}
+              ▶ Replay growth on {truncate(selectedNode.label, 14)}
             </button>
           )}
         </div>
@@ -208,8 +211,8 @@ export default function KnowledgeGraph({ graph, onReplay }: { graph: GraphView; 
   );
 }
 
-function Bar({ label, value, tone }: { label: string; value: number; tone: "amber" | "emerald" | "purple" | "cyan" }) {
-  const color = { amber: "#b8965c", emerald: "#7f9a78", purple: "#c8beac", cyan: "#a29c8e" }[tone];
+function Bar({ label, value, tone }: { label: string; value: number; tone: "ochre" | "sage" | "bone" | "stone" }) {
+  const color = { ochre: "#b8965c", sage: "#7f9a78", bone: "#c8beac", stone: "#a29c8e" }[tone];
   return (
     <div>
       <div className="flex justify-between text-[11px] text-zinc-400">
@@ -223,12 +226,12 @@ function Bar({ label, value, tone }: { label: string; value: number; tone: "ambe
   );
 }
 
-// ---- deterministic radial layout ----
+// ---- deterministic radial layout: learner center, skills ring 1, sessions/categories ring 2 ----
 function layout(graph: GraphView): Placed[] {
   const nodes = graph.nodes;
   const learner = nodes.find((n) => n.kind === "learner");
-  const primaries = nodes.filter((n) => ["skill", "session", "scenario"].includes(n.kind));
-  const secondaries = nodes.filter((n) => ["concept", "answer", "evidence", "resource", "recommendation", "milestone"].includes(n.kind));
+  const primaries = nodes.filter((n) => n.kind === "skill");
+  const secondaries = nodes.filter((n) => n.kind === "session" || n.kind === "category");
 
   const pos = new Map<string, { x: number; y: number }>();
   const placed: Placed[] = [];
@@ -236,8 +239,8 @@ function layout(graph: GraphView): Placed[] {
   const radiusFor = (n: VizNode) => {
     if (n.kind === "learner") return 26;
     if (n.kind === "skill") return 15 + Math.min(8, n.weight);
-    if (n.kind === "session" || n.kind === "scenario" || n.kind === "answer") return 13;
-    return 8 + Math.min(5, n.weight / 2);
+    if (n.kind === "session") return 13;
+    return 9;
   };
 
   if (learner) {
@@ -245,8 +248,8 @@ function layout(graph: GraphView): Placed[] {
     placed.push({ ...learner, x: CX, y: CY, r: radiusFor(learner) });
   }
 
-  // Ring 1: primaries evenly, grouped so same kinds cluster.
-  const ordered = [...primaries].sort((a, b) => a.kind.localeCompare(b.kind) || a.label.localeCompare(b.label));
+  // Ring 1: skills evenly, alphabetical so the layout is stable.
+  const ordered = [...primaries].sort((a, b) => a.label.localeCompare(b.label));
   const R1 = 205;
   ordered.forEach((n, i) => {
     const ang = (i / Math.max(1, ordered.length)) * Math.PI * 2 - Math.PI / 2;
@@ -256,7 +259,7 @@ function layout(graph: GraphView): Placed[] {
     placed.push({ ...n, x, y, r: radiusFor(n) });
   });
 
-  // Ring 2: each secondary near a placed neighbour (its parent skill/concept), else spread.
+  // Ring 2: each session/category near a placed neighbour (a skill it touches), else spread.
   const R2 = 330;
   const adjacency = new Map<string, string[]>();
   for (const e of graph.edges) {

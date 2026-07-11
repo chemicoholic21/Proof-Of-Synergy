@@ -5,6 +5,7 @@ import Link from "next/link";
 import ScenarioPlayer from "@/components/ScenarioPlayer";
 import VoiceRecorder from "@/components/VoiceRecorder";
 import { extractDNA } from "@/lib/communication-metrics";
+import { getLearnerId, loadGraphLocal, saveGraphLocal } from "@/lib/learner";
 import type {
   Scenario,
   ConversationMessage,
@@ -66,6 +67,7 @@ export default function Practice() {
   const [error, setError] = useState<string | null>(null);
   const [summary, setSummary] = useState<string | null>(null);
   const [metrics, setMetrics] = useState<CommunicationMetrics | null>(null);
+  const [graphUpdated, setGraphUpdated] = useState(false);
 
   const totalDurationRef = useRef(0);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -109,20 +111,15 @@ export default function Practice() {
 
   const partnerReply = useCallback(
     async (history: ConversationMessage[]): Promise<string | null> => {
+      if (!selected) return null;
       try {
         const res = await fetch("/api/gemini", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            system:
-              "You are a warm, realistic conversation partner in a high-stakes practice scenario. Follow the scenario instructions naturally. Ask follow-up questions, show genuine interest, and adapt your tone to the situation. Keep responses concise (2-4 sentences) so the learner gets plenty of speaking time. Never break character or mention that you are an AI.",
-            user: `${selected?.systemPrompt ?? ""}\n\nConversation so far:\n${history
-              .map((m) => `${m.role === "user" ? "Learner" : "You"}: ${m.content}`)
-              .join("\n")}\n\nRespond naturally as the conversation partner. Keep it to 2-4 sentences.`,
-          }),
+          body: JSON.stringify({ messages: history, scenarioId: selected.id }),
         });
         const d = await readJsonOrThrow(res);
-        return d.text;
+        return typeof d.reply === "string" && d.reply.trim() ? d.reply : null;
       } catch {
         return null;
       }
@@ -209,26 +206,59 @@ export default function Practice() {
     setBusy("Summarising your session…");
     const m = extractDNA(allUserText, totalDurationRef.current || undefined);
     setMetrics(m);
+    let sessionSummary: string;
     try {
       const res = await fetch("/api/coaching/summary", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           scenarioTitle: selected.title,
-          metrics: { ...m, scenarioTitle: selected.title, coachingEvents: sessionEvents },
+          wordCount: m.wordCount,
+          confidence: m.confidence,
+          fillerCount: m.fillerCount,
+          coachingEvents: sessionEvents.map((e) => ({ type: e.type, text: e.text })),
         }),
       });
       const d = await readJsonOrThrow(res);
-      setSummary(d.summary ?? "Nice work showing up to practise.");
+      sessionSummary = d.summary ?? "Nice work showing up to practise.";
     } catch {
-      setSummary(
-        `You spoke ${m.wordCount} words with a confidence score of ${m.confidence}/100 and ${m.fillerCount} filler words detected. Keep practising - small reps add up.`
-      );
+      sessionSummary = `You spoke ${m.wordCount} words with a confidence score of ${m.confidence}/100 and ${m.fillerCount} filler words detected. Keep practising - small reps add up.`;
+    }
+    setSummary(sessionSummary);
+
+    // remember(): fold this session into the Skill Knowledge Graph (best-effort, never blocks).
+    setBusy("Updating your skill graph…");
+    setGraphUpdated(false);
+    try {
+      const learnerId = getLearnerId();
+      const res = await fetch("/api/skill-graph/remember", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          learnerId,
+          session: {
+            scenarioId: selected.id,
+            durationSec: totalDurationRef.current,
+            messages,
+            coachingEvents: sessionEvents,
+            metrics: m,
+            summary: sessionSummary,
+          },
+          graph: loadGraphLocal(learnerId) ?? undefined,
+        }),
+      });
+      const d = await readJsonOrThrow(res);
+      if (d.graph) {
+        saveGraphLocal(learnerId, d.graph);
+        setGraphUpdated(true);
+      }
+    } catch {
+      /* the session summary still stands; the graph will catch up next time */
     } finally {
       setBusy(null);
       setStep("summary");
     }
-  }, [selected, allUserText, sessionEvents]);
+  }, [selected, allUserText, sessionEvents, messages]);
 
   return (
     <div className="min-h-screen relative overflow-hidden bg-background">
@@ -305,6 +335,7 @@ export default function Practice() {
             metrics={metrics}
             summary={summary}
             events={sessionEvents}
+            graphUpdated={graphUpdated}
             onRestart={() => {
               setSelected(null);
               setStep("select");
@@ -501,12 +532,14 @@ function SessionSummary({
   metrics,
   summary,
   events,
+  graphUpdated,
   onRestart,
 }: {
   scenarioTitle: string;
   metrics: CommunicationMetrics | null;
   summary: string | null;
   events: CoachingEvent[];
+  graphUpdated: boolean;
   onRestart: () => void;
 }) {
   return (
@@ -547,9 +580,17 @@ function SessionSummary({
         </div>
       )}
 
+      {graphUpdated && (
+        <div className="rounded-2xl border border-emerald-500/25 bg-emerald-950/10 px-5 py-3.5 text-[13px] text-emerald-200">
+          ✓ Your Skill Knowledge Graph was updated with this session.
+        </div>
+      )}
+
       <div className="flex flex-col sm:flex-row gap-3">
         <button onClick={onRestart} className="btn-primary px-8 py-3.5 text-base">Practise again</button>
-        <Link href="/knowledge-graph" className="btn-ghost px-8 py-3.5 text-base text-center">View Skill Graph</Link>
+        <Link href="/knowledge-graph" className="btn-ghost px-8 py-3.5 text-base text-center">
+          {graphUpdated ? "See your graph grow" : "View Skill Graph"}
+        </Link>
       </div>
     </div>
   );

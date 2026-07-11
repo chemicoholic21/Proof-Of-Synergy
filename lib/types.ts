@@ -1,10 +1,4 @@
-export type SkillLevel = "beginner" | "intermediate" | "advanced" | "expert";
-
-export interface Skill {
-  name: string;
-  category: string;
-  level: SkillLevel;
-}
+/** Shared domain types for the practice experience. */
 
 export interface Scenario {
   id: string;

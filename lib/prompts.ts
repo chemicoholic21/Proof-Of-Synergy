@@ -1,5 +1,6 @@
-import { sarvamChat, extractValidatedJson, sarvamTranscribe, sarvamTTS, clampSpeech } from "./sarvam";
-import { env, sarvamConfigured } from "./env";
+import { sarvamChat } from "./sarvam";
+import { geminiChat } from "./gemini";
+import { env } from "./env";
 import { logger } from "./logger";
 
 const log = logger.child({ module: "prompts" });
@@ -69,8 +70,7 @@ Write a warm, specific summary with 2-3 strengths and 2-3 improvements.`;
 }
 
 export async function generateWithSarvam(system: string, user: string, opts?: { temperature?: number; maxTokens?: number }): Promise<string> {
-  const { sarvamChat: chat } = await import("./sarvam");
-  return chat(system, user, {
+  return sarvamChat(system, user, {
     temperature: opts?.temperature ?? 0.4,
     maxTokens: opts?.maxTokens ?? env.SARVAM_MAX_TOKENS,
   });
@@ -78,13 +78,7 @@ export async function generateWithSarvam(system: string, user: string, opts?: { 
 
 export async function generateWithGemini(system: string, user: string, opts?: { temperature?: number; maxTokens?: number }): Promise<string> {
   try {
-    const mod = await import("@google/generative-ai");
-    const genAI = new mod.GoogleGenerativeAI(env.GEMINI_API_KEY || "");
-    const model = genAI.getGenerativeModel({ model: env.GEMINI_MODEL });
-    const result = await model.generateContent(`${system}\n\n${user}`);
-    const text = result.response.text();
-    if (!text) throw new Error("Empty Gemini response");
-    return text;
+    return await geminiChat(system, user, opts);
   } catch (e) {
     log.warn("gemini fallback to sarvam", { error: (e as Error).message });
     return generateWithSarvam(system, user, opts);

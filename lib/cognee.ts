@@ -1,22 +1,25 @@
 /**
- * Cognee service client - the single seam between the app and Cognee Cloud.
+ * Cognee client - the single seam between the app and Cognee.
  *
- * Verified against the tenant's live OpenAPI spec (cognee Cloud, /openapi.json):
+ * Cognee powers the learner's SKILL KNOWLEDGE GRAPH: every completed practice session is
+ * serialized into relationship-rich statements (learner -> practiced -> scenario,
+ * learner -> demonstrated -> skill, learner -> weakness -> filler words) and mirrored into a
+ * per-learner Cognee dataset. recall() is then enriched with Cognee's graph-grounded search so
+ * "what should I practice next?" is answered from the learner's real growth history.
+ *
+ * Verified against Cognee Cloud's OpenAPI spec:
  *   - auth:    X-Api-Key header (NOT Bearer)
  *   - ingest:  POST /api/v1/add_text   { textData: string[], datasetName }
  *   - build:   POST /api/v1/cognify    { datasets: [name], runInBackground }
  *   - search:  POST /api/v1/search     { searchType, datasets: [name], query, topK }
- *              -> [{ dataset_name, search_result: string[] }]
  *   - list:    GET  /api/v1/datasets/  -> [{ id, name, ... }]
- *   - delete:  DELETE /api/v1/datasets/{dataset_id}   (needs the dataset UUID)
+ *   - delete:  DELETE /api/v1/datasets/{dataset_id}
  *   - health:  GET  /health
  *
- * Design contract: the rest of the app NEVER talks to Cognee directly. It calls the memory layer
- * (remember/recall/improve/forget); that layer keeps a local Career Knowledge Graph as a
- * deterministic fallback AND, when Cognee is configured, mirrors every remember() into Cognee and
- * enriches recall() with Cognee's graph-grounded search. If Cognee is unconfigured or a call fails,
- * the local engine already produced a correct answer, so the product never breaks - it only loses
- * the extra semantic lift. Same posture as DEMO_MODE elsewhere.
+ * Design contract: the rest of the app NEVER talks to Cognee directly - it calls the skill-graph
+ * module (lib/skill-graph.ts), which keeps a deterministic local graph as the source of truth AND
+ * mirrors into Cognee when configured. If Cognee is unavailable, the product keeps working; it
+ * only loses the extra semantic lift.
  */
 
 import { env, cogneeConfigured } from "@/lib/env";
@@ -33,7 +36,7 @@ export type CogneeSearchType =
   | "TEMPORAL"
   | "FEELING_LUCKY";
 
-const log = logger.child({ component: "cognee-client" });
+const log = logger.child({ component: "cognee" });
 
 async function fetchWithTimeout(url: string, init: RequestInit, ms = 20000): Promise<Response> {
   const ctrl = new AbortController();
@@ -56,19 +59,19 @@ function base(): string {
   return (env.COGNEE_API_URL || "").replace(/\/+$/, "");
 }
 
-/** Per-candidate dataset name. Cognee resolves dataset names against the authenticated user. */
-export function datasetFor(candidateId: string): string {
-  return `${env.COGNEE_DATASET}-${candidateId}`;
+/** Per-learner dataset name. Cognee resolves dataset names against the authenticated user. */
+export function datasetFor(learnerId: string): string {
+  return `${env.COGNEE_DATASET}-${learnerId}`;
 }
 
 /**
  * Ingest NORMALIZED, relationship-rich text into Cognee (`add_text`). Cognee builds its own graph
- * from what we add, so we feed subject–predicate–object statements, not raw transcripts. One retry.
+ * from what we add, so we feed subject-predicate-object statements, not raw transcripts. One retry.
  * Returns true if Cognee accepted the data.
  */
-export async function cogneeAdd(nodeText: string, candidateId: string): Promise<boolean> {
+export async function cogneeAdd(nodeText: string, learnerId: string): Promise<boolean> {
   if (!cogneeConfigured() || !nodeText.trim()) return false;
-  const datasetName = datasetFor(candidateId);
+  const datasetName = datasetFor(learnerId);
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {
       const res = await fetchWithTimeout(`${base()}/api/v1/add_text`, {
@@ -85,13 +88,13 @@ export async function cogneeAdd(nodeText: string, candidateId: string): Promise<
   return false;
 }
 
-/** Trigger graph construction over the candidate's dataset (`cognify`, background). Best-effort. */
-export async function cogneeCognify(candidateId: string): Promise<boolean> {
+/** Trigger graph construction over the learner's dataset (`cognify`, background). Best-effort. */
+export async function cogneeCognify(learnerId: string): Promise<boolean> {
   if (!cogneeConfigured()) return false;
   try {
     const res = await fetchWithTimeout(
       `${base()}/api/v1/cognify`,
-      { method: "POST", headers: headers(), body: JSON.stringify({ datasets: [datasetFor(candidateId)], runInBackground: true }) },
+      { method: "POST", headers: headers(), body: JSON.stringify({ datasets: [datasetFor(learnerId)], runInBackground: true }) },
       30000
     );
     return res.ok;
@@ -102,13 +105,13 @@ export async function cogneeCognify(candidateId: string): Promise<boolean> {
 }
 
 /**
- * Graph-grounded search over the candidate's memory (`search`). Returns Cognee's answer text, or
- * null when Cognee is unavailable / the graph isn't built yet, so the caller falls back to the
- * local reasoner. Response shape: [{ dataset_name, search_result: string[] }].
+ * Graph-grounded search over the learner's skill memory (`search`). Returns Cognee's answer text,
+ * or null when Cognee is unavailable / the graph isn't built yet, so callers fall back to the
+ * local reasoner.
  */
 export async function cogneeSearch(
   query: string,
-  candidateId: string,
+  learnerId: string,
   searchType: CogneeSearchType = "GRAPH_COMPLETION",
   topK = 5
 ): Promise<string | null> {
@@ -119,7 +122,7 @@ export async function cogneeSearch(
       {
         method: "POST",
         headers: headers(),
-        body: JSON.stringify({ searchType, datasets: [datasetFor(candidateId)], query, topK }),
+        body: JSON.stringify({ searchType, datasets: [datasetFor(learnerId)], query, topK }),
       },
       45000
     );
@@ -155,10 +158,10 @@ function normalizeSearch(data: unknown): string | null {
   return (obj.text as string) ?? (obj.result as string) ?? null;
 }
 
-/** Delete a candidate's dataset from Cognee: resolve its UUID by name, then DELETE it. Best-effort. */
-export async function cogneeForget(candidateId: string): Promise<boolean> {
+/** Delete a learner's dataset from Cognee: resolve its UUID by name, then DELETE it. Best-effort. */
+export async function cogneeForget(learnerId: string): Promise<boolean> {
   if (!cogneeConfigured()) return false;
-  const datasetName = datasetFor(candidateId);
+  const datasetName = datasetFor(learnerId);
   try {
     const listRes = await fetchWithTimeout(`${base()}/api/v1/datasets/`, { method: "GET", headers: headers() });
     if (!listRes.ok) return false;

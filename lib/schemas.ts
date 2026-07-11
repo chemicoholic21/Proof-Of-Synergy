@@ -1,13 +1,5 @@
 import { z } from "zod";
 
-export const SkillLevel = z.enum(["beginner", "intermediate", "advanced", "expert"]);
-
-export const SkillSchema = z.object({
-  name: z.string().min(1).max(120),
-  category: z.string().min(1).max(120),
-  level: SkillLevel.catch("intermediate"),
-});
-
 export const ScenarioSchema = z.object({
   id: z.string().min(1).max(80),
   title: z.string().min(1).max(200),
@@ -67,12 +59,6 @@ export const GeminiChatBody = z.object({
 export const GemmaCoachingBody = z.object({
   transcript: z.string().min(1).max(20000),
   recentMessages: z.array(ConversationMessageSchema).max(20).optional(),
-  metrics: z.object({
-    wordCount: z.coerce.number(),
-    fillerCount: z.coerce.number(),
-    hedgeCount: z.coerce.number(),
-    confidence: z.coerce.number(),
-  }).optional(),
 });
 
 // ---------------------------------------------------------------------------

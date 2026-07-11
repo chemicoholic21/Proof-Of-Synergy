@@ -2,16 +2,14 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import SkillKnowledgeGraph from "@/components/memory/SkillKnowledgeGraph";
-import { getLearnerId, getLearnerName } from "@/lib/learner";
+import SkillGraphExplorer from "@/components/knowledge-graph/SkillGraphExplorer";
+import { getLearnerId } from "@/lib/learner";
 
 export default function KnowledgeGraphPage() {
   const [learnerId, setLearnerId] = useState("anon");
-  const [name, setName] = useState<string | null>(null);
 
   useEffect(() => {
     setLearnerId(getLearnerId());
-    setName(getLearnerName());
   }, []);
 
   return (
@@ -38,7 +36,7 @@ export default function KnowledgeGraphPage() {
         <div className="mb-8">
           <span className="text-[11px] uppercase tracking-[0.25em] text-ink-soft">Cognee Skill Knowledge Graph</span>
           <h1 className="heading-font mt-3 text-[2.25rem] leading-[1.05] tracking-tight text-ink sm:text-[3rem]">
-            {name ? `${name}'s Skill Graph` : "Your Skill Graph"}
+            Your Skill Graph
           </h1>
           <p className="mt-4 max-w-2xl text-base leading-relaxed text-ink-soft sm:text-[17px]">
             Every practice session is captured here. Skills, communication patterns and coaching moments
@@ -46,7 +44,7 @@ export default function KnowledgeGraphPage() {
           </p>
         </div>
 
-        <SkillKnowledgeGraph candidateId={learnerId} />
+        <SkillGraphExplorer learnerId={learnerId} />
       </main>
     </div>
   );
