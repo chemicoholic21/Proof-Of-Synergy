@@ -99,6 +99,10 @@ export default function GraphCanvas({ graph, onReplay }: { graph: GraphView; onR
                   animation: `nodeIn .5s ease ${Math.min(i * 18, 900)}ms both`,
                 }}
               >
+                {/* Generous invisible hit target: the node circle alone is only a few screen
+                    pixels once the SVG scales down, which made nodes feel unclickable. This
+                    covers the circle, its halo and the label below. */}
+                <circle r={n.r + 16} cy={6} fill="none" style={{ pointerEvents: "all" }} />
                 {(n.weak || n.strong || n.id === selected) && (
                   <circle r={n.r + 7} fill={glow} opacity={0.18}>
                     {n.weak && <animate attributeName="opacity" values="0.1;0.32;0.1" dur="2.4s" repeatCount="indefinite" />}
