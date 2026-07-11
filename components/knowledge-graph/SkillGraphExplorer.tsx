@@ -29,22 +29,48 @@ export default function SkillGraphExplorer({ learnerId }: { learnerId: string })
   const [replay, setReplay] = useState<{ skill: string; entries: ReplayEntry[] } | null>(null);
   const [cogneeInsight, setCogneeInsight] = useState<string | null>(null);
 
-  // Durable path: derive the dashboard from the browser-held graph so it works on serverless.
-  const load = useCallback(async () => {
-    try {
+  // Once a learner has explicitly forgotten everything, we never auto-populate again.
+  const seededKey = `synergy.seeded.${learnerId}`;
+
+  const fetchDashboard = useCallback(
+    async (graph: unknown): Promise<GraphResponse> => {
       const res = await fetch("/api/skill-graph", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ learnerId, graph: loadGraphLocal(learnerId) ?? undefined }),
+        body: JSON.stringify({ learnerId, graph: graph ?? undefined }),
       });
       if (!res.ok) throw new Error(`Failed to load your skill graph (${res.status})`);
-      const d: GraphResponse = await res.json();
+      return res.json();
+    },
+    [learnerId]
+  );
+
+  // Durable path: derive the dashboard from the browser-held graph so it works on serverless.
+  // A first visit with no history is quietly given a starter practice baseline so the graph
+  // never opens empty; real sessions fold into the same graph from then on.
+  const load = useCallback(async () => {
+    try {
+      let d = await fetchDashboard(loadGraphLocal(learnerId));
+      const isEmpty = d.dashboard.sessionCount === 0 && d.dashboard.skillCount === 0;
+      if (isEmpty && learnerId !== "anon" && !localStorage.getItem(seededKey)) {
+        const seeded = await fetch("/api/skill-graph/seed", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ learnerId }),
+        });
+        if (seeded.ok) {
+          const s = await seeded.json();
+          localStorage.setItem(seededKey, "1");
+          saveGraphLocal(learnerId, s.graph);
+          d = await fetchDashboard(s.graph);
+        }
+      }
       setData(d);
       if (d.graph) saveGraphLocal(learnerId, d.graph);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load your skill graph");
     }
-  }, [learnerId]);
+  }, [learnerId, seededKey, fetchDashboard]);
 
   const loadInsight = useCallback(async () => {
     setCogneeInsight(null);
@@ -63,29 +89,9 @@ export default function SkillGraphExplorer({ learnerId }: { learnerId: string })
   }, [learnerId]);
 
   useEffect(() => {
-    load();
-    loadInsight();
+    // Sequential so the insight query sees the (possibly just-populated) graph.
+    load().then(loadInsight);
   }, [load, loadInsight]);
-
-  const seedDemo = useCallback(async () => {
-    setBusy(true);
-    try {
-      const res = await fetch("/api/skill-graph/seed", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ learnerId }),
-      });
-      if (!res.ok) throw new Error("Could not load the demo history.");
-      const d = await res.json();
-      saveGraphLocal(learnerId, d.graph);
-      await load();
-      await loadInsight();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not load the demo history.");
-    } finally {
-      setBusy(false);
-    }
-  }, [learnerId, load, loadInsight]);
 
   const forgetAll = useCallback(async () => {
     if (!window.confirm("Delete your entire skill graph? This clears local memory and your Cognee dataset.")) return;
@@ -97,6 +103,8 @@ export default function SkillGraphExplorer({ learnerId }: { learnerId: string })
         body: JSON.stringify({ learnerId, target: { type: "all" } }),
       });
       clearGraphLocal(learnerId);
+      // Forgetting is final: mark as seeded so the starter baseline never reappears.
+      localStorage.setItem(seededKey, "1");
       setData(null);
       await load();
     } finally {
@@ -136,11 +144,8 @@ export default function SkillGraphExplorer({ learnerId }: { learnerId: string })
           Complete a practice session and every skill you exercise appears here - growing, connecting
           and remembered across visits.
         </p>
-        <div className="mt-6 flex items-center justify-center gap-3">
+        <div className="mt-6 flex items-center justify-center">
           <a href="/practice" className="btn-primary px-6 py-2.5 text-sm">Start practising</a>
-          <button onClick={seedDemo} disabled={busy} className="btn-ghost px-6 py-2.5 text-sm disabled:opacity-40">
-            {busy ? "Seeding…" : "Load a demo history"}
-          </button>
         </div>
       </div>
     );

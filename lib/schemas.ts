@@ -72,59 +72,31 @@ export const LearnerId = z
   .max(80)
   .regex(/^[a-zA-Z0-9_-]+$/, "learnerId must be url-safe");
 
-export const SkillGraphSkill = z.object({
-  id: z.string(),
-  name: z.string(),
-  category: z.string().default("communication"),
-  level: z.enum(["beginner", "intermediate", "advanced", "expert"]).catch("intermediate"),
-  confidence: z.coerce.number().min(0).max(100),
-  exposure: z.coerce.number().min(0),
-  sessions: z.coerce.number().min(0),
-  lastPracticedAt: z.string().nullable().optional(),
-  createdAt: z.string(),
-  updatedAt: z.string(),
-});
-
-export const SkillGraphSession = z.object({
-  id: z.string(),
-  scenarioId: z.string(),
-  scenarioTitle: z.string(),
-  completedAt: z.string(),
-  durationSec: z.coerce.number().min(0),
-  wordCount: z.coerce.number().min(0),
-  confidence: z.coerce.number().min(0).max(100),
-  fillerCount: z.coerce.number().min(0),
-  coachingEvents: z.coerce.number().min(0),
-  skills: z.array(z.string()),
-  summary: z.string().default(""),
-});
-
-export const SkillGraph = z.object({
-  learnerId: z.string(),
-  name: z.string().nullable().optional(),
-  skills: z.record(SkillGraphSkill),
-  sessions: z.record(SkillGraphSession),
-  createdAt: z.string(),
-  updatedAt: z.string(),
-  revision: z.coerce.number(),
-});
+/**
+ * The client-provided graph is intentionally validated as `unknown` here, not with a strict
+ * schema: the browser may hold a graph written by an older build, and a stale localStorage blob
+ * must never 400 the whole request (which would block saving new progress). Structural
+ * sanitization happens in `fromClient()` (lib/skill-graph.ts), which falls back to the server
+ * store / an empty graph when the shape doesn't match - self-healing instead of failing.
+ */
+const ClientGraph = z.unknown().optional();
 
 export const RememberSessionBody = z.object({
   learnerId: LearnerId,
   name: z.string().max(200).nullable().optional(),
   session: SessionResultSchema,
-  graph: SkillGraph.optional(),
+  graph: ClientGraph,
 });
 
 export const RecallSkillBody = z.object({
   learnerId: LearnerId,
   skillName: z.string().max(200).optional(),
-  graph: SkillGraph.optional(),
+  graph: ClientGraph,
 });
 
 export const SkillGraphBody = z.object({
   learnerId: LearnerId,
-  graph: SkillGraph.optional(),
+  graph: ClientGraph,
 });
 
 export const ForgetSkillBody = z.object({
@@ -134,13 +106,13 @@ export const ForgetSkillBody = z.object({
     z.object({ type: z.literal("session"), id: z.string().min(1).max(160) }),
     z.object({ type: z.literal("all") }),
   ]),
-  graph: SkillGraph.optional(),
+  graph: ClientGraph,
 });
 
 export const ReplaySkillBody = z.object({
   learnerId: LearnerId,
   skill: z.string().min(1).max(160),
-  graph: SkillGraph.optional(),
+  graph: ClientGraph,
 });
 
 export const SeedSkillBody = z.object({

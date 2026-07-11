@@ -571,10 +571,11 @@ export function buildDashboard(g: SkillGraph): Dashboard {
 }
 
 // ---------------------------------------------------------------------------
-// seed(): one-click demo graph with a clear growth arc.
+// seed(): a believable starter history with a clear growth arc. Used to
+// populate a first visit so the graph experience never opens empty.
 // ---------------------------------------------------------------------------
 
-export function buildDemoSkillGraph(learnerId: string, name = "Aarav Sharma"): SkillGraph {
+export function buildDemoSkillGraph(learnerId: string, name: string | null = null): SkillGraph {
   const now = Date.now();
   const g = emptySkillGraph(learnerId, name, new Date(now - 21 * 86400_000).toISOString());
   const demos: Array<{
