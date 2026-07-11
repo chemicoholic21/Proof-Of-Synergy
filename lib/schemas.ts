@@ -58,7 +58,9 @@ export const GeminiChatBody = z.object({
 
 export const GemmaCoachingBody = z.object({
   transcript: z.string().min(1).max(20000),
-  recentMessages: z.array(ConversationMessageSchema).max(20).optional(),
+  // Coaching only needs the text of recent turns, so don't demand full message envelopes -
+  // requiring role/timestamp here made every coaching call 400 and silently killed coaching.
+  recentMessages: z.array(z.object({ content: z.string().min(1).max(10000) })).max(20).optional(),
 });
 
 // ---------------------------------------------------------------------------

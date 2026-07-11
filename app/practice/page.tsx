@@ -41,19 +41,20 @@ async function readJsonOrThrow(res: Response): Promise<any> {
   return data;
 }
 
-/** Deterministic local partner reply so the gym is usable even without a model configured. */
-function localPartnerReply(scenario: Scenario, userText: string, turn: number): string {
+/** Deterministic local partner reply so the gym is usable even without a model configured.
+ *  `turn` is the number of learner answers so far (>= 1 by the time this is called - the
+ *  scenario's opening message is already on screen, so it must never be repeated here). */
+function localPartnerReply(userText: string, turn: number): string {
   const trimmed = (userText || "").trim();
-  if (turn === 0) return scenario.openingMessage;
-  const openers = [
+  if (!trimmed) return "Take your time - whenever you're ready, tell me more.";
+  const followUps = [
     "That's a helpful start. What was the hardest part of that?",
     "Interesting. Can you give me a concrete example?",
     "I follow. What would you do differently next time?",
     "Good. How did that land with the people involved?",
     "Thanks for sharing. What's the one thing you'd want me to remember?",
   ];
-  if (!trimmed) return "Take your time - whenever you're ready, tell me more.";
-  return openers[turn % openers.length];
+  return followUps[Math.max(0, turn - 1) % followUps.length];
 }
 
 export default function Practice() {
@@ -159,7 +160,7 @@ export default function Practice() {
         setBusy("Your partner is replying…");
         const reply = await partnerReply(history);
         const partnerText =
-          reply ?? localPartnerReply(selected, trimmed, messages.filter((m) => m.role === "user").length);
+          reply ?? localPartnerReply(trimmed, history.filter((m) => m.role === "user").length);
         setMessages((prev) => [
           ...prev,
           { role: "assistant", content: partnerText, timestamp: Date.now() },
