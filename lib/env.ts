@@ -25,7 +25,20 @@ const EnvSchema = z.object({
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(30),
 });
 
-const parsed = EnvSchema.safeParse(process.env);
+/**
+ * Treat empty-string env values as unset so `KEY=` lines in a copied .env file fall back to the
+ * schema defaults instead of overriding them (an empty SARVAM_MAX_TOKENS would otherwise coerce
+ * to 0 and fail validation at boot).
+ */
+function withoutEmpty(source: NodeJS.ProcessEnv): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(source)) {
+    if (v !== undefined && v.trim() !== "") out[k] = v;
+  }
+  return out;
+}
+
+const parsed = EnvSchema.safeParse(withoutEmpty(process.env));
 if (!parsed.success) {
   const issues = parsed.error.issues.map((i) => `  - ${i.path.join(".")}: ${i.message}`).join("\n");
   throw new Error(`Invalid environment configuration:\n${issues}`);
