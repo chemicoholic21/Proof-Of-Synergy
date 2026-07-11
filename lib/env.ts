@@ -13,7 +13,7 @@ const EnvSchema = z.object({
   SARVAM_TTS_SPEAKER: z.string().default("anushka"),
 
   GEMINI_API_KEY: z.string().optional(),
-  GEMINI_MODEL: z.string().default("gemini-2.0-flash-exp"),
+  GEMINI_MODEL: z.string().default("gemini-2.5-flash"),
 
   COGNEE_API_URL: z.string().url().optional(),
   COGNEE_API_KEY: z.string().optional(),
