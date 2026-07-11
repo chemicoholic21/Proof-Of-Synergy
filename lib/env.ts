@@ -15,6 +15,10 @@ const EnvSchema = z.object({
   GEMINI_API_KEY: z.string().optional(),
   GEMINI_MODEL: z.string().default("gemini-2.5-flash"),
 
+  /** Ollama-compatible endpoint serving a local Gemma model (e.g. http://localhost:11434). */
+  GEMMA_URL: z.string().url().optional(),
+  GEMMA_MODEL: z.string().default("gemma3:4b"),
+
   COGNEE_API_URL: z.string().url().optional(),
   COGNEE_API_KEY: z.string().optional(),
   COGNEE_DATASET: z.string().default("skill-graph"),
@@ -64,6 +68,10 @@ export function sarvamConfigured(): boolean {
 
 export function geminiConfigured(): boolean {
   return Boolean(env.GEMINI_API_KEY && env.GEMINI_API_KEY.length > 0);
+}
+
+export function gemmaConfigured(): boolean {
+  return Boolean(env.GEMMA_URL);
 }
 
 export function cogneeConfigured(): boolean {
