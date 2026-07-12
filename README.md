@@ -58,6 +58,7 @@ app/
     coaching/summary            end-of-session coaching summary
     coaching/metrics            communication metrics from a transcript (pure, no LLM)
     transcribe/  tts/           Sarvam voice (Saarika STT, Bulbul TTS)
+    scenarios/                  the practice scenario catalogue
     skill-graph/                the memory lifecycle: remember / recall / replay / forget / seed
     health/                     live dependency probes (no silent fallbacks in a demo)
 
@@ -65,6 +66,7 @@ components/
   VoiceRecorder.tsx             segmented mic capture (<=25s clips for real-time STT)
   ScenarioPlayer.tsx            reads partner lines aloud (Bulbul, browser fallback)
   knowledge-graph/              GraphCanvas (SVG radial graph) + SkillGraphExplorer
+  bits/                         ambient visuals (GrainOverlay, TrueFocus)
 
 lib/
   gemini.ts                     Gemini client (conversation partner)
