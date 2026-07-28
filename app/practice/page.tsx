@@ -5,6 +5,7 @@ import Link from "next/link";
 import ScenarioPlayer from "@/components/ScenarioPlayer";
 import VoiceRecorder from "@/components/VoiceRecorder";
 import { extractDNA } from "@/lib/communication-metrics";
+import { analyzeWithHeuristics } from "@/lib/coaching";
 import { getLearnerId, loadGraphLocal, saveGraphLocal } from "@/lib/learner";
 import type {
   Scenario,
@@ -12,18 +13,6 @@ import type {
   CoachingEvent,
   CommunicationMetrics,
 } from "@/lib/types";
-
-interface GemmaResult {
-  fillerWords: string[];
-  hesitations: string[];
-  ramble: boolean;
-  weakStructure: boolean;
-  confidenceDrop: boolean;
-  repetitivePhrases: string[];
-  positiveHighlights: string[];
-  suggestion: string;
-  coachingEvents: CoachingEvent[];
-}
 
 type Step = "select" | "conversation" | "summary";
 
@@ -56,12 +45,27 @@ function localPartnerReply(scenario: Scenario, userText: string, turn: number): 
   return openers[turn % openers.length];
 }
 
+function getCoachingSuggestion(events: CoachingEvent[]): string {
+  const positive = events.filter((e) => e.type === "positive");
+  const fillers = events.filter((e) => e.type === "filler");
+  const rambling = events.find((e) => e.type === "ramble");
+  const structure = events.find((e) => e.type === "weak-structure");
+  const confidence = events.find((e) => e.type === "confidence-drop");
+
+  if (positive.length >= 2) return "Great session! Your communication is strong and clear.";
+  if (confidence) return "Own your expertise. Use 'I did X' instead of 'I think I did X'.";
+  if (structure) return "Structure your answer: start with your main point, give an example, then summarize.";
+  if (rambling) return "Try to be more concise. Focus on 2-3 key points rather than covering everything.";
+  if (fillers.length >= 2) return `Pause instead of using filler words like "${fillers[0].text}".`;
+  return "Keep going. Try to slow down slightly and structure your answer with a clear opening.";
+}
+
 export default function Practice() {
   const [step, setStep] = useState<Step>("select");
   const [scenarios, setScenarios] = useState<Scenario[]>([]);
   const [selected, setSelected] = useState<Scenario | null>(null);
   const [messages, setMessages] = useState<ConversationMessage[]>([]);
-  const [coaching, setCoaching] = useState<GemmaResult | null>(null);
+  const [heuristicCoaching, setHeuristicCoaching] = useState<CoachingEvent[]>([]);
   const [sessionEvents, setSessionEvents] = useState<CoachingEvent[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -95,7 +99,7 @@ export default function Practice() {
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-  }, [messages, coaching]);
+  }, [messages, heuristicCoaching]);
 
   const start = useCallback(() => {
     if (!selected) return;
@@ -103,7 +107,7 @@ export default function Practice() {
     setSummary(null);
     setMetrics(null);
     setSessionEvents([]);
-    setCoaching(null);
+    setHeuristicCoaching([]);
     totalDurationRef.current = 0;
     setMessages([{ role: "assistant", content: selected.openingMessage, timestamp: Date.now() }]);
     setStep("conversation");
@@ -127,23 +131,14 @@ export default function Practice() {
     [selected]
   );
 
-  const runCoaching = useCallback(async (text: string) => {
-    try {
-      const recent = messages
-        .slice(-4)
-        .map((m) => ({ content: m.content }));
-      const res = await fetch("/api/gemma", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ transcript: text, recentMessages: recent }),
-      });
-      const d: GemmaResult = await readJsonOrThrow(res);
-      setCoaching(d);
-      setSessionEvents((prev) => [...prev, ...(d.coachingEvents ?? [])]);
-    } catch {
-      /* coaching is additive; never block the conversation */
-    }
-  }, [messages]);
+  const runCoaching = useCallback(
+    (text: string) => {
+      const m = extractDNA(text);
+      const result = analyzeWithHeuristics(text, m);
+      setHeuristicCoaching(result.coachingEvents);
+    },
+    []
+  );
 
   const handleUserInput = useCallback(
     async (text: string) => {
@@ -165,8 +160,8 @@ export default function Practice() {
           { role: "assistant", content: partnerText, timestamp: Date.now() },
         ]);
 
-        setBusy("Gemma is coaching…");
-        await runCoaching(trimmed);
+        setBusy("Coaching…");
+        runCoaching(trimmed);
         setBusy(null);
       } catch (e) {
         setBusy(null);
@@ -308,13 +303,13 @@ export default function Practice() {
             </div>
 
             {/* Coaching overlay */}
-            {coaching && (
+            {heuristicCoaching.length > 0 && (
               <CoachingOverlay
-                suggestion={coaching.suggestion}
-                fillerWords={coaching.fillerWords}
-                hesitations={coaching.hesitations}
-                repetitivePhrases={coaching.repetitivePhrases}
-                positiveHighlights={coaching.positiveHighlights}
+                suggestion={getCoachingSuggestion(heuristicCoaching)}
+                fillerWords={[]}
+                hesitations={[]}
+                repetitivePhrases={[]}
+                positiveHighlights={[]}
               />
             )}
 
@@ -398,7 +393,7 @@ function ScenarioPicker({
         </h1>
         <p className="mt-6 max-w-2xl text-base leading-relaxed text-ink-soft sm:text-[17px]">
           Pick a situation you want to get better at. We&apos;ll run a live conversation, coach you in
-          the moment with Gemma, and leave you with a clear session summary.
+          the moment with live coaching, and leave you with a clear session summary.
         </p>
       </div>
 
@@ -482,7 +477,7 @@ function CoachingOverlay({
     <div className="rounded-2xl border border-accent/30 bg-accent/5 p-5">
       <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest font-bold text-accent">
         <span className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />
-        Gemma · live coaching
+        Live coaching
       </div>
       <p className="mt-2 text-[14px] leading-relaxed text-ink">{suggestion}</p>
       {chips.length > 0 && (
@@ -572,7 +567,7 @@ function SessionSummary({
 
       {summary && (
         <div className="glass-card p-6">
-          <div className="text-[10px] uppercase tracking-widest font-bold text-accent mb-2">Gemma&apos;s summary</div>
+          <div className="text-[10px] uppercase tracking-widest font-bold text-accent mb-2">Session summary</div>
           <p className="text-[15px] leading-relaxed text-ink whitespace-pre-line">{summary}</p>
         </div>
       )}

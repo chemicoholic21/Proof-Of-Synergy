@@ -20,31 +20,6 @@ ${history}
 Respond naturally as the conversation partner. Keep it to 2-4 sentences.`;
 }
 
-export const GEMMA_COACHING_SYSTEM =
-  "You are Gemma, a private communication coach. Your job is to detect communication weaknesses in real time and provide gentle, actionable coaching. Focus on: filler words, hesitation markers, rambling, weak structure, confidence drops, and repetitive language. Be concise and supportive. Output JSON only.";
-
-export function gemmaCoachingUserPrompt(transcript: string, recentMessages?: { content: string }[]): string {
-  const recent = recentMessages?.length
-    ? `\n\nRecent context:\n${recentMessages.map((m, i) => `${i + 1}. ${m.content}`).join("\n")}`
-    : "";
-  return `Analyze this learner response for communication coaching opportunities:
-
-"${transcript}"
-${recent}
-
-Output JSON:
-{
-  "fillerWords": string[],
-  "hesitations": string[],
-  "ramble": boolean,
-  "weakStructure": boolean,
-  "confidenceDrop": boolean,
-  "repetitivePhrases": string[],
-  "positiveHighlights": string[],
-  "suggestion": string
-}`;
-}
-
 export const SUMMARY_SYSTEM =
   "You are a communication coach summarizing a practice session. Be warm, specific, and growth-oriented. Highlight 2-3 strengths and 2-3 actionable improvements. Keep it under 200 words.";
 

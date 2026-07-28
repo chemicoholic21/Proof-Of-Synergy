@@ -29,7 +29,7 @@ fake data. See [`.env.local.example`](./.env.local.example) for all variables.
 app/                    Next.js pages (/, /practice, /knowledge-graph) and API routes
 components/             React components (voice recorder, scenario player)
 components/knowledge-graph/  the Skill Knowledge Graph UI (canvas + explorer)
-lib/                    one module per responsibility: gemini, gemma, sarvam, cognee,
+lib/                    one module per responsibility: gemini, sarvam, cognee,
                         skill-graph, scenarios, communication-metrics, env, schemas (Zod), ...
 ```
 

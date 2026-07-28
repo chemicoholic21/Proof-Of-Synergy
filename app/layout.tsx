@@ -23,7 +23,7 @@ const mono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: "Proof of Synergy - AI Communication Gym",
-  description: "Practice real conversations with AI partners. Gemini Live conversations, Gemma local coaching, the Cognee Skill Knowledge Graph, and Sarvam voice - a gym for your communication.",
+  description: "Practice real conversations with AI partners. Gemini Live conversations, the Cognee Skill Knowledge Graph, and Sarvam voice - a gym for your communication.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
