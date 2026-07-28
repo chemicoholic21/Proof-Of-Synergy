@@ -176,6 +176,14 @@ export default function Practice() {
     [messages, selected, partnerReply, runCoaching]
   );
 
+  const handleUtteranceEnd = useCallback(
+    (text: string) => {
+      if (!text.trim()) return;
+      handleUserInput(text);
+    },
+    [handleUserInput]
+  );
+
   const handleRecorded = useCallback(
     async (blobs: Blob[], durationSec: number) => {
       totalDurationRef.current += durationSec;
@@ -319,7 +327,12 @@ export default function Practice() {
 
             {/* Input */}
             <div className="glass-card p-5 flex flex-col gap-4">
-              <VoiceRecorder disabled={!!busy} onRecorded={handleRecorded} />
+              <VoiceRecorder
+                disabled={!!busy}
+                onRecorded={handleRecorded}
+                onUtteranceEnd={handleUtteranceEnd}
+                streamToWs
+              />
               <div className="flex items-center gap-3">
                 <span className="text-[11px] uppercase tracking-wider text-ink-soft">or type</span>
                 <span className="h-px flex-1 bg-line" />
