@@ -1,31 +1,49 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { VoiceActivityDetector, UtteranceDetector } from "@/lib/vad";
 
-// Saarika real-time STT rejects clips longer than 30s, so we rotate the recorder into discrete
-// <=25s segments. Each segment is a complete, independently-decodable WebM that transcribes on its
-// own; the server stitches the transcripts back together in order.
 const SEGMENT_MS = 25_000;
+const VAD_THRESHOLD = 0.015;
+const SPEECH_PAD_MS = 200;
+const SILENCE_TIMEOUT_MS = 1200;
 
 export default function VoiceRecorder({
   onRecorded,
+  onUtteranceEnd,
   disabled,
+  streamToWs,
 }: {
   onRecorded: (blobs: Blob[], durationSec: number) => void;
+  onUtteranceEnd?: (text: string) => void;
   disabled?: boolean;
+  streamToWs?: boolean;
 }) {
   const [recording, setRecording] = useState(false);
   const [seconds, setSeconds] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [hasClip, setHasClip] = useState(false);
+  const [vadActive, setVadActive] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const mediaRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]); // chunks of the in-flight segment
-  const segmentsRef = useRef<Blob[]>([]); // completed segments for this answer
+  const chunksRef = useRef<Blob[]>([]);
+  const segmentsRef = useRef<Blob[]>([]);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const rotateRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const keepGoingRef = useRef(false); // true while the user is still recording (drives rotation)
+  const keepGoingRef = useRef(false);
   const streamRef = useRef<MediaStream | null>(null);
-  const startMsRef = useRef(0); // wall-clock start, used to report answer duration for speech-rate DNA
+  const startMsRef = useRef(0);
+  const vadRef = useRef<VoiceActivityDetector | null>(null);
+  const utteranceRef = useRef<UtteranceDetector | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
+  const streamToWsRef = useRef(streamToWs ?? false);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const onUtteranceEndRef = useRef(onUtteranceEnd);
+
+  onUtteranceEndRef.current = onUtteranceEnd;
+  streamToWsRef.current = streamToWs ?? false;
 
   function clearTimers() {
     if (timerRef.current) clearInterval(timerRef.current);
@@ -36,21 +54,58 @@ export default function VoiceRecorder({
     return () => {
       clearTimers();
       streamRef.current?.getTracks().forEach((t) => t.stop());
+      vadRef.current?.stop();
+      utteranceRef.current?.reset();
+      if (audioCtxRef.current) {
+        audioCtxRef.current.close().catch(() => {});
+      }
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
     };
   }, []);
 
-  // Start one recorder segment. On stop it banks the segment and either rotates into the next
-  // segment (still recording) or finalizes and hands all segments to the parent (user stopped).
+  function connectWs(sessionId: string): void {
+    if (wsRef.current?.readyState === WebSocket.OPEN) return;
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const url = `${protocol}//${window.location.host}/api/voice/ws`;
+    const ws = new WebSocket(url);
+    ws.onopen = () => {
+      ws.send(JSON.stringify({ type: "register", sessionId }));
+    };
+    ws.onmessage = () => {};
+    ws.onerror = () => {};
+    wsRef.current = ws;
+  }
+
+  function sendAudioChunk(chunk: Blob): void {
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = reader.result as string;
+      wsRef.current?.send(JSON.stringify({ type: "audio-chunk", payload: { data: base64, encoding: "base64" } }));
+    };
+    reader.readAsDataURL(chunk);
+  }
+
   function startSegment(stream: MediaStream) {
     const mr = new MediaRecorder(stream);
     chunksRef.current = [];
-    mr.ondataavailable = (e) => e.data.size > 0 && chunksRef.current.push(e.data);
+    mr.ondataavailable = (e) => {
+      if (e.data.size > 0) {
+        chunksRef.current.push(e.data);
+        if (streamToWsRef.current) {
+          sendAudioChunk(e.data);
+        }
+      }
+    };
     mr.onstop = () => {
       if (chunksRef.current.length) {
         segmentsRef.current.push(new Blob(chunksRef.current, { type: "audio/webm" }));
       }
       if (keepGoingRef.current) {
-        startSegment(stream); // rotate to the next <=25s segment
+        startSegment(stream);
       } else {
         streamRef.current?.getTracks().forEach((t) => t.stop());
         setHasClip(true);
@@ -60,10 +115,61 @@ export default function VoiceRecorder({
     };
     mr.start();
     mediaRef.current = mr;
-    // Auto-rotate: stopping triggers onstop, which starts the next segment.
     rotateRef.current = setTimeout(() => {
       if (mr.state === "recording") mr.stop();
     }, SEGMENT_MS);
+  }
+
+  function setupVad(stream: MediaStream): void {
+    if (audioCtxRef.current) {
+      audioCtxRef.current.close().catch(() => {});
+    }
+    const audioCtx = new AudioContext({ sampleRate: 16000 });
+    const source = audioCtx.createMediaStreamSource(stream);
+    const analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 512;
+    analyser.smoothingTimeConstant = 0.8;
+    source.connect(analyser);
+
+    audioCtxRef.current = audioCtx;
+    sourceRef.current = source;
+    analyserRef.current = analyser;
+
+    const vad = new VoiceActivityDetector({
+      threshold: VAD_THRESHOLD,
+      speechPadMs: SPEECH_PAD_MS,
+      silenceTimeoutMs: SILENCE_TIMEOUT_MS,
+    });
+    const utterance = new UtteranceDetector({
+      threshold: VAD_THRESHOLD,
+      speechPadMs: SPEECH_PAD_MS,
+      silenceTimeoutMs: SILENCE_TIMEOUT_MS,
+    });
+
+    vadRef.current = vad;
+    utteranceRef.current = utterance;
+
+    const dataArray = new Float32Array(analyser.fftSize);
+
+    const tick = (): void => {
+      if (!analyserRef.current || !dataArray) return;
+      analyserRef.current.getFloatTimeDomainData(dataArray);
+      let sum = 0;
+      for (let i = 0; i < dataArray.length; i++) {
+        sum += dataArray[i] * dataArray[i];
+      }
+      const rms = Math.sqrt(sum / dataArray.length);
+      const vadResult = vad.evaluate(rms);
+      setIsSpeaking(vadResult.isSpeaking);
+      const utteranceState = utterance.update(rms);
+      if (utteranceState.isFinal && onUtteranceEndRef.current) {
+        onUtteranceEndRef.current("");
+      }
+      requestAnimationFrame(tick);
+    };
+
+    requestAnimationFrame(tick);
+    setVadActive(true);
   }
 
   async function start() {
@@ -76,22 +182,35 @@ export default function VoiceRecorder({
       keepGoingRef.current = true;
       startMsRef.current = performance.now();
       startSegment(stream);
+      setupVad(stream);
       setRecording(true);
       setSeconds(0);
       timerRef.current = setInterval(() => setSeconds((s) => s + 1), 1000);
+      if (streamToWsRef.current) {
+        connectWs(`session_${Date.now()}`);
+      }
     } catch {
       setError("Microphone access blocked. Please allow mic access in your browser settings and try again.");
     }
   }
 
   function stop() {
-    keepGoingRef.current = false; // last segment: finalize instead of rotating
+    keepGoingRef.current = false;
     if (rotateRef.current) clearTimeout(rotateRef.current);
-    // Guard against stopping an already-inactive recorder (e.g. clicking stop right as a segment
-    // rotates), which would throw InvalidStateError. The pending onstop will still finalize.
     if (mediaRef.current && mediaRef.current.state === "recording") mediaRef.current.stop();
     setRecording(false);
     if (timerRef.current) clearInterval(timerRef.current);
+    if (vadRef.current) {
+      vadRef.current.stop();
+      setVadActive(false);
+    }
+    if (utteranceRef.current) {
+      utteranceRef.current.reset();
+    }
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
+    }
   }
 
   const mm = String(Math.floor(seconds / 60)).padStart(2, "0");
@@ -156,6 +275,21 @@ export default function VoiceRecorder({
                 />
               ))}
             </div>
+          )}
+
+          {vadActive && (
+            <span
+              className={`flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-semibold border ${
+                isSpeaking
+                  ? "border-emerald-500/30 bg-emerald-950/10 text-emerald-400"
+                  : "border-zinc-500/20 bg-zinc-950/10 text-zinc-400"
+              }`}
+            >
+              <span
+                className={`h-1.5 w-1.5 rounded-full ${isSpeaking ? "bg-emerald-400 animate-pulse" : "bg-zinc-500"}`}
+              />
+              {isSpeaking ? "Speaking" : "Silence"}
+            </span>
           )}
 
           {hasClip && !recording && (

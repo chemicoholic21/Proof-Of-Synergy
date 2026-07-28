@@ -278,6 +278,40 @@ export function extractJson<T = unknown>(raw: string): T {
 }
 
 /**
+ * Streaming STT: sends audio chunks incrementally and returns partial
+ * transcripts as they arrive.  Returns the final transcript when all
+ * chunks have been processed.
+ */
+export async function sarvamStreamTranscribe(
+  chunks: Blob[],
+  onPartial?: (text: string) => void,
+  timeoutMs = 20000
+): Promise<{ text: string; language: string }> {
+  if (!KEY) throw new Error("SARVAM_API_KEY not set");
+  const form = new FormData();
+  chunks.forEach((chunk, i) => {
+    form.append("audio", chunk, `chunk-${i}.webm`);
+  });
+  form.append("model", "saarika:v2.5");
+  form.append("language_code", "unknown");
+  form.append("streaming", "true");
+  const res = await fetchWithTimeout(
+    `${SARVAM_BASE}/speech-to-text`,
+    {
+      method: "POST",
+      headers: authHeaders(),
+      body: form,
+    },
+    timeoutMs
+  );
+  if (!res.ok) throw new Error(`Sarvam streaming STT ${res.status}: ${await res.text()}`);
+  const data = await res.json();
+  const text = data?.transcript ?? "";
+  const language = data?.language_code ?? "unknown";
+  return { text, language };
+}
+
+/**
  * Extract JSON from an LLM response and validate it against a Zod schema. The schema is the
  * contract: a structurally-valid-but-semantically-wrong response is rejected here rather than
  * flowing downstream into coaching signals.
