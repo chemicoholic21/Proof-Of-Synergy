@@ -21,7 +21,7 @@ that shows exactly how your communication is developing over time.
 | Role | Powered by | What it does |
 | --- | --- | --- |
 | **Conversation partner** | **Gemini** | Drives the live conversation: natural dialogue, follow-up questions, pushback, tone adaptation. Never scripted. |
-| **Private coach** | **Gemma** | Watches each response for filler words, hesitation, rambling, weak structure, confidence drops and repetition — and coaches in real time. Runs locally via Ollama (`GEMMA_URL`) so transcripts never leave the machine; falls back to Sarvam, then to built-in heuristics. |
+| **Private coach** | **Heuristics** | Watches each response for filler words, hesitation, rambling, weak structure, confidence drops and repetition — and coaches in real time using built-in heuristics. Runs locally with zero dependencies. |
 | **Skill memory** | **Cognee** | Every completed session updates your Skill Knowledge Graph: skills gain confidence, weaknesses surface, growth is replayable session by session. |
 | **Voice** | **Sarvam AI** | Saarika speech-to-text (multilingual, code-mixing across Indian languages) and Bulbul text-to-speech make the whole session feel like a real spoken conversation. |
 
@@ -30,7 +30,7 @@ that shows exactly how your communication is developing over time.
 ```
 Home ─► Choose a practice scenario ─► Live conversation (speak or type)
                                             │
-                                   Gemma coaches in real time
+                                   Heuristic coaching in real time
                                             │
                               Session summary (warm, specific)
                                             │
@@ -54,30 +54,12 @@ app/
   knowledge-graph/              the Skill Knowledge Graph experience
   api/
     gemini/                     conversation turns (Gemini)
-    gemma/                      real-time coaching analysis (Gemma)
     coaching/summary            end-of-session coaching summary
     coaching/metrics            communication metrics from a transcript (pure, no LLM)
     transcribe/  tts/           Sarvam voice (Saarika STT, Bulbul TTS)
     scenarios/                  the practice scenario catalogue
     skill-graph/                the memory lifecycle: remember / recall / replay / forget / seed
     health/                     live dependency probes (no silent fallbacks in a demo)
-
-components/
-  VoiceRecorder.tsx             segmented mic capture (<=25s clips for real-time STT)
-  ScenarioPlayer.tsx            reads partner lines aloud (Bulbul, browser fallback)
-  knowledge-graph/              GraphCanvas (SVG radial graph) + SkillGraphExplorer
-  bits/                         ambient visuals (GrainOverlay, TrueFocus)
-
-lib/
-  gemini.ts                     Gemini client (conversation partner)
-  gemma.ts                      Gemma coaching agent (heuristics + optional LLM lift)
-  sarvam.ts                     Sarvam client (chat / STT / TTS / JSON extraction)
-  cognee.ts                     Cognee client (add / cognify / search / forget)
-  skill-graph.ts                the Skill Knowledge Graph: lifecycle + projections
-  scenarios.ts                  the practice scenario catalogue
-  communication-metrics.ts      filler/hedge/confidence analysis (pure functions)
-  learner.ts                    client-side identity + browser-held graph copy
-  env.ts http.ts logger.ts rateLimit.ts schemas.ts prompts.ts types.ts
 ```
 
 ### The memory lifecycle
@@ -112,22 +94,8 @@ light up each integration:
 ```env
 GEMINI_API_KEY=...      # realistic conversation partner
 SARVAM_API_KEY=...      # speech-to-text + text-to-speech (Indian languages + English)
-GEMMA_URL=...           # local Gemma coach via Ollama (e.g. http://localhost:11434)
 COGNEE_API_URL=...      # skill graph semantic layer (Cognee Cloud or self-hosted)
 COGNEE_API_KEY=...
-```
-
-For the local Gemma coach, point `GEMMA_URL` at any local model server — both protocols are
-auto-detected, and the closest Gemma model the server lists is picked automatically:
-
-```bash
-# Option A: Ollama
-ollama pull gemma3:4b                       # or gemma3:1b on a small machine
-echo "GEMMA_URL=http://localhost:11434" >> .env.local
-
-# Option B: LM Studio
-# Load a Gemma model (e.g. gemma-3n-e2b), start the server (default port 1234)
-echo "GEMMA_URL=http://localhost:1234" >> .env.local
 ```
 
 `GET /api/health` reports whether each dependency is configured **and reachable**, so a silent
@@ -140,7 +108,7 @@ Useful scripts: `npm run check` (typecheck + tests), `npm test`, `npm run build`
 1. Open **/knowledge-graph** — a first visit opens with a three-week practice baseline and a
    visible growth arc (52% → 64% → 71% confidence), so the graph is never empty.
 2. Explore the graph: click nodes, replay "persuasion", check the Growth tab.
-3. Go to **/practice**, pick a scenario, and speak. Watch Gemma coach you mid-conversation.
+3. Go to **/practice**, pick a scenario, and speak. Watch heuristic coaching in real time.
 4. End the session — the summary appears and the graph grows by one more rep.
 
 ## Contributing & license

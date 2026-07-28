@@ -56,11 +56,6 @@ export const GeminiChatBody = z.object({
   systemPrompt: z.string().max(4000).optional(),
 });
 
-export const GemmaCoachingBody = z.object({
-  transcript: z.string().min(1).max(20000),
-  recentMessages: z.array(ConversationMessageSchema).max(20).optional(),
-});
-
 // ---------------------------------------------------------------------------
 // Skill graph (Proof of Synergy 2.0) schemas.
 // ---------------------------------------------------------------------------

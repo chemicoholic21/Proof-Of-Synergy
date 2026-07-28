@@ -30,8 +30,8 @@ export default function Home() {
 
           <p className="fade-up mt-8 max-w-2xl text-base leading-relaxed text-ink-soft sm:text-[17px]">
             Rehearse real conversations with AI partners. Speak naturally in your own language - Sarvam
-            transcribes and reads aloud, Gemini holds the conversation, Gemma coaches you in real time,
-            and your growth is captured in a Cognee Skill Knowledge Graph that remembers across sessions.
+            transcribes and reads aloud, Gemini holds the conversation, and your growth is captured in a
+            Cognee Skill Knowledge Graph that remembers across sessions.
           </p>
 
           <div className="fade-up mt-9 flex flex-col gap-3 sm:flex-row" style={{ animationDelay: "740ms" }}>
@@ -49,7 +49,6 @@ export default function Home() {
           <div className="mt-16 grid gap-px overflow-hidden border-t border-line sm:grid-cols-3">
             {[
               { k: "Gemini", t: "Live conversation", d: "A realistic partner that adapts to your scenario and pushes back gently." },
-              { k: "Gemma", t: "Local coaching", d: "Real-time feedback on fillers, hesitation, structure and confidence." },
               { k: "Cognee", t: "Skill graph", d: "Your communication growth is remembered and builds across every session." },
             ].map((f, i) => (
               <div
