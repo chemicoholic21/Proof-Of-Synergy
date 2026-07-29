@@ -264,7 +264,7 @@ export default function Practice() {
   );
 
   const handleRecorded = useCallback(
-    async (blobs: Blob[], durationSec: number) => {
+    async (blobs: Blob[], durationSec: number, liveText?: string) => {
       totalDurationRef.current += durationSec;
       setError(null);
       setBusy("Transcribing your answer…");
@@ -273,8 +273,11 @@ export default function Practice() {
         blobs.forEach((b, i) => fd.append("audio", b, `answer-${i}.webm`));
         const res = await fetch("/api/transcribe", { method: "POST", body: fd });
         const t = await readJsonOrThrow(res);
-        if (!t.text || t.text.trim().length < 2) throw new Error("We couldn't capture any speech. Try speaking a little longer.");
-        await handleUserInput(t.text);
+        // Prefer Sarvam's transcript; fall back to the browser live transcript if Sarvam is empty.
+        let text = (t.text ?? "").trim();
+        if (text.length < 2 && liveText && liveText.trim().length >= 2) text = liveText.trim();
+        if (text.length < 2) throw new Error("We couldn't capture any speech. Try speaking a little longer.");
+        await handleUserInput(text);
       } catch (e) {
         setBusy(null);
         setError(

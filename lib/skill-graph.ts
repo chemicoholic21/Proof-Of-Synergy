@@ -20,6 +20,7 @@ import path from "node:path";
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { getScenario } from "@/lib/scenarios";
+import { extractTechSkills } from "@/lib/tech-skills";
 import { cogneeAdd, cogneeCognify, cogneeForget, cogneeSearch, cogneeConfigured } from "@/lib/cognee";
 import type { SessionResult } from "@/lib/types";
 
@@ -233,13 +234,28 @@ export async function rememberSession(input: RememberSessionInput): Promise<{
   const scenario = getScenario(input.session.scenarioId);
   const scenarioTitle = scenario?.title ?? input.session.scenarioId;
   const tags = scenario?.tags ?? ["communication"];
-  const skillNames = Array.from(new Set<string>([...tags, scenarioTitle]));
+  const isInterview = scenario?.intake === "resume";
   const metrics = input.session.metrics;
   const sessionId = `session:${g.revision + 1}:${slug(scenarioTitle)}`;
 
+  // Skills to fold in: the actual technologies discussed in the conversation (React, FastAPI, …)
+  // plus the scenario's communication tags. The scenario TITLE is only added as a skill for
+  // non-interview scenarios — "Technical Interview" is not itself a skill, its tech nodes are.
+  const convoText = input.session.messages.map((m) => m.content).join(" ");
+  const techSkills = extractTechSkills(convoText);
+  const tagCategory = tags[0] ?? "communication";
+  const skillDefs: { name: string; category: string }[] = [
+    ...techSkills,
+    ...tags.map((t) => ({ name: t, category: tagCategory })),
+    ...(isInterview ? [] : [{ name: scenarioTitle, category: tagCategory }]),
+  ];
+
   const skillIds: string[] = [];
-  for (const name of skillNames) {
-    const id = skillId(name);
+  const seenSkill = new Set<string>();
+  for (const def of skillDefs) {
+    const id = skillId(def.name);
+    if (seenSkill.has(id)) continue;
+    seenSkill.add(id);
     skillIds.push(id);
     const existing = g.skills[id];
     const baseConf = existing?.confidence ?? 40;
@@ -247,8 +263,8 @@ export async function rememberSession(input: RememberSessionInput): Promise<{
     const newConf = Math.round(baseConf + (metrics.confidence - baseConf) * 0.4);
     g.skills[id] = {
       id,
-      name,
-      category: tags[0] ?? "communication",
+      name: def.name,
+      category: existing?.category ?? def.category,
       level: levelFromConfidence(newConf),
       confidence: Math.max(0, Math.min(100, newConf)),
       exposure: (existing?.exposure ?? 0) + 1,
