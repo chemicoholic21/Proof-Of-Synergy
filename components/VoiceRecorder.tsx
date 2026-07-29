@@ -7,6 +7,11 @@ const SEGMENT_MS = 25_000;
 const VAD_THRESHOLD = 0.015;
 const SPEECH_PAD_MS = 200;
 const SILENCE_TIMEOUT_MS = 1200;
+// After the user has spoken and then stays silent for this long, we treat it as
+// a "long pause" and automatically stop the recording — no need to press "Stop"
+// for every answer. Kept well above SILENCE_TIMEOUT_MS so natural pauses between
+// sentences don't cut the recording short.
+const AUTO_STOP_SILENCE_MS = 3000;
 
 export default function VoiceRecorder({
   onRecorded,
@@ -40,6 +45,8 @@ export default function VoiceRecorder({
   const audioCtxRef = useRef<AudioContext | null>(null);
   const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
+  const vadRafRef = useRef<number | null>(null);
+  const [autoStopped, setAutoStopped] = useState(false);
   const onUtteranceEndRef = useRef(onUtteranceEnd);
 
   onUtteranceEndRef.current = onUtteranceEnd;
@@ -53,6 +60,7 @@ export default function VoiceRecorder({
   useEffect(() => {
     return () => {
       clearTimers();
+      if (vadRafRef.current !== null) cancelAnimationFrame(vadRafRef.current);
       streamRef.current?.getTracks().forEach((t) => t.stop());
       vadRef.current?.stop();
       utteranceRef.current?.reset();
@@ -165,16 +173,24 @@ export default function VoiceRecorder({
       if (utteranceState.isFinal && onUtteranceEndRef.current) {
         onUtteranceEndRef.current("");
       }
-      requestAnimationFrame(tick);
+      // Auto-stop after a long pause. VAD already tracks silence duration, so a
+      // sustained pause ends the recording without the user pressing "Stop".
+      if (keepGoingRef.current && utteranceState.silenceDurationMs >= AUTO_STOP_SILENCE_MS) {
+        setAutoStopped(true);
+        stop();
+        return;
+      }
+      vadRafRef.current = requestAnimationFrame(tick);
     };
 
-    requestAnimationFrame(tick);
+    vadRafRef.current = requestAnimationFrame(tick);
     setVadActive(true);
   }
 
   async function start() {
     setError(null);
     setHasClip(false);
+    setAutoStopped(false);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
@@ -197,6 +213,10 @@ export default function VoiceRecorder({
   function stop() {
     keepGoingRef.current = false;
     if (rotateRef.current) clearTimeout(rotateRef.current);
+    if (vadRafRef.current !== null) {
+      cancelAnimationFrame(vadRafRef.current);
+      vadRafRef.current = null;
+    }
     if (mediaRef.current && mediaRef.current.state === "recording") mediaRef.current.stop();
     setRecording(false);
     if (timerRef.current) clearInterval(timerRef.current);
@@ -297,11 +317,17 @@ export default function VoiceRecorder({
               <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
               </svg>
-              <span>Captured</span>
+              <span>{autoStopped ? "Auto-captured" : "Captured"}</span>
             </span>
           )}
         </div>
       </div>
+
+      {recording && (
+        <p className="text-[11px] text-zinc-500">
+          Recording stops automatically when you pause — or tap “Stop recording”.
+        </p>
+      )}
 
       {error && (
         <p className="flex items-center gap-1.5 text-sm font-medium text-red-400">
