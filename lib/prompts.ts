@@ -20,6 +20,62 @@ ${history}
 Respond naturally as the conversation partner. Keep it to 2-4 sentences.`;
 }
 
+// ---------------------------------------------------------------------------
+// Technical interview mode: the interviewer persona + a candidate-specific
+// context assembled from the uploaded resume and (optional) job description.
+// ---------------------------------------------------------------------------
+
+export const INTERVIEW_SYSTEM =
+  "You are a seasoned technical interviewer conducting a live, spoken interview. Ask exactly ONE question at a time, then wait for the candidate's answer. Ground every question in the candidate's actual resume — their real projects, work experience, and listed skills — and in the target role / job description when provided. Start broad on a project or role, then drill into specifics: their exact contribution, technical decisions, trade-offs, failures, and measurable results. Mix technical depth with behavioural questions. Keep each of your turns to 1-3 sentences so the candidate does most of the talking, and ask natural follow-ups that reference what they just said. Do not give feedback, hints, or model answers — stay in character as the interviewer. Never mention that you are an AI.";
+
+function clampChars(text: string, max: number): string {
+  const t = text.trim();
+  return t.length <= max ? t : t.slice(0, max) + "\n…[truncated]";
+}
+
+/**
+ * Build the per-turn scenario context for an interview. This is passed as the
+ * `systemPrompt` override to /api/gemini so every question stays anchored to
+ * this specific candidate.
+ */
+export function buildInterviewContext(input: {
+  resumeText: string;
+  jobDescription?: string | null;
+  role?: string | null;
+}): string {
+  const resume = clampChars(input.resumeText, 6000);
+  const jd = input.jobDescription ? clampChars(input.jobDescription, 2500) : "";
+  const role = input.role?.trim();
+  const parts = [
+    INTERVIEW_SYSTEM,
+    "",
+    role ? `TARGET ROLE: ${role}` : "",
+    "CANDIDATE RESUME:",
+    "<<<RESUME>>>",
+    resume,
+    "<<<END RESUME>>>",
+    jd ? "JOB DESCRIPTION:" : "",
+    jd ? "<<<JOB DESCRIPTION>>>" : "",
+    jd,
+    jd ? "<<<END JOB DESCRIPTION>>>" : "",
+    "Ask questions that are specifically relevant to this candidate's experience, projects, and the role above.",
+  ].filter((p) => p !== "");
+  return parts.join("\n");
+}
+
+/** Prompt to generate the interviewer's opening line + first question. */
+export function interviewOpeningUserPrompt(context: string): string {
+  return `${context}
+
+This is the very start of the interview. In one short sentence, greet the candidate, then ask your first question — an opening question about the project or experience on their resume that is most relevant to the role. Ask only ONE question and keep it under 3 sentences.`;
+}
+
+/** Deterministic opening used when no model is configured or the model call fails. */
+export function fallbackInterviewOpening(role?: string | null): string {
+  const roleBit = role && role.trim() ? ` for the ${role.trim()} role` : "";
+  return `Thanks for sharing your resume — let's get started${roleBit}. To begin, walk me through the project you're most proud of: what was your specific role, and what was the hardest technical problem you had to solve?`;
+}
+
 export const SUMMARY_SYSTEM =
   "You are a communication coach summarizing a practice session. Be warm, specific, and growth-oriented. Highlight 2-3 strengths and 2-3 actionable improvements. Keep it under 200 words.";
 
