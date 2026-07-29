@@ -20,7 +20,8 @@ const SILENCE_TIMEOUT_MS = 1200;
 const AUTO_STOP_SILENCE_MS = 3000;
 
 const VoiceRecorder = forwardRef<VoiceRecorderHandle, {
-  onRecorded: (blobs: Blob[], durationSec: number) => void;
+  // The 3rd arg is the browser live-transcript captured while speaking (fallback transcript).
+  onRecorded: (blobs: Blob[], durationSec: number, liveText?: string) => void;
   onUtteranceEnd?: (text: string) => void;
   onRecordingStart?: () => void;
   disabled?: boolean;
@@ -55,6 +56,11 @@ const VoiceRecorder = forwardRef<VoiceRecorderHandle, {
   const analyserRef = useRef<AnalyserNode | null>(null);
   const vadRafRef = useRef<number | null>(null);
   const [autoStopped, setAutoStopped] = useState(false);
+  // Live (word-by-word) transcript via the browser SpeechRecognition API — pure UX feedback so the
+  // user sees they're being heard. The authoritative transcript still comes from Sarvam STT.
+  const [liveTranscript, setLiveTranscript] = useState("");
+  const recognitionRef = useRef<any>(null);
+  const finalTranscriptRef = useRef("");
   const onUtteranceEndRef = useRef(onUtteranceEnd);
   // onRecorded/onRecordingStart change identity every turn (they close over `messages`), so the
   // imperative start()/stop() (captured once) must reach the LATEST versions via refs, or an
@@ -74,6 +80,48 @@ const VoiceRecorder = forwardRef<VoiceRecorderHandle, {
     if (rotateRef.current) clearTimeout(rotateRef.current);
   }
 
+  /** Start live captions via the browser SpeechRecognition API (no-op if unsupported). */
+  function startRecognition() {
+    try {
+      const Ctor =
+        typeof window !== "undefined"
+          ? (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+          : null;
+      if (!Ctor) return; // Firefox / unsupported: recording still works, just no live captions.
+      const rec = new Ctor();
+      rec.continuous = true;
+      rec.interimResults = true;
+      rec.lang = "en-IN";
+      finalTranscriptRef.current = "";
+      rec.onresult = (e: any) => {
+        let interim = "";
+        let final = finalTranscriptRef.current;
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          const chunk = e.results[i][0]?.transcript ?? "";
+          if (e.results[i].isFinal) final += chunk + " ";
+          else interim += chunk;
+        }
+        finalTranscriptRef.current = final;
+        setLiveTranscript((final + interim).replace(/\s+/g, " ").trim());
+      };
+      rec.onerror = () => {};
+      rec.onend = () => {};
+      recognitionRef.current = rec;
+      rec.start();
+    } catch {
+      /* ignore — live captions are best-effort */
+    }
+  }
+
+  function stopRecognition() {
+    try {
+      recognitionRef.current?.stop();
+    } catch {
+      /* ignore */
+    }
+    recognitionRef.current = null;
+  }
+
   useEffect(() => {
     return () => {
       clearTimers();
@@ -81,6 +129,7 @@ const VoiceRecorder = forwardRef<VoiceRecorderHandle, {
       streamRef.current?.getTracks().forEach((t) => t.stop());
       vadRef.current?.stop();
       utteranceRef.current?.reset();
+      stopRecognition();
       if (audioCtxRef.current) {
         audioCtxRef.current.close().catch(() => {});
       }
@@ -135,7 +184,7 @@ const VoiceRecorder = forwardRef<VoiceRecorderHandle, {
         streamRef.current?.getTracks().forEach((t) => t.stop());
         setHasClip(true);
         const durationSec = Math.max(1, Math.round((performance.now() - startMsRef.current) / 1000));
-        onRecordedRef.current(segmentsRef.current.slice(), durationSec);
+        onRecordedRef.current(segmentsRef.current.slice(), durationSec, finalTranscriptRef.current.trim());
       }
     };
     mr.start();
@@ -219,6 +268,8 @@ const VoiceRecorder = forwardRef<VoiceRecorderHandle, {
       startMsRef.current = performance.now();
       startSegment(stream);
       setupVad(stream);
+      setLiveTranscript("");
+      startRecognition();
       setRecording(true);
       setSeconds(0);
       timerRef.current = setInterval(() => setSeconds((s) => s + 1), 1000);
@@ -247,6 +298,7 @@ const VoiceRecorder = forwardRef<VoiceRecorderHandle, {
     if (utteranceRef.current) {
       utteranceRef.current.reset();
     }
+    stopRecognition();
     if (wsRef.current) {
       wsRef.current.close();
       wsRef.current = null;
@@ -342,6 +394,27 @@ const VoiceRecorder = forwardRef<VoiceRecorderHandle, {
           )}
         </div>
       </div>
+
+      {recording && (
+        <div className="rounded-xl border border-accent/25 bg-black/30 px-4 py-3">
+          <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest font-bold text-accent">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-accent" />
+            </span>
+            Listening — live transcript
+          </div>
+          <p className="mt-1.5 text-[14px] leading-relaxed text-ink">
+            {liveTranscript || <span className="text-ink-soft/70">Start speaking…</span>}
+          </p>
+        </div>
+      )}
+
+      {!recording && liveTranscript && (
+        <p className="text-[12px] text-ink-soft">
+          <span className="font-semibold text-accent">Transcribing…</span> “{liveTranscript}”
+        </p>
+      )}
 
       {recording && (
         <p className="text-[11px] text-zinc-500">
