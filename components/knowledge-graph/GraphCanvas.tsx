@@ -178,8 +178,25 @@ export default function GraphCanvas({ graph, onReplay }: { graph: GraphView; onR
             </div>
           )}
           {selectedNode.kind === "session" && (
-            <div className="mt-3 space-y-2">
-              <Bar label="Session confidence" value={selectedNode.confidence} tone="bone" />
+            <div className="mt-3 space-y-2.5">
+              {selectedNode.meta?.scenarioTitle && (
+                <div className="text-[12px] text-zinc-300">{selectedNode.meta.scenarioTitle}</div>
+              )}
+              {selectedNode.meta?.completedAt && (
+                <div className="flex items-center gap-1.5 text-[11px] text-zinc-400">
+                  <svg className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2m6-2a10 10 0 1 1-20 0 10 10 0 0 1 20 0Z" />
+                  </svg>
+                  {formatDateTime(selectedNode.meta.completedAt)}
+                </div>
+              )}
+              <Bar label="Confidence" value={selectedNode.confidence} tone="bone" />
+              <div className="grid grid-cols-2 gap-2 pt-0.5">
+                <Detail label="Duration" value={formatDuration(selectedNode.meta?.durationSec)} />
+                <Detail label="Words" value={String(selectedNode.meta?.wordCount ?? 0)} />
+                <Detail label="Filler words" value={String(selectedNode.meta?.fillerCount ?? 0)} />
+                <Detail label="Coaching" value={String(selectedNode.meta?.coachingEvents ?? 0)} />
+              </div>
             </div>
           )}
 
@@ -217,6 +234,36 @@ export default function GraphCanvas({ graph, onReplay }: { graph: GraphView; onR
       `}</style>
     </div>
   );
+}
+
+function Detail({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5">
+      <div className="text-[9px] uppercase tracking-wider text-zinc-500">{label}</div>
+      <div className="font-mono text-[13px] text-zinc-100">{value}</div>
+    </div>
+  );
+}
+
+function formatDuration(sec?: number): string {
+  const s = Math.max(0, Math.round(sec ?? 0));
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  const rem = s % 60;
+  return rem ? `${m}m ${rem}s` : `${m}m`;
+}
+
+function formatDateTime(iso?: string): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }
 
 function Bar({ label, value, tone }: { label: string; value: number; tone: "ochre" | "sage" | "bone" | "stone" }) {
