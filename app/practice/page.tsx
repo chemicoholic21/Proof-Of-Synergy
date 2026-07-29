@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import ScenarioPlayer from "@/components/ScenarioPlayer";
-import VoiceRecorder from "@/components/VoiceRecorder";
+import VoiceRecorder, { type VoiceRecorderHandle } from "@/components/VoiceRecorder";
+import { speak, type SpeechController } from "@/lib/tts-client";
 import { extractDNA } from "@/lib/communication-metrics";
 import { analyzeWithHeuristics } from "@/lib/coaching";
 import { getLearnerId, loadGraphLocal, saveGraphLocal } from "@/lib/learner";
@@ -87,6 +88,16 @@ export default function Practice() {
 
   const totalDurationRef = useRef(0);
   const scrollRef = useRef<HTMLDivElement>(null);
+  // Hands-free interview mode: read each question aloud, then auto-open the mic.
+  const recorderRef = useRef<VoiceRecorderHandle>(null);
+  const speechRef = useRef<SpeechController | null>(null);
+  const autoHandledIdxRef = useRef(-1);
+  const autoConverse = selected?.intake === "resume";
+
+  const stopSpeaking = useCallback(() => {
+    speechRef.current?.stop();
+    speechRef.current = null;
+  }, []);
 
   const allUserText = useMemo(
     () => messages.filter((m) => m.role === "user").map((m) => m.content).join(" "),
@@ -112,6 +123,32 @@ export default function Practice() {
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, heuristicCoaching]);
+
+  // Hands-free interview loop: when a new interviewer question appears, read it aloud, then
+  // automatically open the mic once reading finishes. Each assistant message is handled once.
+  useEffect(() => {
+    if (step !== "conversation" || !autoConverse || busy) return;
+    const idx = messages.length - 1;
+    if (idx < 0 || messages[idx].role !== "assistant") return;
+    if (autoHandledIdxRef.current >= idx) return;
+    autoHandledIdxRef.current = idx;
+
+    let cancelled = false;
+    const controller = speak(messages[idx].content);
+    speechRef.current = controller;
+    controller.done.then(() => {
+      if (cancelled) return;
+      if (speechRef.current === controller) speechRef.current = null;
+      // Reading finished → start listening for the answer.
+      recorderRef.current?.start();
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [messages, busy, step, autoConverse]);
+
+  // Stop any in-flight speech when leaving the page.
+  useEffect(() => () => speechRef.current?.stop(), []);
 
   const resetSession = useCallback(() => {
     setError(null);
@@ -146,6 +183,7 @@ export default function Practice() {
         throw new Error("We couldn't prepare the interview. Please try again.");
       }
       setInterviewContext(d.systemPrompt);
+      autoHandledIdxRef.current = -1; // fresh conversation → the opening question should be read
       setMessages([{ role: "assistant", content: d.openingMessage, timestamp: Date.now() }]);
       setStep("conversation");
     } catch (e) {
@@ -251,6 +289,8 @@ export default function Practice() {
 
   const endSession = useCallback(async () => {
     if (!selected) return;
+    stopSpeaking();
+    recorderRef.current?.stop();
     setError(null);
     setBusy("Summarising your session…");
     const m = extractDNA(allUserText, totalDurationRef.current || undefined);
@@ -307,7 +347,7 @@ export default function Practice() {
       setBusy(null);
       setStep("summary");
     }
-  }, [selected, allUserText, sessionEvents, messages]);
+  }, [selected, allUserText, sessionEvents, messages, stopSpeaking]);
 
   return (
     <div className="min-h-screen relative overflow-hidden bg-background">
@@ -378,11 +418,19 @@ export default function Practice() {
             {/* Input */}
             <div className="glass-card p-5 flex flex-col gap-4">
               <VoiceRecorder
+                ref={recorderRef}
                 disabled={!!busy}
                 onRecorded={handleRecorded}
                 onUtteranceEnd={handleUtteranceEnd}
+                onRecordingStart={stopSpeaking}
                 streamToWs
               />
+              {autoConverse && (
+                <p className="text-[11px] text-ink-soft">
+                  Hands-free: each question is read aloud, then the mic opens automatically. You can
+                  also tap the mic or type any time.
+                </p>
+              )}
               <div className="flex items-center gap-3">
                 <span className="text-[11px] uppercase tracking-wider text-ink-soft">or type</span>
                 <span className="h-px flex-1 bg-line" />

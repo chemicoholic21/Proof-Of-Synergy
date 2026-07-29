@@ -1,7 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { VoiceActivityDetector, UtteranceDetector } from "@/lib/vad";
+
+/** Imperative handle so a parent can drive recording (e.g. hands-free interview mode). */
+export interface VoiceRecorderHandle {
+  start: () => void;
+  stop: () => void;
+}
 
 const SEGMENT_MS = 25_000;
 const VAD_THRESHOLD = 0.015;
@@ -13,17 +19,19 @@ const SILENCE_TIMEOUT_MS = 1200;
 // sentences don't cut the recording short.
 const AUTO_STOP_SILENCE_MS = 3000;
 
-export default function VoiceRecorder({
-  onRecorded,
-  onUtteranceEnd,
-  disabled,
-  streamToWs,
-}: {
+const VoiceRecorder = forwardRef<VoiceRecorderHandle, {
   onRecorded: (blobs: Blob[], durationSec: number) => void;
   onUtteranceEnd?: (text: string) => void;
+  onRecordingStart?: () => void;
   disabled?: boolean;
   streamToWs?: boolean;
-}) {
+}>(function VoiceRecorder({
+  onRecorded,
+  onUtteranceEnd,
+  onRecordingStart,
+  disabled,
+  streamToWs,
+}, ref) {
   const [recording, setRecording] = useState(false);
   const [seconds, setSeconds] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -48,9 +56,18 @@ export default function VoiceRecorder({
   const vadRafRef = useRef<number | null>(null);
   const [autoStopped, setAutoStopped] = useState(false);
   const onUtteranceEndRef = useRef(onUtteranceEnd);
+  // onRecorded/onRecordingStart change identity every turn (they close over `messages`), so the
+  // imperative start()/stop() (captured once) must reach the LATEST versions via refs, or an
+  // auto-started recording would submit through a stale handler and lose conversation context.
+  const onRecordedRef = useRef(onRecorded);
+  const onRecordingStartRef = useRef(onRecordingStart);
 
   onUtteranceEndRef.current = onUtteranceEnd;
+  onRecordedRef.current = onRecorded;
+  onRecordingStartRef.current = onRecordingStart;
   streamToWsRef.current = streamToWs ?? false;
+
+  useImperativeHandle(ref, () => ({ start, stop }), []);
 
   function clearTimers() {
     if (timerRef.current) clearInterval(timerRef.current);
@@ -118,7 +135,7 @@ export default function VoiceRecorder({
         streamRef.current?.getTracks().forEach((t) => t.stop());
         setHasClip(true);
         const durationSec = Math.max(1, Math.round((performance.now() - startMsRef.current) / 1000));
-        onRecorded(segmentsRef.current.slice(), durationSec);
+        onRecordedRef.current(segmentsRef.current.slice(), durationSec);
       }
     };
     mr.start();
@@ -188,6 +205,9 @@ export default function VoiceRecorder({
   }
 
   async function start() {
+    // Guard against double-start (e.g. auto-start + a manual tap racing).
+    if (keepGoingRef.current || (mediaRef.current && mediaRef.current.state === "recording")) return;
+    onRecordingStartRef.current?.();
     setError(null);
     setHasClip(false);
     setAutoStopped(false);
@@ -339,4 +359,6 @@ export default function VoiceRecorder({
       )}
     </div>
   );
-}
+});
+
+export default VoiceRecorder;
