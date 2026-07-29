@@ -30,10 +30,12 @@ async function readJsonOrThrow(res: Response): Promise<any> {
   return data;
 }
 
-/** Deterministic local partner reply so the gym is usable even without a model configured. */
+/** Deterministic local partner reply so the gym is usable even without a model configured.
+ *  `turn` is the number of prior user answers — this is only ever called to reply TO a user
+ *  answer, never to produce the initial opening, so it must never re-emit scenario.openingMessage
+ *  (doing so made the first reply repeat the opening question). */
 function localPartnerReply(scenario: Scenario, userText: string, turn: number): string {
   const trimmed = (userText || "").trim();
-  if (turn === 0) return scenario.openingMessage;
   const interviewOpeners = [
     "Got it. What was the hardest technical decision you made there, and what were the trade-offs?",
     "Interesting. Can you walk me through the architecture and where the main bottleneck was?",
