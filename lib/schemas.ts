@@ -8,6 +8,8 @@ export const ScenarioSchema = z.object({
   tags: z.array(z.string().max(40)).max(20),
   systemPrompt: z.string().min(1).max(4000),
   openingMessage: z.string().min(1).max(1000),
+  // Optional intake gate before the conversation starts (e.g. "resume" upload for interviews).
+  intake: z.enum(["resume"]).optional(),
 });
 
 export const CoachingEventSchema = z.object({
@@ -53,7 +55,8 @@ export const TtsBody = z.object({
 export const GeminiChatBody = z.object({
   messages: z.array(ConversationMessageSchema).min(1).max(100),
   scenarioId: z.string().min(1).max(80),
-  systemPrompt: z.string().max(4000).optional(),
+  // Interview mode embeds the candidate's resume + job description here, so allow a large override.
+  systemPrompt: z.string().max(20000).optional(),
 });
 
 // ---------------------------------------------------------------------------

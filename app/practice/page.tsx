@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import ScenarioPlayer from "@/components/ScenarioPlayer";
 import VoiceRecorder from "@/components/VoiceRecorder";
@@ -14,7 +14,7 @@ import type {
   CommunicationMetrics,
 } from "@/lib/types";
 
-type Step = "select" | "conversation" | "summary";
+type Step = "select" | "intake" | "conversation" | "summary";
 
 async function readJsonOrThrow(res: Response): Promise<any> {
   let data: any = null;
@@ -34,6 +34,13 @@ async function readJsonOrThrow(res: Response): Promise<any> {
 function localPartnerReply(scenario: Scenario, userText: string, turn: number): string {
   const trimmed = (userText || "").trim();
   if (turn === 0) return scenario.openingMessage;
+  const interviewOpeners = [
+    "Got it. What was the hardest technical decision you made there, and what were the trade-offs?",
+    "Interesting. Can you walk me through the architecture and where the main bottleneck was?",
+    "Let's go deeper — what specifically was your contribution versus the rest of the team?",
+    "How did you validate that it worked, and what would you do differently today?",
+    "What was the biggest thing that broke in production, and how did you handle it?",
+  ];
   const openers = [
     "That's a helpful start. What was the hardest part of that?",
     "Interesting. Can you give me a concrete example?",
@@ -42,7 +49,8 @@ function localPartnerReply(scenario: Scenario, userText: string, turn: number): 
     "Thanks for sharing. What's the one thing you'd want me to remember?",
   ];
   if (!trimmed) return "Take your time - whenever you're ready, tell me more.";
-  return openers[turn % openers.length];
+  const pool = scenario.intake === "resume" ? interviewOpeners : openers;
+  return pool[turn % pool.length];
 }
 
 function getCoachingSuggestion(events: CoachingEvent[]): string {
@@ -72,6 +80,8 @@ export default function Practice() {
   const [summary, setSummary] = useState<string | null>(null);
   const [metrics, setMetrics] = useState<CommunicationMetrics | null>(null);
   const [graphUpdated, setGraphUpdated] = useState(false);
+  // For interview mode: the resume/JD-derived system prompt sent to the model each turn.
+  const [interviewContext, setInterviewContext] = useState<string | null>(null);
 
   const totalDurationRef = useRef(0);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -101,17 +111,47 @@ export default function Practice() {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, heuristicCoaching]);
 
-  const start = useCallback(() => {
-    if (!selected) return;
+  const resetSession = useCallback(() => {
     setError(null);
     setSummary(null);
     setMetrics(null);
     setSessionEvents([]);
     setHeuristicCoaching([]);
+    setInterviewContext(null);
     totalDurationRef.current = 0;
+  }, []);
+
+  const start = useCallback(() => {
+    if (!selected) return;
+    resetSession();
+    // Interview scenarios need a resume before we can generate tailored questions.
+    if (selected.intake === "resume") {
+      setStep("intake");
+      return;
+    }
     setMessages([{ role: "assistant", content: selected.openingMessage, timestamp: Date.now() }]);
     setStep("conversation");
-  }, [selected]);
+  }, [selected, resetSession]);
+
+  // Called by the interview intake form once the resume/JD are parsed server-side.
+  const prepareInterview = useCallback(async (fd: FormData) => {
+    setError(null);
+    setBusy("Reading your resume and preparing your interview…");
+    try {
+      const res = await fetch("/api/interview/prepare", { method: "POST", body: fd });
+      const d = await readJsonOrThrow(res);
+      if (!d.systemPrompt || !d.openingMessage) {
+        throw new Error("We couldn't prepare the interview. Please try again.");
+      }
+      setInterviewContext(d.systemPrompt);
+      setMessages([{ role: "assistant", content: d.openingMessage, timestamp: Date.now() }]);
+      setStep("conversation");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "We couldn't prepare the interview. Please try again.");
+    } finally {
+      setBusy(null);
+    }
+  }, []);
 
   const partnerReply = useCallback(
     async (history: ConversationMessage[]): Promise<string | null> => {
@@ -120,7 +160,11 @@ export default function Practice() {
         const res = await fetch("/api/gemini", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ messages: history, scenarioId: selected.id }),
+          body: JSON.stringify({
+            messages: history,
+            scenarioId: selected.id,
+            ...(interviewContext ? { systemPrompt: interviewContext } : {}),
+          }),
         });
         const d = await readJsonOrThrow(res);
         return typeof d.reply === "string" && d.reply.trim() ? d.reply : null;
@@ -128,7 +172,7 @@ export default function Practice() {
         return null;
       }
     },
-    [selected]
+    [selected, interviewContext]
   );
 
   const runCoaching = useCallback(
@@ -290,6 +334,15 @@ export default function Practice() {
           <ScenarioPicker scenarios={scenarios} selected={selected} onSelect={setSelected} onStart={start} />
         )}
 
+        {step === "intake" && selected && (
+          <InterviewIntake
+            title={selected.title}
+            busy={!!busy}
+            onCancel={() => setStep("select")}
+            onSubmit={prepareInterview}
+          />
+        )}
+
         {step === "conversation" && selected && (
           <div className="flex flex-col gap-6">
             <div className="flex items-center justify-between gap-4 border-b border-line pb-5">
@@ -434,6 +487,153 @@ function ScenarioPicker({
           {selected ? `Start · ${selected.title}` : "Select a scenario to begin"}
         </button>
       </div>
+    </div>
+  );
+}
+
+function InterviewIntake({
+  title,
+  busy,
+  onCancel,
+  onSubmit,
+}: {
+  title: string;
+  busy: boolean;
+  onCancel: () => void;
+  onSubmit: (fd: FormData) => void;
+}) {
+  const [resumeFile, setResumeFile] = useState<File | null>(null);
+  const [resumeText, setResumeText] = useState("");
+  const [showPaste, setShowPaste] = useState(false);
+  const [jdFile, setJdFile] = useState<File | null>(null);
+  const [jdText, setJdText] = useState("");
+  const [role, setRole] = useState("");
+  const [localError, setLocalError] = useState<string | null>(null);
+
+  const hasResume = Boolean(resumeFile) || resumeText.trim().length >= 30;
+
+  function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (!hasResume) {
+      setLocalError("Please upload your resume, or paste at least a few lines of it.");
+      return;
+    }
+    setLocalError(null);
+    const fd = new FormData();
+    if (resumeFile) fd.append("resume", resumeFile);
+    if (resumeText.trim()) fd.append("resumeText", resumeText.trim());
+    if (jdFile) fd.append("jobDescription", jdFile);
+    if (jdText.trim()) fd.append("jobDescriptionText", jdText.trim());
+    if (role.trim()) fd.append("role", role.trim());
+    onSubmit(fd);
+  }
+
+  return (
+    <div className="step-container">
+      <div className="fade-up">
+        <span className="text-[11px] uppercase tracking-[0.25em] text-ink-soft">Interview setup</span>
+        <h1 className="heading-font mt-3 text-[2.25rem] leading-[1.05] tracking-tight text-ink sm:text-[3rem]">{title}</h1>
+        <p className="mt-5 max-w-2xl text-base leading-relaxed text-ink-soft">
+          Upload your resume so the interviewer can ask questions about your real projects and experience.
+          Add the job description too (optional) for role-specific questions.
+        </p>
+      </div>
+
+      <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-6">
+        {/* Resume (required) */}
+        <div className="glass-card p-6 flex flex-col gap-4">
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-[13px] font-semibold text-ink">
+              Resume <span className="text-accent">*</span>
+              <span className="ml-2 text-[11px] font-normal text-ink-soft">PDF, Word (.docx), or text</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowPaste((v) => !v)}
+              className="text-[12px] text-ink-soft underline decoration-line hover:text-accent"
+            >
+              {showPaste ? "Upload a file instead" : "Paste text instead"}
+            </button>
+          </div>
+
+          {!showPaste ? (
+            <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-line-strong bg-black/20 px-6 py-8 text-center transition-colors hover:border-accent/40">
+              <svg className="h-7 w-7 text-ink-soft" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-6L12 3m0 0 4.5 4.5M12 3v13.5" />
+              </svg>
+              <span className="text-[14px] text-ink">
+                {resumeFile ? resumeFile.name : "Click to upload your resume"}
+              </span>
+              <span className="text-[11px] text-ink-soft">Max 8 MB</span>
+              <input
+                type="file"
+                accept=".pdf,.doc,.docx,.txt,.md,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
+                className="hidden"
+                onChange={(e) => {
+                  setResumeFile(e.target.files?.[0] ?? null);
+                  setLocalError(null);
+                }}
+              />
+            </label>
+          ) : (
+            <textarea
+              value={resumeText}
+              onChange={(e) => setResumeText(e.target.value)}
+              rows={8}
+              placeholder="Paste your resume text here…"
+              className="w-full resize-y rounded-2xl border border-line bg-black/30 px-4 py-3 text-[14px] text-ink placeholder:text-ink-soft/60 outline-none focus:border-accent/40"
+            />
+          )}
+        </div>
+
+        {/* Role + Job description (optional) */}
+        <div className="glass-card p-6 flex flex-col gap-4">
+          <div className="text-[13px] font-semibold text-ink">
+            Target role & job description <span className="text-[11px] font-normal text-ink-soft">optional</span>
+          </div>
+          <input
+            value={role}
+            onChange={(e) => setRole(e.target.value)}
+            placeholder="Role, e.g. Senior Backend Engineer"
+            className="w-full rounded-full border border-line bg-black/30 px-4 py-2.5 text-[14px] text-ink placeholder:text-ink-soft/60 outline-none focus:border-accent/40"
+          />
+          <textarea
+            value={jdText}
+            onChange={(e) => setJdText(e.target.value)}
+            rows={4}
+            placeholder="Paste the job description (optional)…"
+            className="w-full resize-y rounded-2xl border border-line bg-black/30 px-4 py-3 text-[14px] text-ink placeholder:text-ink-soft/60 outline-none focus:border-accent/40"
+          />
+          <label className="flex items-center gap-3 text-[12px] text-ink-soft">
+            <span>or upload a JD file:</span>
+            <input
+              type="file"
+              accept=".pdf,.doc,.docx,.txt,.md,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
+              onChange={(e) => setJdFile(e.target.files?.[0] ?? null)}
+              className="text-[12px] text-ink file:mr-3 file:rounded-full file:border-0 file:bg-surface-2 file:px-3 file:py-1.5 file:text-ink-soft hover:file:text-accent"
+            />
+          </label>
+        </div>
+
+        {localError && <p className="text-[13px] text-red-300">{localError}</p>}
+
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <button
+            type="submit"
+            disabled={busy || !hasResume}
+            className={
+              busy || !hasResume
+                ? "rounded-full border border-line px-8 py-3.5 text-base text-ink-soft cursor-not-allowed"
+                : "btn-primary px-8 py-3.5 text-base"
+            }
+          >
+            {busy ? "Preparing your interview…" : "Start interview"}
+          </button>
+          <button type="button" onClick={onCancel} disabled={busy} className="btn-ghost px-8 py-3.5 text-base">
+            Back
+          </button>
+        </div>
+      </form>
     </div>
   );
 }

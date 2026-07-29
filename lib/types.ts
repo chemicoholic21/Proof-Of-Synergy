@@ -8,6 +8,8 @@ export interface Scenario {
   tags: string[];
   systemPrompt: string;
   openingMessage: string;
+  /** Optional intake gate shown before the conversation (e.g. resume upload for interviews). */
+  intake?: "resume";
 }
 
 export interface ConversationMessage {

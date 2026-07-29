@@ -18,6 +18,12 @@ const securityHeaders = [
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  // pdf-parse (pdfjs) and mammoth are heavy native-ish CJS packages that must be required at
+  // runtime from node_modules rather than bundled by webpack — bundling breaks their worker /
+  // dynamic imports and would pull test fixtures into the build.
+  experimental: {
+    serverComponentsExternalPackages: ["pdf-parse", "mammoth"],
+  },
   async headers() {
     return [
       {

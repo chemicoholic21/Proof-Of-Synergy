@@ -2,6 +2,19 @@ import { Scenario } from "@/lib/types";
 
 export const SCENARIOS: Scenario[] = [
   {
+    id: "technical-interview",
+    title: "Technical Interview",
+    description:
+      "Upload your resume (and optionally a job description) and get grilled by an AI interviewer with questions tailored to your real projects, work experience, and the role.",
+    difficulty: "advanced",
+    tags: ["interview", "technical", "resume"],
+    intake: "resume",
+    systemPrompt:
+      "You are a seasoned technical interviewer. Ask one question at a time based on the candidate's resume and target role, drilling into their projects, decisions, and trade-offs. Keep each turn short so the candidate does most of the talking.",
+    openingMessage:
+      "Thanks for sharing your resume — let's get started. To begin, walk me through the project you're most proud of: what was your role, and what was the hardest technical problem you solved?",
+  },
+  {
     id: "technical-deep-dive",
     title: "Technical Deep Dive",
     description: "Practice explaining deep technical topics with clarity and structure. Great for system design, coding, or architecture discussions.",
