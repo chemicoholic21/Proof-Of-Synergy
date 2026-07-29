@@ -122,7 +122,7 @@ export default function Practice() {
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-  }, [messages, heuristicCoaching]);
+  }, [messages, heuristicCoaching, busy]);
 
   // Hands-free interview loop: when a new interviewer question appears, read it aloud, then
   // automatically open the mic once reading finishes. Each assistant message is handled once.
@@ -416,6 +416,7 @@ export default function Practice() {
               {messages.map((m, i) => (
                 <Bubble key={i} message={m} />
               ))}
+              {busy && <TypingBubble label={busy} />}
             </div>
 
             {/* Input */}
@@ -689,6 +690,27 @@ function InterviewIntake({
           </button>
         </div>
       </form>
+    </div>
+  );
+}
+
+/** ChatGPT/Claude-style "AI is processing" indicator: a Partner bubble with three bouncing dots. */
+function TypingBubble({ label }: { label?: string }) {
+  return (
+    <div className="flex justify-start">
+      <div className="max-w-[80%] rounded-2xl border border-accent/25 bg-accent/5 px-5 py-3.5">
+        <div className="mb-1.5 flex items-center gap-2">
+          <span className="text-[10px] uppercase tracking-widest font-bold text-accent">Partner</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="flex items-center gap-1">
+            <span className="typing-dot" style={{ animationDelay: "0ms" }} />
+            <span className="typing-dot" style={{ animationDelay: "150ms" }} />
+            <span className="typing-dot" style={{ animationDelay: "300ms" }} />
+          </span>
+          {label && <span className="text-[12px] text-ink-soft">{label}</span>}
+        </div>
+      </div>
     </div>
   );
 }

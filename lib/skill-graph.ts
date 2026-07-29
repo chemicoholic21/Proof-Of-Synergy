@@ -557,40 +557,10 @@ export function graphView(g: SkillGraph): GraphView {
       strong: false,
     });
   }
-  const topics = new Map<string, { label: string; weight: number }>();
-  for (const s of Object.values(g.sessions)) {
-    nodes.push({
-      id: s.id,
-      kind: "session",
-      label: s.scenarioTitle,
-      confidence: s.confidence,
-      freshness: 100,
-      weight: 1,
-      weak: false,
-      strong: false,
-    });
-    for (const sk of s.skills) {
-      if (g.skills[sk]) edges.push({ from: s.id, to: sk, type: "DEMONSTRATED_IN" });
-    }
-    for (const t of s.topics ?? []) {
-      const id = `topic:${slug(t)}`;
-      const existing = topics.get(id);
-      topics.set(id, { label: t, weight: (existing?.weight ?? 0) + 1 });
-      edges.push({ from: s.id, to: id, type: "DISCUSSED" });
-    }
-  }
-  for (const [id, t] of topics) {
-    nodes.push({
-      id,
-      kind: "topic",
-      label: t.label,
-      confidence: 0,
-      freshness: 100,
-      weight: t.weight,
-      weak: false,
-      strong: false,
-    });
-  }
+  // The graph visualizes SKILLS, not sessions. We intentionally omit session/topic nodes so the
+  // picture stays a clean learner -> skills -> categories map; repeated per-session nodes (e.g. one
+  // "Technical Interview" node per interview) made it noisy and read as duplicate skills. The full
+  // session history is available in the Sessions tab.
   return { nodes, edges };
 }
 
