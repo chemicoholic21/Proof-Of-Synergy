@@ -19,7 +19,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
-import { getScenario } from "@/lib/scenarios";
+import { getScenario, SCENARIOS } from "@/lib/scenarios";
 import { extractTechSkills } from "@/lib/tech-skills";
 import { cogneeAdd, cogneeCognify, cogneeForget, cogneeSearch, cogneeConfigured } from "@/lib/cognee";
 import type { SessionResult } from "@/lib/types";
@@ -185,11 +185,41 @@ export async function deleteSkillGraph(learnerId: string): Promise<void> {
   }
 }
 
+/**
+ * Meta words that are NOT skills and must never appear as skill nodes. Scenario titles
+ * ("Technical Interview", "Technical Deep Dive", …) are likewise not skills. Everything else in
+ * the graph should be a real, industry-valid skill (a technology, or a genuine communication skill).
+ */
+const JUNK_SKILL_NAMES = new Set(["technical", "interview", "resume"]);
+
+function isJunkSkillName(name: string, scenarioTitles: Set<string>): boolean {
+  const n = (name ?? "").trim();
+  return JUNK_SKILL_NAMES.has(n.toLowerCase()) || scenarioTitles.has(n);
+}
+
+/** Remove non-skill nodes (meta tags / scenario titles) from a graph, healing legacy graphs. */
+function sanitizeSkills(g: SkillGraph): void {
+  const titles = new Set(SCENARIOS.map((s) => s.title));
+  let changed = false;
+  for (const id of Object.keys(g.skills)) {
+    if (isJunkSkillName(g.skills[id]?.name ?? "", titles)) {
+      delete g.skills[id];
+      changed = true;
+    }
+  }
+  if (changed) {
+    for (const s of Object.values(g.sessions)) {
+      if (Array.isArray(s.skills)) s.skills = s.skills.filter((id) => g.skills[id]);
+    }
+  }
+}
+
 function migrate(g: SkillGraph): SkillGraph {
   g.skills ||= {};
   g.sessions ||= {};
   for (const s of Object.values(g.sessions)) s.topics ||= [];
   g.schemaVersion ||= SCHEMA_VERSION;
+  sanitizeSkills(g); // heal graphs written by older builds that stored titles/meta tags as skills
   return g;
 }
 
@@ -238,16 +268,19 @@ export async function rememberSession(input: RememberSessionInput): Promise<{
   const metrics = input.session.metrics;
   const sessionId = `session:${g.revision + 1}:${slug(scenarioTitle)}`;
 
-  // Skills to fold in: the actual technologies discussed in the conversation (React, FastAPI, …)
-  // plus the scenario's communication tags. The scenario TITLE is only added as a skill for
-  // non-interview scenarios — "Technical Interview" is not itself a skill, its tech nodes are.
+  // Only real, industry-valid skills go into the graph:
+  //  - the actual technologies discussed in the conversation (React, FastAPI, Postgres, …), and
+  //  - for non-interview scenarios, the scenario's genuine communication skills (structured,
+  //    clarity, leadership, …) — but never the meta tags technical/interview/resume.
+  // The scenario TITLE is never a skill. A technical interview graph is therefore pure tech.
   const convoText = input.session.messages.map((m) => m.content).join(" ");
   const techSkills = extractTechSkills(convoText);
-  const tagCategory = tags[0] ?? "communication";
+  const commTags = isInterview
+    ? []
+    : tags.filter((t) => !JUNK_SKILL_NAMES.has(t.toLowerCase()));
   const skillDefs: { name: string; category: string }[] = [
     ...techSkills,
-    ...tags.map((t) => ({ name: t, category: tagCategory })),
-    ...(isInterview ? [] : [{ name: scenarioTitle, category: tagCategory }]),
+    ...commTags.map((t) => ({ name: t, category: "communication" })),
   ];
 
   const skillIds: string[] = [];
@@ -795,9 +828,12 @@ export function buildDemoSkillGraph(learnerId: string, name: string | null = nul
     const scenario = getScenario(d.scenarioId);
     const scenarioTitle = scenario?.title ?? d.scenarioId;
     const tags = scenario?.tags ?? ["communication"];
+    // Real skills only: the scenario's genuine communication skills + the concrete technologies/
+    // skills this session exercised. Never the scenario title or meta tags (technical/interview/resume).
     const skillDefs = [
-      ...tags.map((t) => ({ name: t, category: tags[0] ?? "communication" })),
-      { name: scenarioTitle, category: tags[0] ?? "communication" },
+      ...tags
+        .filter((t) => !JUNK_SKILL_NAMES.has(t.toLowerCase()))
+        .map((t) => ({ name: t, category: "communication" })),
       ...d.extraSkills,
     ];
     const sessionId = `session:${g.revision + 1}:${slug(scenarioTitle)}`;
