@@ -11,7 +11,8 @@ import { logger } from "@/lib/logger";
 import { newRequestId, errorResponse, enforceRateLimit } from "@/lib/http";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+// Scanned-PDF/image resumes fall back to Sarvam OCR (an async job we poll), so allow headroom.
+export const maxDuration = 120;
 
 /**
  * POST /api/interview/prepare  (multipart/form-data)
