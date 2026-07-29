@@ -545,7 +545,9 @@ function InterviewIntake({
           <div className="flex items-center justify-between gap-3">
             <div className="text-[13px] font-semibold text-ink">
               Resume <span className="text-accent">*</span>
-              <span className="ml-2 text-[11px] font-normal text-ink-soft">PDF, Word (.docx), or text</span>
+              <span className="ml-2 text-[11px] font-normal text-ink-soft">
+                PDF, Word (.docx), text, or a scan/photo (OCR)
+              </span>
             </div>
             <button
               type="button"
@@ -567,7 +569,7 @@ function InterviewIntake({
               <span className="text-[11px] text-ink-soft">Max 8 MB</span>
               <input
                 type="file"
-                accept=".pdf,.doc,.docx,.txt,.md,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
+                accept=".pdf,.doc,.docx,.txt,.md,.png,.jpg,.jpeg,.webp,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,image/*"
                 className="hidden"
                 onChange={(e) => {
                   setResumeFile(e.target.files?.[0] ?? null);
@@ -608,7 +610,7 @@ function InterviewIntake({
             <span>or upload a JD file:</span>
             <input
               type="file"
-              accept=".pdf,.doc,.docx,.txt,.md,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
+              accept=".pdf,.doc,.docx,.txt,.md,.png,.jpg,.jpeg,.webp,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,image/*"
               onChange={(e) => setJdFile(e.target.files?.[0] ?? null)}
               className="text-[12px] text-ink file:mr-3 file:rounded-full file:border-0 file:bg-surface-2 file:px-3 file:py-1.5 file:text-ink-soft hover:file:text-accent"
             />

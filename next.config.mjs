@@ -22,7 +22,7 @@ const nextConfig = {
   // runtime from node_modules rather than bundled by webpack — bundling breaks their worker /
   // dynamic imports and would pull test fixtures into the build.
   experimental: {
-    serverComponentsExternalPackages: ["pdf-parse", "mammoth"],
+    serverComponentsExternalPackages: ["pdf-parse", "mammoth", "sarvamai"],
   },
   async headers() {
     return [
