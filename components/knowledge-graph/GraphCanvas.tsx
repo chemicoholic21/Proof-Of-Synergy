@@ -131,7 +131,9 @@ export default function GraphCanvas({ graph, onReplay }: { graph: GraphView; onR
 
       {/* Legend */}
       <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1.5 text-[11px] text-ink-soft">
-        {Object.entries(KIND_STYLE).map(([k, v]) => (
+        {Object.entries(KIND_STYLE)
+          .filter(([k]) => graph.nodes.some((n) => n.kind === k))
+          .map(([k, v]) => (
           <span key={k} className="inline-flex items-center gap-1.5">
             <span className="h-2.5 w-2.5 rounded-full" style={{ background: v.fill }} />
             {v.label}

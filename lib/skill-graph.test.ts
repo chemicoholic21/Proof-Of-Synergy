@@ -101,23 +101,24 @@ describe("skill graph lifecycle", () => {
 });
 
 describe("dashboard + visualization projections", () => {
-  it("graphView links learner -> skills, sessions -> skills, sessions -> topics", () => {
+  it("graphView is a clean learner -> skills -> categories map (no session/topic nodes)", () => {
     const g = buildDemoSkillGraph("t-viz");
     const view = graphView(g);
     const kinds = new Set(view.nodes.map((n) => n.kind));
     expect(kinds).toContain("learner");
     expect(kinds).toContain("skill");
-    expect(kinds).toContain("session");
-    expect(kinds).toContain("topic");
+    expect(kinds).toContain("category");
+    // Sessions/topics are intentionally excluded from the visualization (they clutter it with
+    // repeated per-session nodes). Session history lives in the Sessions tab instead.
+    expect(kinds.has("session")).toBe(false);
+    expect(kinds.has("topic")).toBe(false);
     const ids = new Set(view.nodes.map((n) => n.id));
     for (const e of view.edges) {
       expect(ids.has(e.from)).toBe(true);
       expect(ids.has(e.to)).toBe(true);
     }
-    // The starter baseline should read as a rich, lived-in graph.
+    // The starter baseline should still read as a rich skill graph.
     expect(view.nodes.filter((n) => n.kind === "skill").length).toBeGreaterThanOrEqual(30);
-    expect(view.nodes.filter((n) => n.kind === "topic").length).toBeGreaterThanOrEqual(10);
-    expect(view.nodes.length).toBeGreaterThanOrEqual(50);
   });
 
   it("the baseline covers technical and non-technical skills with projects attached", () => {
