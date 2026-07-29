@@ -1,0 +1,19 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Proof of Synergy">
+  <!-- Brand tile: keeps the mark legible on both light and dark browser tabs -->
+  <rect x="1" y="1" width="30" height="30" rx="8" fill="#0E0D0B" stroke="#C8BEAC" stroke-opacity="0.28"/>
+  <!-- Voice → skill-graph mark: an equalizer whose bar-tops are connected graph nodes -->
+  <g stroke="#D8CFBE" stroke-linecap="round" stroke-linejoin="round">
+    <!-- bars (voice) -->
+    <line x1="8.5" y1="24" x2="8.5" y2="18" stroke-width="2.4" stroke-opacity="0.55"/>
+    <line x1="16" y1="24" x2="16" y2="9.5" stroke-width="2.4" stroke-opacity="0.55"/>
+    <line x1="23.5" y1="24" x2="23.5" y2="15" stroke-width="2.4" stroke-opacity="0.55"/>
+    <!-- edges connecting the nodes (graph) -->
+    <path d="M8.5 18 L16 9.5 L23.5 15" stroke-width="1.5" fill="none"/>
+  </g>
+  <!-- nodes -->
+  <g fill="#EDE9E3">
+    <circle cx="8.5" cy="18" r="2.1"/>
+    <circle cx="16" cy="9.5" r="2.4"/>
+    <circle cx="23.5" cy="15" r="2.1"/>
+  </g>
+</svg>
