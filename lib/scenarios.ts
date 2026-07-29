@@ -7,7 +7,10 @@ export const SCENARIOS: Scenario[] = [
     description:
       "Upload your resume (and optionally a job description) and get grilled by an AI interviewer with questions tailored to your real projects, work experience, and the role.",
     difficulty: "advanced",
-    tags: ["interview", "technical", "resume"],
+    // Tags become skill nodes in the Skill Graph, so they must be real communication skills
+    // (like every other scenario) — not meta words like "interview"/"resume", which polluted
+    // the graph with nonsensical nodes.
+    tags: ["technical", "structured", "clarity"],
     intake: "resume",
     systemPrompt:
       "You are a seasoned technical interviewer. Ask one question at a time based on the candidate's resume and target role, drilling into their projects, decisions, and trade-offs. Keep each turn short so the candidate does most of the talking.",
