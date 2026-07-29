@@ -1,9 +1,38 @@
 import { sarvamChat } from "./sarvam";
 import { geminiChat } from "./gemini";
-import { env } from "./env";
+import { env, sarvamConfigured, geminiConfigured } from "./env";
 import { logger } from "./logger";
 
 const log = logger.child({ module: "prompts" });
+
+/** True when at least one chat provider (Sarvam or Gemini) is configured. */
+export function anyChatConfigured(): boolean {
+  return sarvamConfigured() || geminiConfigured();
+}
+
+/**
+ * Generate a conversational reply using Sarvam as the primary model (the app is Sarvam-native),
+ * falling back to Gemini only if Sarvam isn't configured or errors. This keeps the practice/
+ * interview loop working without a Gemini key.
+ */
+export async function generatePartnerReply(
+  system: string,
+  user: string,
+  opts?: { temperature?: number; maxTokens?: number }
+): Promise<string> {
+  if (sarvamConfigured()) {
+    try {
+      return await generateWithSarvam(system, user, opts);
+    } catch (e) {
+      log.warn("sarvam reply failed", { error: (e as Error).message });
+      if (!geminiConfigured()) throw e;
+    }
+  }
+  if (geminiConfigured()) {
+    return await geminiChat(system, user, opts);
+  }
+  throw new Error("No chat model configured (set SARVAM_API_KEY or GEMINI_API_KEY).");
+}
 
 export const SCENARIO_SYSTEM =
   "You are a warm, realistic conversation partner in a high-stakes practice scenario. Follow the scenario instructions naturally. Ask follow-up questions, show genuine interest, and adapt your tone to the situation. Keep responses concise (2-4 sentences) so the learner gets plenty of speaking time. Never break character or mention that you are an AI.";

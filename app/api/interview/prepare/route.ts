@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { geminiChat, geminiConfigured } from "@/lib/gemini";
 import {
   INTERVIEW_SYSTEM,
   buildInterviewContext,
   interviewOpeningUserPrompt,
   fallbackInterviewOpening,
+  generatePartnerReply,
+  anyChatConfigured,
 } from "@/lib/prompts";
 import { extractTextFromUpload, ResumeParseError, MAX_RESUME_BYTES } from "@/lib/resume";
 import { logger } from "@/lib/logger";
@@ -89,11 +90,11 @@ export async function POST(req: NextRequest) {
 
   const systemPrompt = buildInterviewContext({ resumeText, jobDescription, role });
 
-  // --- Opening question (model-generated, with a deterministic fallback) ---
+  // --- Opening question (Sarvam-first model-generated, with a deterministic fallback) ---
   let openingMessage = "";
-  if (geminiConfigured()) {
+  if (anyChatConfigured()) {
     try {
-      const generated = await geminiChat(INTERVIEW_SYSTEM, interviewOpeningUserPrompt(systemPrompt), {
+      const generated = await generatePartnerReply(INTERVIEW_SYSTEM, interviewOpeningUserPrompt(systemPrompt), {
         temperature: 0.6,
         maxTokens: 300,
       });

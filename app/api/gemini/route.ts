@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GeminiChatBody } from "@/lib/schemas";
-import { geminiChat, geminiConfigured, resolvedGeminiModel } from "@/lib/gemini";
-import { SCENARIO_SYSTEM, scenarioUserPrompt } from "@/lib/prompts";
+import { resolvedGeminiModel } from "@/lib/gemini";
+import { SCENARIO_SYSTEM, scenarioUserPrompt, generatePartnerReply, anyChatConfigured } from "@/lib/prompts";
 import { getScenario } from "@/lib/scenarios";
 import { logger } from "@/lib/logger";
 import { newRequestId, errorResponse, enforceRateLimit, parseJsonBody, ValidationError } from "@/lib/http";
@@ -28,8 +28,8 @@ export async function POST(req: NextRequest) {
     throw e;
   }
 
-  if (!geminiConfigured()) {
-    return errorResponse(503, "service_unconfigured", "Gemini is unavailable: GEMINI_API_KEY is not configured.", requestId);
+  if (!anyChatConfigured()) {
+    return errorResponse(503, "service_unconfigured", "No chat model is configured. Set SARVAM_API_KEY (preferred) or GEMINI_API_KEY.", requestId);
   }
 
   const scenario = getScenario(body.scenarioId);
@@ -41,12 +41,12 @@ export async function POST(req: NextRequest) {
   const userPrompt = scenarioUserPrompt(body.messages, scenarioContext);
 
   try {
-    const reply = await geminiChat(SCENARIO_SYSTEM, userPrompt, { temperature: 0.7, maxTokens: 800 });
-    const model = resolvedGeminiModel() ?? "gemini";
-    log.info("gemini reply generated", { scenarioId: body.scenarioId, model, chars: reply.length });
+    const reply = await generatePartnerReply(SCENARIO_SYSTEM, userPrompt, { temperature: 0.7, maxTokens: 800 });
+    const model = resolvedGeminiModel() ?? "sarvam";
+    log.info("partner reply generated", { scenarioId: body.scenarioId, model, chars: reply.length });
     return NextResponse.json({ reply, model, scenarioId: body.scenarioId });
   } catch (e) {
-    log.error("gemini chat failed", { error: e });
-    return errorResponse(502, "gemini_failed", `Gemini failed: ${(e as Error).message}`, requestId);
+    log.error("partner reply failed", { error: e });
+    return errorResponse(502, "chat_failed", `Chat generation failed: ${(e as Error).message}`, requestId);
   }
 }
