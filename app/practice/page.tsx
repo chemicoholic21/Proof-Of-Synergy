@@ -71,6 +71,14 @@ function getCoachingSuggestion(events: CoachingEvent[]): string {
   return "Keep going. Try to slow down slightly and structure your answer with a clear opening.";
 }
 
+// Interview length: wrap up at the next natural turn after the soft limit; a hard backstop ends it
+// even if the candidate goes idle. (A truly "interesting → extend" call would need a model judgment;
+// the soft→hard window approximates that.)
+const INTERVIEW_SOFT_LIMIT_MS = 15 * 60 * 1000;
+const INTERVIEW_HARD_LIMIT_MS = 20 * 60 * 1000;
+const INTERVIEW_CLOSING =
+  "That's all the time we have for today — thank you for interviewing. You did really well. I'll pull your feedback together now, and your full analysis and results will be waiting in your session summary in just a moment. Take care and have a great day!";
+
 export default function Practice() {
   const [step, setStep] = useState<Step>("select");
   const [scenarios, setScenarios] = useState<Scenario[]>([]);
@@ -93,11 +101,33 @@ export default function Practice() {
   const speechRef = useRef<SpeechController | null>(null);
   const autoHandledIdxRef = useRef(-1);
   const autoConverse = selected?.intake === "resume";
+  // Interview timing: when the conversation started, a hard-limit timer, and a flag marking that
+  // the interviewer's closing line has been delivered (after which we auto-end the session).
+  const interviewStartRef = useRef(0);
+  const hardTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const closingRef = useRef(false);
+  const endSessionRef = useRef<() => void>(() => {});
 
   const stopSpeaking = useCallback(() => {
     speechRef.current?.stop();
     speechRef.current = null;
   }, []);
+
+  const clearInterviewTimer = useCallback(() => {
+    if (hardTimerRef.current) {
+      clearTimeout(hardTimerRef.current);
+      hardTimerRef.current = null;
+    }
+  }, []);
+
+  // Deliver the interviewer's closing line, then let the hands-free effect speak it and auto-end.
+  const closeInterview = useCallback(() => {
+    if (closingRef.current) return;
+    closingRef.current = true;
+    clearInterviewTimer();
+    recorderRef.current?.stop();
+    setMessages((prev) => [...prev, { role: "assistant", content: INTERVIEW_CLOSING, timestamp: Date.now() }]);
+  }, [clearInterviewTimer]);
 
   const allUserText = useMemo(
     () => messages.filter((m) => m.role === "user").map((m) => m.content).join(" "),
@@ -139,6 +169,11 @@ export default function Practice() {
     controller.done.then(() => {
       if (cancelled) return;
       if (speechRef.current === controller) speechRef.current = null;
+      if (closingRef.current) {
+        // That was the interviewer's closing line → end the session and show the analysis.
+        endSessionRef.current();
+        return;
+      }
       // Reading finished → start listening for the answer.
       recorderRef.current?.start();
     });
@@ -147,8 +182,14 @@ export default function Practice() {
     };
   }, [messages, busy, step, autoConverse]);
 
-  // Stop any in-flight speech when leaving the page.
-  useEffect(() => () => speechRef.current?.stop(), []);
+  // Stop any in-flight speech and the interview timer when leaving the page.
+  useEffect(
+    () => () => {
+      speechRef.current?.stop();
+      if (hardTimerRef.current) clearTimeout(hardTimerRef.current);
+    },
+    []
+  );
 
   const resetSession = useCallback(() => {
     setError(null);
@@ -184,6 +225,11 @@ export default function Practice() {
       }
       setInterviewContext(d.systemPrompt);
       autoHandledIdxRef.current = -1; // fresh conversation → the opening question should be read
+      // Start the interview clock: a hard backstop ends it even if the candidate later goes idle.
+      closingRef.current = false;
+      interviewStartRef.current = Date.now();
+      clearInterviewTimer();
+      hardTimerRef.current = setTimeout(() => closeInterview(), INTERVIEW_HARD_LIMIT_MS);
       setMessages([{ role: "assistant", content: d.openingMessage, timestamp: Date.now() }]);
       setStep("conversation");
     } catch (e) {
@@ -191,7 +237,7 @@ export default function Practice() {
     } finally {
       setBusy(null);
     }
-  }, []);
+  }, [clearInterviewTimer, closeInterview]);
 
   const partnerReply = useCallback(
     async (history: ConversationMessage[]): Promise<string | null> => {
@@ -234,9 +280,28 @@ export default function Practice() {
       const history = [...messages, userMsg];
       setMessages(history);
 
+      // Interview time's up: after the soft limit, wrap up at this natural turn boundary (the
+      // candidate's answer is kept) with the interviewer's closing line instead of a new question.
+      if (
+        autoConverse &&
+        !closingRef.current &&
+        interviewStartRef.current > 0 &&
+        Date.now() - interviewStartRef.current >= INTERVIEW_SOFT_LIMIT_MS
+      ) {
+        setBusy(null);
+        closeInterview();
+        return;
+      }
+
       try {
         setBusy("Your partner is replying…");
         const reply = await partnerReply(history);
+        // If the interview closed while we were fetching (e.g. hard-limit timer fired), don't append
+        // another question on top of the closing line.
+        if (closingRef.current) {
+          setBusy(null);
+          return;
+        }
         const partnerText =
           reply ?? localPartnerReply(selected, trimmed, messages.filter((m) => m.role === "user").length);
         setMessages((prev) => [
@@ -252,7 +317,7 @@ export default function Practice() {
         setError(e instanceof Error ? e.message : "Something went wrong. Please try again.");
       }
     },
-    [messages, selected, partnerReply, runCoaching]
+    [messages, selected, partnerReply, runCoaching, autoConverse, closeInterview]
   );
 
   const handleUtteranceEnd = useCallback(
@@ -292,6 +357,7 @@ export default function Practice() {
 
   const endSession = useCallback(async () => {
     if (!selected) return;
+    clearInterviewTimer();
     stopSpeaking();
     recorderRef.current?.stop();
     setError(null);
@@ -350,7 +416,11 @@ export default function Practice() {
       setBusy(null);
       setStep("summary");
     }
-  }, [selected, allUserText, sessionEvents, messages, stopSpeaking]);
+  }, [selected, allUserText, sessionEvents, messages, stopSpeaking, clearInterviewTimer]);
+
+  // Keep a stable ref to the latest endSession so the hands-free effect can call it after the
+  // interviewer's closing line without re-subscribing every render.
+  endSessionRef.current = endSession;
 
   return (
     <div className="min-h-screen relative overflow-hidden bg-background">
@@ -432,7 +502,8 @@ export default function Practice() {
               {autoConverse && (
                 <p className="text-[11px] text-ink-soft">
                   Hands-free: each question is read aloud, then the mic opens automatically. You can
-                  also tap the mic or type any time.
+                  also tap the mic or type any time. The interview runs about 15–20 minutes and wraps
+                  up on its own.
                 </p>
               )}
               <div className="flex items-center gap-3">
