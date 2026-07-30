@@ -497,6 +497,15 @@ export interface VizNode {
   weight: number;
   weak: boolean;
   strong: boolean;
+  /** Extra detail surfaced when a node is clicked (currently session nodes). */
+  meta?: {
+    scenarioTitle?: string;
+    completedAt?: string;
+    durationSec?: number;
+    wordCount?: number;
+    fillerCount?: number;
+    coachingEvents?: number;
+  };
 }
 
 export interface VizEdge {
@@ -557,10 +566,47 @@ export function graphView(g: SkillGraph): GraphView {
       strong: false,
     });
   }
-  // The graph visualizes SKILLS, not sessions. We intentionally omit session/topic nodes so the
-  // picture stays a clean learner -> skills -> categories map; repeated per-session nodes (e.g. one
-  // "Technical Interview" node per interview) made it noisy and read as duplicate skills. The full
-  // session history is available in the Sessions tab.
+  // Session nodes: one per practice session, but NUMBERED within their scenario so repeats are
+  // clearly distinct ("Interview 1", "Interview 2") instead of many identically-labelled nodes.
+  // Full details (date/time, duration, metrics) ride on `meta` and show when the node is clicked.
+  const byScenario = new Map<string, PracticeSessionNode[]>();
+  for (const s of Object.values(g.sessions)) {
+    const list = byScenario.get(s.scenarioId) ?? [];
+    list.push(s);
+    byScenario.set(s.scenarioId, list);
+  }
+  const seqIndex = new Map<string, number>();
+  for (const list of byScenario.values()) {
+    list.sort((a, b) => a.completedAt.localeCompare(b.completedAt));
+    list.forEach((s, i) => seqIndex.set(s.id, i + 1));
+  }
+  for (const s of Object.values(g.sessions)) {
+    const scenario = getScenario(s.scenarioId);
+    const base = scenario?.intake === "resume" ? "Interview" : s.scenarioTitle;
+    const count = byScenario.get(s.scenarioId)?.length ?? 1;
+    const label = count > 1 ? `${base} ${seqIndex.get(s.id) ?? 1}` : base;
+    nodes.push({
+      id: s.id,
+      kind: "session",
+      label,
+      confidence: s.confidence,
+      freshness: 100,
+      weight: 1,
+      weak: false,
+      strong: false,
+      meta: {
+        scenarioTitle: s.scenarioTitle,
+        completedAt: s.completedAt,
+        durationSec: s.durationSec,
+        wordCount: s.wordCount,
+        fillerCount: s.fillerCount,
+        coachingEvents: s.coachingEvents,
+      },
+    });
+    for (const sk of s.skills) {
+      if (g.skills[sk]) edges.push({ from: s.id, to: sk, type: "DEMONSTRATED_IN" });
+    }
+  }
   return { nodes, edges };
 }
 

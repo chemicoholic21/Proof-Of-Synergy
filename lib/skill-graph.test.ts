@@ -101,24 +101,33 @@ describe("skill graph lifecycle", () => {
 });
 
 describe("dashboard + visualization projections", () => {
-  it("graphView is a clean learner -> skills -> categories map (no session/topic nodes)", () => {
+  it("graphView shows learner/skills/categories + distinctly-numbered session nodes (no topics)", () => {
     const g = buildDemoSkillGraph("t-viz");
     const view = graphView(g);
     const kinds = new Set(view.nodes.map((n) => n.kind));
     expect(kinds).toContain("learner");
     expect(kinds).toContain("skill");
     expect(kinds).toContain("category");
-    // Sessions/topics are intentionally excluded from the visualization (they clutter it with
-    // repeated per-session nodes). Session history lives in the Sessions tab instead.
-    expect(kinds.has("session")).toBe(false);
+    expect(kinds).toContain("session");
+    // Topics are excluded from the visualization.
     expect(kinds.has("topic")).toBe(false);
     const ids = new Set(view.nodes.map((n) => n.id));
     for (const e of view.edges) {
       expect(ids.has(e.from)).toBe(true);
       expect(ids.has(e.to)).toBe(true);
     }
-    // The starter baseline should still read as a rich skill graph.
     expect(view.nodes.filter((n) => n.kind === "skill").length).toBeGreaterThanOrEqual(30);
+
+    // Repeated scenarios (the demo has technical-deep-dive ×3) must get distinct labels, and every
+    // session node carries clickable detail (timestamp + duration).
+    const sessionNodes = view.nodes.filter((n) => n.kind === "session");
+    const labels = sessionNodes.map((n) => n.label);
+    expect(new Set(labels).size).toBe(labels.length); // all unique
+    expect(labels.some((l) => /Technical Deep Dive 1/.test(l))).toBe(true);
+    for (const n of sessionNodes) {
+      expect(n.meta?.completedAt).toBeTruthy();
+      expect(typeof n.meta?.durationSec).toBe("number");
+    }
   });
 
   it("the baseline covers technical and non-technical skills with projects attached", () => {
