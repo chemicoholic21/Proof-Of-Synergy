@@ -29,6 +29,30 @@ function findBad(obj: unknown, path = "$"): string[] {
 }
 
 describe("interview session -> skill graph", () => {
+  it("credits only the LEARNER's technologies, never ones the interviewer merely asked about", async () => {
+    // The AI interviewer mentions Kubernetes & Docker in its questions; the candidate only ever
+    // talks about React and PostgreSQL. The graph must reflect the candidate, not the interviewer.
+    const session: SessionResult = {
+      scenarioId: "technical-interview",
+      durationSec: 90,
+      messages: [
+        { role: "assistant", content: "Have you deployed anything on Kubernetes or with Docker?", timestamp: 1 },
+        { role: "user", content: "I built the frontend in React and stored data in PostgreSQL.", timestamp: 2 },
+        { role: "assistant", content: "How did you scale the Kubernetes cluster?", timestamp: 3 },
+        { role: "user", content: "It was a small app, mostly React components and some SQL.", timestamp: 4 },
+      ],
+      coachingEvents: [],
+      metrics: extractDNA("I built the frontend in React and stored data in PostgreSQL.", 90),
+      summary: "ok",
+    };
+    const { graph } = await rememberSession({ learnerId: "guard-user", session, graph: fromClient("guard-user", null) });
+    const names = Object.values(graph.skills).map((s) => s.name);
+    expect(names).toEqual(expect.arrayContaining(["React", "PostgreSQL"]));
+    expect(names).not.toContain("Kubernetes"); // only in the interviewer's questions
+    expect(names).not.toContain("Docker"); // only in the interviewer's questions
+  });
+
+
   it("remembers an interview on top of the seeded demo graph without producing NaN/broken data", async () => {
     // Simulate the real client path: seeded graph in localStorage -> sent to server -> round-tripped.
     const learnerId = "repro-user";

@@ -273,8 +273,15 @@ export async function rememberSession(input: RememberSessionInput): Promise<{
   //  - for non-interview scenarios, the scenario's genuine communication skills (structured,
   //    clarity, leadership, …) — but never the meta tags technical/interview/resume.
   // The scenario TITLE is never a skill. A technical interview graph is therefore pure tech.
-  const convoText = input.session.messages.map((m) => m.content).join(" ");
-  const techSkills = extractTechSkills(convoText);
+  //
+  // Anti-hallucination guardrail: credit ONLY technologies the LEARNER actually said (their own
+  // transcribed answers). A tech the AI interviewer merely names in a question must NOT become a
+  // skill the candidate "has" — that was the source of phantom skills in the graph.
+  const learnerText = input.session.messages
+    .filter((m) => m.role === "user")
+    .map((m) => m.content)
+    .join(" ");
+  const techSkills = extractTechSkills(learnerText);
   const commTags = isInterview
     ? []
     : tags.filter((t) => !JUNK_SKILL_NAMES.has(t.toLowerCase()));
