@@ -4,7 +4,7 @@ An AI communication gym. Practice real conversations by voice, get live coaching
 
 ## Stack
 
-Next.js 14 (App Router), React 18, TypeScript, Tailwind. Sarvam for speech-to-text, text-to-speech, and chat (Gemini optional). Cognee optional for the skill graph.
+Next.js 14 (App Router), React 18, TypeScript, Tailwind. Gemini is the live conversation partner; Sarvam handles voice (speech-to-text, text-to-speech) and coaching summaries. Cognee is an optional semantic layer for the skill graph. Everything degrades gracefully: with no keys the app runs on a local conversation partner, heuristic coaching, and the built-in skill-graph engine.
 
 ## Run
 
@@ -17,14 +17,17 @@ Other scripts: `npm run build`, `npm start`, `npm test`, `npm run typecheck`.
 
 ## Config
 
-Copy your keys into `.env.local`. Everything is optional; the app degrades gracefully without keys.
+Copy `.env.local.example` to `.env.local` and add your keys. Everything is optional; the app degrades gracefully without keys.
 
 ```
-SARVAM_API_KEY=      # STT, TTS, chat, resume OCR
-GEMINI_API_KEY=      # optional chat fallback
+GEMINI_API_KEY=      # live conversation partner (dialogue, follow-ups, pushback)
+SARVAM_API_KEY=      # voice: STT, TTS, resume OCR, and coaching summaries
 COGNEE_API_URL=      # optional skill-graph semantic layer
 COGNEE_API_KEY=
+DEMO_MODE=           # true swaps in labelled sample data when a service is down; never in prod
 ```
+
+See `.env.local.example` for optional model/voice overrides and defaults.
 
 ## Features
 
@@ -38,3 +41,4 @@ COGNEE_API_KEY=
 - `app/` pages and API routes
 - `components/` UI
 - `lib/` core logic (skill graph, prompts, Sarvam/Gemini clients, resume parsing)
+- `server/` WebSocket signaling server for voice sessions
