@@ -2,6 +2,8 @@
 // honest error; in DEMO_MODE they may fall back to clearly-labelled mock data.
 
 import { env, sarvamConfigured } from "./env";
+import { runInSpan, setLLMInput, setLLMOutput, traceTool, setSpanOutput } from "./tracing";
+import { OpenInferenceSpanKind } from "@arizeai/openinference-semantic-conventions";
 
 const SARVAM_BASE = "https://api.sarvam.ai";
 const KEY = env.SARVAM_API_KEY || "";
@@ -128,7 +130,33 @@ export async function sarvamChat(
   if (!KEY) throw new Error("SARVAM_API_KEY not set");
   // One slot covers both the attempt and its retry, so the bound is on logical requests rather
   // than individual HTTP calls.
-  return withChatSlot(async () => {
+  return withChatSlot(() =>
+    runInSpan("sarvam.chat", { kind: OpenInferenceSpanKind.LLM }, async (span) => {
+      setLLMInput(span, {
+        provider: "sarvam",
+        model: CHAT_MODEL,
+        system,
+        user,
+        invocationParameters: {
+          model: CHAT_MODEL,
+          temperature: opts.temperature ?? 0.2,
+          max_tokens: Math.min(opts.maxTokens ?? 4000, env.SARVAM_MAX_TOKENS),
+          reasoning_effort: reasoningWireValue(opts.reasoningEffort ?? REASONING_EFFORT),
+        },
+      });
+      const text = await sarvamChatWithRetry(system, user, opts);
+      setLLMOutput(span, { model: CHAT_MODEL, text });
+      return text;
+    })
+  );
+}
+
+/** The attempt-and-retry logic for a Sarvam chat call, extracted so `sarvamChat` can wrap it in a span. */
+async function sarvamChatWithRetry(
+  system: string,
+  user: string,
+  opts: { temperature?: number; maxTokens?: number; timeoutMs?: number; reasoningEffort?: string }
+): Promise<string> {
     try {
       return await sarvamChatOnce(system, user, opts);
     } catch (e) {
@@ -151,7 +179,6 @@ export async function sarvamChat(
         maxTokens: retryMaxTokens,
       });
     }
-  });
 }
 
 /** Saarika STT. Returns transcript + detected language. */
@@ -161,25 +188,33 @@ export async function sarvamTranscribe(
   timeoutMs = 20000
 ): Promise<{ text: string; language: string }> {
   if (!KEY) throw new Error("SARVAM_API_KEY not set");
-  const form = new FormData();
-  form.append("file", audio, filename);
-  form.append("model", "saarika:v2.5");
-  form.append("language_code", "unknown"); // auto-detect + code-mixing
-  const res = await fetchWithTimeout(
-    `${SARVAM_BASE}/speech-to-text`,
-    {
-      method: "POST",
-      headers: authHeaders(),
-      body: form,
-    },
-    timeoutMs
+  return traceTool(
+    "sarvam.stt",
+    { input: filename, metadata: { model: "saarika:v2.5", bytes: audio.size } },
+    async (span) => {
+      const form = new FormData();
+      form.append("file", audio, filename);
+      form.append("model", "saarika:v2.5");
+      form.append("language_code", "unknown"); // auto-detect + code-mixing
+      const res = await fetchWithTimeout(
+        `${SARVAM_BASE}/speech-to-text`,
+        {
+          method: "POST",
+          headers: authHeaders(),
+          body: form,
+        },
+        timeoutMs
+      );
+      if (!res.ok) throw new Error(`Sarvam STT ${res.status}: ${await res.text()}`);
+      const data = await res.json();
+      const text = (data?.transcript ?? "") as string;
+      setSpanOutput(span, text);
+      return {
+        text,
+        language: data?.language_code ?? "unknown",
+      };
+    }
   );
-  if (!res.ok) throw new Error(`Sarvam STT ${res.status}: ${await res.text()}`);
-  const data = await res.json();
-  return {
-    text: data?.transcript ?? "",
-    language: data?.language_code ?? "unknown",
-  };
 }
 
 /**
@@ -205,28 +240,34 @@ export async function sarvamTTS(
   if (!KEY) throw new Error("SARVAM_API_KEY not set");
   const model = env.SARVAM_TTS_MODEL;
   const speaker = env.SARVAM_TTS_SPEAKER; // default v2 speaker
-  const res = await fetchWithTimeout(
-    `${SARVAM_BASE}/text-to-speech`,
-    {
-      method: "POST",
-      headers: authHeaders({ "content-type": "application/json" }),
-      body: JSON.stringify({
-        // bulbul:v2 caps input at 1500 chars; trim at a clause/word boundary so a long question
-        // is never cut mid-word.
-        text: clampSpeech(text, 1450),
-        target_language_code: targetLanguageCode,
-        model,
-        speaker,
-        pace: 1.0,
-      }),
-    },
-    timeoutMs
+  return traceTool(
+    "sarvam.tts",
+    { input: text, metadata: { model, speaker, target_language_code: targetLanguageCode } },
+    async () => {
+      const res = await fetchWithTimeout(
+        `${SARVAM_BASE}/text-to-speech`,
+        {
+          method: "POST",
+          headers: authHeaders({ "content-type": "application/json" }),
+          body: JSON.stringify({
+            // bulbul:v2 caps input at 1500 chars; trim at a clause/word boundary so a long question
+            // is never cut mid-word.
+            text: clampSpeech(text, 1450),
+            target_language_code: targetLanguageCode,
+            model,
+            speaker,
+            pace: 1.0,
+          }),
+        },
+        timeoutMs
+      );
+      if (!res.ok) throw new Error(`Sarvam TTS ${res.status}: ${await res.text()}`);
+      const data = await res.json();
+      const audio = data?.audios?.[0] as string | undefined;
+      if (!audio) throw new Error("Sarvam TTS: empty audio");
+      return audio; // base64 WAV
+    }
   );
-  if (!res.ok) throw new Error(`Sarvam TTS ${res.status}: ${await res.text()}`);
-  const data = await res.json();
-  const audio = data?.audios?.[0] as string | undefined;
-  if (!audio) throw new Error("Sarvam TTS: empty audio");
-  return audio; // base64 WAV
 }
 
 /**

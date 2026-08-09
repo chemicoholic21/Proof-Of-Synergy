@@ -22,7 +22,19 @@ const nextConfig = {
   // runtime from node_modules rather than bundled by webpack — bundling breaks their worker /
   // dynamic imports and would pull test fixtures into the build.
   experimental: {
-    serverComponentsExternalPackages: ["pdf-parse", "mammoth", "sarvamai"],
+    // Load the Next.js instrumentation.ts hook, which bootstraps OpenTelemetry → Arize Phoenix.
+    instrumentationHook: true,
+    // These heavy CJS/native-ish packages must be required at runtime from node_modules rather than
+    // bundled by webpack: pdf-parse/mammoth break when bundled, and the OpenTelemetry SDK + OTLP
+    // exporter (protobufjs) must not be pulled into route bundles.
+    serverComponentsExternalPackages: [
+      "pdf-parse",
+      "mammoth",
+      "sarvamai",
+      "@opentelemetry/sdk-trace-node",
+      "@opentelemetry/exporter-trace-otlp-proto",
+      "@opentelemetry/resources",
+    ],
   },
   async headers() {
     return [

@@ -4,6 +4,7 @@ import { resolvedGeminiModel } from "@/lib/gemini";
 import { SCENARIO_SYSTEM, scenarioUserPrompt, generatePartnerReply, anyChatConfigured } from "@/lib/prompts";
 import { getScenario } from "@/lib/scenarios";
 import { logger } from "@/lib/logger";
+import { traceChain, setSpanOutput } from "@/lib/tracing";
 import { newRequestId, errorResponse, enforceRateLimit, parseJsonBody, ValidationError } from "@/lib/http";
 
 export const runtime = "nodejs";
@@ -40,13 +41,22 @@ export async function POST(req: NextRequest) {
   const scenarioContext = body.systemPrompt ?? scenario?.systemPrompt ?? "";
   const userPrompt = scenarioUserPrompt(body.messages, scenarioContext);
 
-  try {
-    const reply = await generatePartnerReply(SCENARIO_SYSTEM, userPrompt, { temperature: 0.7, maxTokens: 800 });
-    const model = resolvedGeminiModel() ?? "sarvam";
-    log.info("partner reply generated", { scenarioId: body.scenarioId, model, chars: reply.length });
-    return NextResponse.json({ reply, model, scenarioId: body.scenarioId });
-  } catch (e) {
-    log.error("partner reply failed", { error: e });
-    return errorResponse(502, "chat_failed", `Chat generation failed: ${(e as Error).message}`, requestId);
-  }
+  // One conversation turn = one chain span; the backing sarvam.chat / gemini.chat LLM span nests
+  // under it, so an interview shows up as a sequence of end-to-end turn traces in Phoenix.
+  return traceChain(
+    "conversation.turn",
+    { input: lastUser.content, metadata: { scenarioId: body.scenarioId, turns: body.messages.length } },
+    async (span) => {
+      try {
+        const reply = await generatePartnerReply(SCENARIO_SYSTEM, userPrompt, { temperature: 0.7, maxTokens: 800 });
+        const model = resolvedGeminiModel() ?? "sarvam";
+        setSpanOutput(span, reply);
+        log.info("partner reply generated", { scenarioId: body.scenarioId, model, chars: reply.length });
+        return NextResponse.json({ reply, model, scenarioId: body.scenarioId });
+      } catch (e) {
+        log.error("partner reply failed", { error: e });
+        return errorResponse(502, "chat_failed", `Chat generation failed: ${(e as Error).message}`, requestId);
+      }
+    }
+  );
 }

@@ -1,5 +1,7 @@
 import { env, geminiConfigured } from "./env";
 import { logger } from "./logger";
+import { runInSpan, setLLMInput, setLLMOutput } from "./tracing";
+import { OpenInferenceSpanKind } from "@arizeai/openinference-semantic-conventions";
 
 export { geminiConfigured };
 
@@ -85,28 +87,37 @@ export async function geminiChat(
   opts?: { temperature?: number; maxTokens?: number }
 ): Promise<string> {
   if (!geminiConfigured()) throw new Error("GEMINI_API_KEY not set");
-  return withChatSlot(async () => {
-    let lastError: Error = new Error("No Gemini model available");
-    for (const modelId of candidateModels()) {
-      try {
-        const text = await generateOnce(modelId, system, user, opts);
-        if (workingModel !== modelId) {
-          workingModel = modelId;
-          log.info("gemini model resolved", { model: modelId });
+  return withChatSlot(() =>
+    runInSpan("gemini.chat", { kind: OpenInferenceSpanKind.LLM }, async (span) => {
+      setLLMInput(span, {
+        provider: "google",
+        system,
+        user,
+        invocationParameters: { temperature: opts?.temperature ?? 0.7, max_output_tokens: opts?.maxTokens ?? 800 },
+      });
+      let lastError: Error = new Error("No Gemini model available");
+      for (const modelId of candidateModels()) {
+        try {
+          const text = await generateOnce(modelId, system, user, opts);
+          if (workingModel !== modelId) {
+            workingModel = modelId;
+            log.info("gemini model resolved", { model: modelId });
+          }
+          setLLMOutput(span, { model: modelId, text });
+          return text;
+        } catch (e) {
+          lastError = e as Error;
+          if (!isModelUnavailable(e)) {
+            // Auth/quota/network problems won't be fixed by a different model id - fail honestly.
+            log.warn("gemini chat failed", { model: modelId, error: lastError.message });
+            throw lastError;
+          }
+          log.warn("gemini model unavailable, trying next", { model: modelId, error: lastError.message });
         }
-        return text;
-      } catch (e) {
-        lastError = e as Error;
-        if (!isModelUnavailable(e)) {
-          // Auth/quota/network problems won't be fixed by a different model id - fail honestly.
-          log.warn("gemini chat failed", { model: modelId, error: lastError.message });
-          throw lastError;
-        }
-        log.warn("gemini model unavailable, trying next", { model: modelId, error: lastError.message });
       }
-    }
-    throw lastError;
-  });
+      throw lastError;
+    })
+  );
 }
 
 /** Liveness probe used by /api/health so a silent fallback can't hide during a demo. */
