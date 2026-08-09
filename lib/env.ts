@@ -21,6 +21,16 @@ const EnvSchema = z.object({
   COGNEE_DATASET: z.string().default("skill-graph"),
   SKILL_GRAPH_DATA_DIR: z.string().optional(),
 
+  /**
+   * OpenTelemetry → Arize Phoenix tracing (all optional; unset = tracing disabled).
+   * PHOENIX_COLLECTOR_ENDPOINT is the base URL of your Phoenix instance
+   * (e.g. http://localhost:6006 self-hosted, or https://app.phoenix.arize.com for Phoenix Cloud);
+   * "/v1/traces" is appended automatically. PHOENIX_API_KEY is only needed for Phoenix Cloud.
+   */
+  PHOENIX_COLLECTOR_ENDPOINT: z.string().url().optional(),
+  PHOENIX_API_KEY: z.string().optional(),
+  PHOENIX_PROJECT_NAME: z.string().default("proof-of-synergy"),
+
   MAX_AUDIO_BYTES: z.coerce.number().int().positive().default(25 * 1024 * 1024),
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(30),

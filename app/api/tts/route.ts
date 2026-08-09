@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { sarvamTTS } from "@/lib/sarvam";
 import { TtsBody } from "@/lib/schemas";
 import { logger } from "@/lib/logger";
+import { traceChain } from "@/lib/tracing";
 import { newRequestId, errorResponse, enforceRateLimit, parseJsonBody, ValidationError } from "@/lib/http";
 
 export const runtime = "nodejs";
@@ -30,8 +31,10 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const audio = await sarvamTTS(text, language || "en-IN");
-    return NextResponse.json({ audio, source: "sarvam" });
+    return await traceChain("tts", { input: text, metadata: { language: language || "en-IN" } }, async () => {
+      const audio = await sarvamTTS(text, language || "en-IN");
+      return NextResponse.json({ audio, source: "sarvam" });
+    });
   } catch (e) {
     const reason = (e as Error).message;
     log.warn("tts fallback to client speech synthesis", { reason });

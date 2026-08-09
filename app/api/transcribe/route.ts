@@ -3,6 +3,7 @@ import { sarvamTranscribe, sarvamConfigured } from "@/lib/sarvam";
 import { Transcript } from "@/lib/types";
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
+import { traceChain, setSpanOutput } from "@/lib/tracing";
 import { newRequestId, errorResponse, enforceRateLimit } from "@/lib/http";
 
 export const runtime = "nodejs";
@@ -64,29 +65,36 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    // Transcribe each segment (skipping empties) and stitch the transcripts back in order.
-    const parts: string[] = [];
-    const languages: string[] = [];
-    for (let i = 0; i < segments.length; i++) {
-      const seg = segments[i];
-      if (seg.size === 0) continue;
-      const { text, language } = await sarvamTranscribe(seg, seg.name || `answer-${i}.webm`);
-      const trimmed = (text || "").trim();
-      if (trimmed) parts.push(trimmed);
-      const label = LANG_LABEL[language] || language;
-      if (label && !languages.includes(label)) languages.push(label);
-    }
+    return await traceChain(
+      "transcribe",
+      { metadata: { sessionId, segments: segments.length, bytes: totalBytes } },
+      async (span) => {
+        // Transcribe each segment (skipping empties) and stitch the transcripts back in order.
+        const parts: string[] = [];
+        const languages: string[] = [];
+        for (let i = 0; i < segments.length; i++) {
+          const seg = segments[i];
+          if (seg.size === 0) continue;
+          const { text, language } = await sarvamTranscribe(seg, seg.name || `answer-${i}.webm`);
+          const trimmed = (text || "").trim();
+          if (trimmed) parts.push(trimmed);
+          const label = LANG_LABEL[language] || language;
+          if (label && !languages.includes(label)) languages.push(label);
+        }
 
-    const fullText = parts.join(" ").trim();
-    if (fullText.length < 2) throw new Error("Empty transcript returned.");
-    const primaryLanguage = languages[0] || "English";
-    log.info("transcription complete", { sessionId, segments: segments.length, languages });
-    return NextResponse.json({
-      text: fullText,
-      language: primaryLanguage,
-      languagesDetected: languages.length ? languages : [primaryLanguage],
-      source: "sarvam",
-    } satisfies Transcript);
+        const fullText = parts.join(" ").trim();
+        if (fullText.length < 2) throw new Error("Empty transcript returned.");
+        const primaryLanguage = languages[0] || "English";
+        setSpanOutput(span, fullText);
+        log.info("transcription complete", { sessionId, segments: segments.length, languages });
+        return NextResponse.json({
+          text: fullText,
+          language: primaryLanguage,
+          languagesDetected: languages.length ? languages : [primaryLanguage],
+          source: "sarvam",
+        } satisfies Transcript);
+      }
+    );
   } catch (e) {
     const message = (e as Error).message;
     log.error("transcription failed", { sessionId, error: e });

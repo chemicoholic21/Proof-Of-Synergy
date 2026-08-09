@@ -36,6 +36,15 @@ See `.env.local.example` for optional model/voice overrides and defaults.
 - Skill graph: technologies actually discussed become skill nodes, grouped by category. Skills are credited only from what the candidate said.
 - Session summary with metrics and coaching.
 
+## Observability (optional)
+
+End-to-end traces of the interview flow can be sent to [Arize Phoenix](https://phoenix.arize.com/)
+via OpenTelemetry — free, and off by default. Run Phoenix locally
+(`docker run -p 6006:6006 -p 4317:4317 arizephoenix/phoenix:latest`), set
+`PHOENIX_COLLECTOR_ENDPOINT=http://localhost:6006` in `.env.local`, and each request shows up as
+LLM/chain/tool spans. See [`docs/observability.md`](docs/observability.md) for local vs. Phoenix
+Cloud setup and the full span map.
+
 ## Layout
 
 - `app/` pages and API routes

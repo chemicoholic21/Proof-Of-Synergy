@@ -3,6 +3,7 @@ import { CoachingSummaryBody } from "@/lib/schemas";
 import { summaryUserPrompt, SUMMARY_SYSTEM, generateWithSarvam, generateWithGemini } from "@/lib/prompts";
 import { sarvamConfigured } from "@/lib/env";
 import { logger } from "@/lib/logger";
+import { traceChain, setSpanOutput } from "@/lib/tracing";
 import { newRequestId, errorResponse, enforceRateLimit, parseJsonBody, ValidationError } from "@/lib/http";
 
 export const runtime = "nodejs";
@@ -35,17 +36,25 @@ export async function POST(req: NextRequest) {
   });
 
   const useSarvam = sarvamConfigured();
-  try {
-    const summary = useSarvam
-      ? await generateWithSarvam(SUMMARY_SYSTEM, prompt, { temperature: 0.5, maxTokens: 600 })
-      : await generateWithGemini(SUMMARY_SYSTEM, prompt, { temperature: 0.5, maxTokens: 600 });
-    log.info("session summary generated", { scenarioTitle: body.scenarioTitle, model: useSarvam ? "sarvam" : "gemini" });
-    return NextResponse.json({ summary, model: useSarvam ? "sarvam" : "gemini" });
-  } catch (e) {
-    log.error("summary generation failed, using heuristic fallback", { error: e });
-    const summary =
-      `You practiced "${body.scenarioTitle}". You spoke ${body.wordCount} words with a confidence score of ` +
-      `${body.confidence}/100 and ${body.fillerCount} filler words detected. Keep practicing to sharpen structure and reduce hesitations.`;
-    return NextResponse.json({ summary, model: "heuristic" });
-  }
+  return traceChain(
+    "coaching.summary",
+    { input: prompt, metadata: { scenarioTitle: body.scenarioTitle, confidence: body.confidence } },
+    async (span) => {
+      try {
+        const summary = useSarvam
+          ? await generateWithSarvam(SUMMARY_SYSTEM, prompt, { temperature: 0.5, maxTokens: 600 })
+          : await generateWithGemini(SUMMARY_SYSTEM, prompt, { temperature: 0.5, maxTokens: 600 });
+        setSpanOutput(span, summary);
+        log.info("session summary generated", { scenarioTitle: body.scenarioTitle, model: useSarvam ? "sarvam" : "gemini" });
+        return NextResponse.json({ summary, model: useSarvam ? "sarvam" : "gemini" });
+      } catch (e) {
+        log.error("summary generation failed, using heuristic fallback", { error: e });
+        const summary =
+          `You practiced "${body.scenarioTitle}". You spoke ${body.wordCount} words with a confidence score of ` +
+          `${body.confidence}/100 and ${body.fillerCount} filler words detected. Keep practicing to sharpen structure and reduce hesitations.`;
+        setSpanOutput(span, summary);
+        return NextResponse.json({ summary, model: "heuristic" });
+      }
+    }
+  );
 }

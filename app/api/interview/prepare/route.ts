@@ -9,6 +9,7 @@ import {
 } from "@/lib/prompts";
 import { extractTextFromUpload, ResumeParseError, MAX_RESUME_BYTES } from "@/lib/resume";
 import { logger } from "@/lib/logger";
+import { traceChain, setSpanOutput } from "@/lib/tracing";
 import { newRequestId, errorResponse, enforceRateLimit } from "@/lib/http";
 
 export const runtime = "nodejs";
@@ -90,33 +91,49 @@ export async function POST(req: NextRequest) {
 
   const systemPrompt = buildInterviewContext({ resumeText, jobDescription, role });
 
-  // --- Opening question (Sarvam-first model-generated, with a deterministic fallback) ---
-  let openingMessage = "";
-  if (anyChatConfigured()) {
-    try {
-      const generated = await generatePartnerReply(INTERVIEW_SYSTEM, interviewOpeningUserPrompt(systemPrompt), {
-        temperature: 0.6,
-        maxTokens: 300,
+  // Trace the whole "prepare the interview" flow as one chain, so the opening-question LLM call
+  // (from generatePartnerReply → sarvam.chat / gemini.chat) nests under it as one end-to-end trace.
+  return traceChain(
+    "interview.prepare",
+    {
+      input: role ? `Prepare interview for role: ${role}` : "Prepare interview",
+      metadata: {
+        resumeChars: resumeText.length,
+        jobDescriptionIncluded: Boolean(jobDescription),
+        role: role || null,
+      },
+    },
+    async (span) => {
+      // --- Opening question (Sarvam-first model-generated, with a deterministic fallback) ---
+      let openingMessage = "";
+      if (anyChatConfigured()) {
+        try {
+          const generated = await generatePartnerReply(INTERVIEW_SYSTEM, interviewOpeningUserPrompt(systemPrompt), {
+            temperature: 0.6,
+            maxTokens: 300,
+          });
+          openingMessage = generated.trim();
+        } catch (e) {
+          log.warn("interview opening generation failed, using fallback", { error: (e as Error).message });
+        }
+      }
+      if (!openingMessage) openingMessage = fallbackInterviewOpening(role);
+
+      setSpanOutput(span, openingMessage);
+      log.info("interview prepared", {
+        resumeChars: resumeText.length,
+        jobDescriptionIncluded: Boolean(jobDescription),
+        role: role || null,
+        generated: openingMessage !== fallbackInterviewOpening(role),
       });
-      openingMessage = generated.trim();
-    } catch (e) {
-      log.warn("interview opening generation failed, using fallback", { error: (e as Error).message });
+
+      return NextResponse.json({
+        systemPrompt,
+        openingMessage,
+        resumeChars: resumeText.length,
+        jobDescriptionIncluded: Boolean(jobDescription),
+        role: role || null,
+      });
     }
-  }
-  if (!openingMessage) openingMessage = fallbackInterviewOpening(role);
-
-  log.info("interview prepared", {
-    resumeChars: resumeText.length,
-    jobDescriptionIncluded: Boolean(jobDescription),
-    role: role || null,
-    generated: openingMessage !== fallbackInterviewOpening(role),
-  });
-
-  return NextResponse.json({
-    systemPrompt,
-    openingMessage,
-    resumeChars: resumeText.length,
-    jobDescriptionIncluded: Boolean(jobDescription),
-    role: role || null,
-  });
+  );
 }
