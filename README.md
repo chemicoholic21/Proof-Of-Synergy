@@ -4,7 +4,7 @@ An AI communication gym. Practice real conversations by voice, get live coaching
 
 ## Stack
 
-Next.js 14 (App Router), React 18, TypeScript, Tailwind. Gemini is the live conversation partner; Sarvam handles voice (speech-to-text, text-to-speech) and coaching summaries. Cognee is an optional semantic layer for the skill graph. Everything degrades gracefully: with no keys the app runs on a local conversation partner, heuristic coaching, and the built-in skill-graph engine.
+Next.js 14 (App Router), React 18, TypeScript, Tailwind. OpenTelemetry is used for optional end-to-end tracing. Gemini is the live conversation partner; Sarvam handles voice (speech-to-text, text-to-speech) and coaching summaries. Cognee is an optional semantic layer for the skill graph. Everything degrades gracefully: with no keys the app runs on a local conversation partner, heuristic coaching, and the built-in skill-graph engine.
 
 ## Run
 
