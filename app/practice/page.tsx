@@ -5,6 +5,7 @@ import Link from "next/link";
 import ScenarioPlayer from "@/components/ScenarioPlayer";
 import VoiceRecorder, { type VoiceRecorderHandle } from "@/components/VoiceRecorder";
 import { speak, type SpeechController } from "@/lib/tts-client";
+import { VoiceLatencyTracker, type VoiceLatencyTimestamps } from "@/lib/voice-latency";
 import { extractDNA } from "@/lib/communication-metrics";
 import { analyzeWithHeuristics } from "@/lib/coaching";
 import { getLearnerId, loadGraphLocal, saveGraphLocal } from "@/lib/learner";
@@ -107,10 +108,35 @@ export default function Practice() {
   const hardTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const closingRef = useRef(false);
   const endSessionRef = useRef<() => void>(() => {});
+  // Latency instrumentation for the current voice turn (mic -> STT -> LLM -> TTS -> playback). Set
+  // by handleRecorded when a voice answer comes in; null for a typed answer (TypedInput calls
+  // handleUserInput directly, with no mic/STT leg to measure). Cleared once a turn is reported so a
+  // typed message never accidentally inherits a stale/failed voice turn's marks.
+  const latencyRef = useRef<VoiceLatencyTracker | null>(null);
 
   const stopSpeaking = useCallback(() => {
     speechRef.current?.stop();
     speechRef.current = null;
+  }, []);
+
+  // Ship a finished turn's latency breakdown to the server (best-effort, never blocks the UI) and
+  // log it locally in dev so the mic->STT->LLM->TTS->playback breakdown is visible without needing
+  // Phoenix wired up.
+  const reportVoiceLatency = useCallback((tracker: VoiceLatencyTracker | null) => {
+    if (!tracker) return;
+    const metrics = tracker.metrics();
+    if (process.env.NODE_ENV !== "production") {
+      // eslint-disable-next-line no-console
+      console.debug("[voice-latency]", tracker.turnId, metrics);
+    }
+    fetch("/api/telemetry/voice-latency", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ turnId: tracker.turnId, timestamps: tracker.snapshot(), metrics }),
+      keepalive: true,
+    }).catch(() => {
+      /* telemetry is best-effort */
+    });
   }, []);
 
   const clearInterviewTimer = useCallback(() => {
@@ -164,11 +190,20 @@ export default function Practice() {
     autoHandledIdxRef.current = idx;
 
     let cancelled = false;
-    const controller = speak(messages[idx].content);
+    // The tracker set by handleRecorded for the answer that produced this reply (null for the
+    // opening question, which has no preceding voice turn to attach to).
+    const turnLatency = latencyRef.current;
+    const controller = speak(messages[idx].content, undefined, turnLatency ?? undefined);
     speechRef.current = controller;
     controller.done.then(() => {
       if (cancelled) return;
       if (speechRef.current === controller) speechRef.current = null;
+      // The turn that started with this recording is done (reply generated and spoken) — ship its
+      // latency breakdown and clear the ref so the next recording starts a fresh tracker.
+      if (latencyRef.current === turnLatency) {
+        reportVoiceLatency(turnLatency);
+        latencyRef.current = null;
+      }
       if (closingRef.current) {
         // That was the interviewer's closing line → end the session and show the analysis.
         endSessionRef.current();
@@ -180,7 +215,7 @@ export default function Practice() {
     return () => {
       cancelled = true;
     };
-  }, [messages, busy, step, autoConverse]);
+  }, [messages, busy, step, autoConverse, reportVoiceLatency]);
 
   // Stop any in-flight speech and the interview timer when leaving the page.
   useEffect(
@@ -253,6 +288,9 @@ export default function Practice() {
           }),
         });
         const d = await readJsonOrThrow(res);
+        // Fold the server-timed llm_start/llm_first_token/llm_end into whichever turn is in
+        // flight (set by handleRecorded); a no-op for a typed message, which has no tracker.
+        latencyRef.current?.merge(d.timing);
         return typeof d.reply === "string" && d.reply.trim() ? d.reply : null;
       } catch {
         return null;
@@ -312,12 +350,20 @@ export default function Practice() {
         setBusy("Coaching…");
         runCoaching(trimmed);
         setBusy(null);
+
+        // Hands-free interview mode still has a TTS + playback leg ahead (the effect above speaks
+        // `partnerText`), so that effect reports the turn once the reply has actually been spoken.
+        // Outside that mode nothing else will touch this tracker, so report it now.
+        if (!autoConverse) {
+          reportVoiceLatency(latencyRef.current);
+          latencyRef.current = null;
+        }
       } catch (e) {
         setBusy(null);
         setError(e instanceof Error ? e.message : "Something went wrong. Please try again.");
       }
     },
-    [messages, selected, partnerReply, runCoaching, autoConverse, closeInterview]
+    [messages, selected, partnerReply, runCoaching, autoConverse, closeInterview, reportVoiceLatency]
   );
 
   const handleUtteranceEnd = useCallback(
@@ -329,15 +375,22 @@ export default function Practice() {
   );
 
   const handleRecorded = useCallback(
-    async (blobs: Blob[], durationSec: number, liveText?: string) => {
+    async (blobs: Blob[], durationSec: number, liveText?: string, latencyMarks?: VoiceLatencyTimestamps) => {
       totalDurationRef.current += durationSec;
       setError(null);
       setBusy("Transcribing your answer…");
+      // Own this turn's latency tracker for the rest of the pipeline: seeded with VoiceRecorder's
+      // client-side marks (mic_start/speech_detected/speech_end), then layered with the server
+      // timing each downstream call returns.
+      const tracker = new VoiceLatencyTracker(latencyMarks);
+      latencyRef.current = tracker;
       try {
+        tracker.mark("audio_upload_start");
         const fd = new FormData();
         blobs.forEach((b, i) => fd.append("audio", b, `answer-${i}.webm`));
         const res = await fetch("/api/transcribe", { method: "POST", body: fd });
         const t = await readJsonOrThrow(res);
+        tracker.merge(t.timing);
         // Prefer Sarvam's transcript; fall back to the browser live transcript if Sarvam is empty.
         let text = (t.text ?? "").trim();
         if (text.length < 2 && liveText && liveText.trim().length >= 2) text = liveText.trim();
@@ -350,9 +403,14 @@ export default function Practice() {
             ? `${e.message} (You can also type your response below to keep practising.)`
             : "Transcription failed. You can type your response below."
         );
+        // This turn never reached the LLM/TTS stages -> nothing will report or clear it. Report
+        // what we do have (mic/upload/STT marks) and drop it so a later typed message can't
+        // accidentally inherit it.
+        reportVoiceLatency(latencyRef.current === tracker ? tracker : null);
+        if (latencyRef.current === tracker) latencyRef.current = null;
       }
     },
-    [handleUserInput]
+    [handleUserInput, reportVoiceLatency]
   );
 
   const endSession = useCallback(async () => {

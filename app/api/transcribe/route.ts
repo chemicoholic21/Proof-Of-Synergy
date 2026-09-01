@@ -3,8 +3,9 @@ import { sarvamTranscribe, sarvamConfigured } from "@/lib/sarvam";
 import { Transcript } from "@/lib/types";
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
-import { traceChain, setSpanOutput } from "@/lib/tracing";
+import { traceChain, setSpanOutput, setVoiceLatencyMetrics } from "@/lib/tracing";
 import { newRequestId, errorResponse, enforceRateLimit } from "@/lib/http";
+import type { VoiceLatencyTimestamps } from "@/lib/voice-latency";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -40,8 +41,12 @@ export async function POST(req: NextRequest) {
   // Saarika's real-time STT caps each clip at 30s, so a long answer arrives as several ordered
   // <=25s segments (field name "audio", repeated). getAll handles both single and multi-segment.
   let segments: File[] = [];
+  const timing: VoiceLatencyTimestamps = {};
   try {
     const form = await req.formData();
+    // The full multipart body (the recorded audio) has now arrived — this is the server's view of
+    // when the client's upload finished, paired with the client's `audio_upload_start`.
+    timing.audio_upload_end = Date.now();
     sessionId = Number(form.get("sessionId") || 0);
     segments = form.getAll("audio").filter((v): v is File => v instanceof File);
   } catch {
@@ -70,6 +75,8 @@ export async function POST(req: NextRequest) {
       { metadata: { sessionId, segments: segments.length, bytes: totalBytes } },
       async (span) => {
         // Transcribe each segment (skipping empties) and stitch the transcripts back in order.
+        const sttStart = Date.now();
+        timing.stt_start = sttStart;
         const parts: string[] = [];
         const languages: string[] = [];
         for (let i = 0; i < segments.length; i++) {
@@ -81,17 +88,26 @@ export async function POST(req: NextRequest) {
           const label = LANG_LABEL[language] || language;
           if (label && !languages.includes(label)) languages.push(label);
         }
+        const sttEnd = Date.now();
+        timing.stt_end = sttEnd;
 
         const fullText = parts.join(" ").trim();
         if (fullText.length < 2) throw new Error("Empty transcript returned.");
         const primaryLanguage = languages[0] || "English";
         setSpanOutput(span, fullText);
-        log.info("transcription complete", { sessionId, segments: segments.length, languages });
+        setVoiceLatencyMetrics(span, {}, timing);
+        log.info("transcription complete", {
+          sessionId,
+          segments: segments.length,
+          languages,
+          sttMs: sttEnd - sttStart,
+        });
         return NextResponse.json({
           text: fullText,
           language: primaryLanguage,
           languagesDetected: languages.length ? languages : [primaryLanguage],
           source: "sarvam",
+          timing,
         } satisfies Transcript);
       }
     );

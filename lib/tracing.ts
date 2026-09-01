@@ -166,6 +166,28 @@ export function setSpanOutput(span: Span, text: string): void {
   span.setAttribute(SemanticConventions.OUTPUT_VALUE, clip(text));
 }
 
+/**
+ * Attach a completed voice turn's latency breakdown to `span` as `voice.latency.*` attributes, and
+ * (when raw stage timestamps are supplied) one `voice.stage.<name>` event per stage at the epoch-ms
+ * moment it happened, so a turn's mic -> STT -> LLM -> TTS -> playback waterfall is visible
+ * alongside the STT/LLM/TTS tool and LLM spans it summarizes. Fields that are `NaN` (a stage never
+ * reached this turn, e.g. TTS on a typed answer) are skipped rather than sent as garbage.
+ */
+export function setVoiceLatencyMetrics(
+  span: Span,
+  metrics: Record<string, number | undefined>,
+  timestamps?: Record<string, number | undefined>
+): void {
+  for (const [key, value] of Object.entries(metrics)) {
+    if (Number.isFinite(value)) span.setAttribute(`voice.latency.${key}`, value as number);
+  }
+  if (timestamps) {
+    for (const [stage, atMs] of Object.entries(timestamps)) {
+      if (Number.isFinite(atMs)) span.addEvent(`voice.stage.${stage}`, {}, atMs as number);
+    }
+  }
+}
+
 /** Wrap a non-LLM external call (speech-to-text, text-to-speech) as an OpenInference TOOL span. */
 export async function traceTool<T>(
   name: string,

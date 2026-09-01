@@ -2,6 +2,7 @@
 
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { VoiceActivityDetector, UtteranceDetector } from "@/lib/vad";
+import { VoiceLatencyTracker, type VoiceLatencyTimestamps } from "@/lib/voice-latency";
 
 /** Imperative handle so a parent can drive recording (e.g. hands-free interview mode). */
 export interface VoiceRecorderHandle {
@@ -21,7 +22,9 @@ const AUTO_STOP_SILENCE_MS = 3000;
 
 const VoiceRecorder = forwardRef<VoiceRecorderHandle, {
   // The 3rd arg is the browser live-transcript captured while speaking (fallback transcript).
-  onRecorded: (blobs: Blob[], durationSec: number, liveText?: string) => void;
+  // The 4th arg carries this recording's client-side latency marks (mic_start, speech_detected,
+  // speech_end) for the caller to fold into a VoiceLatencyTracker alongside the server-side stages.
+  onRecorded: (blobs: Blob[], durationSec: number, liveText?: string, latency?: VoiceLatencyTimestamps) => void;
   onUtteranceEnd?: (text: string) => void;
   onRecordingStart?: () => void;
   disabled?: boolean;
@@ -56,6 +59,14 @@ const VoiceRecorder = forwardRef<VoiceRecorderHandle, {
   const analyserRef = useRef<AnalyserNode | null>(null);
   const vadRafRef = useRef<number | null>(null);
   const [autoStopped, setAutoStopped] = useState(false);
+  // Per-recording latency tracker: mic_start is marked in start(), speech_detected/speech_end are
+  // marked from the VAD tick loop below, and the finished snapshot rides along with onRecorded so
+  // the caller can merge in the server-side STT/LLM/TTS stages for this same turn.
+  const latencyRef = useRef<VoiceLatencyTracker | null>(null);
+  const wasSpeakingRef = useRef(false);
+  // The *last* moment speech ended before the trailing silence that actually stops the recording —
+  // captured live so a mid-answer pause never gets mistaken for the real end of speech.
+  const lastSpeechEndAtRef = useRef<number | null>(null);
   // Live (word-by-word) transcript via the browser SpeechRecognition API — pure UX feedback so the
   // user sees they're being heard. The authoritative transcript still comes from Sarvam STT.
   const [liveTranscript, setLiveTranscript] = useState("");
@@ -184,7 +195,12 @@ const VoiceRecorder = forwardRef<VoiceRecorderHandle, {
         streamRef.current?.getTracks().forEach((t) => t.stop());
         setHasClip(true);
         const durationSec = Math.max(1, Math.round((performance.now() - startMsRef.current) / 1000));
-        onRecordedRef.current(segmentsRef.current.slice(), durationSec, finalTranscriptRef.current.trim());
+        // Commit speech_end now, using the last real speech->silence transition if the VAD ever saw
+        // one, else falling back to "now" (e.g. the user was cut off mid-word by the segment/manual
+        // stop rather than tailing off into silence).
+        latencyRef.current?.mark("speech_end", lastSpeechEndAtRef.current ?? Date.now());
+        const latencyMarks = latencyRef.current?.snapshot();
+        onRecordedRef.current(segmentsRef.current.slice(), durationSec, finalTranscriptRef.current.trim(), latencyMarks);
       }
     };
     mr.start();
@@ -236,6 +252,16 @@ const VoiceRecorder = forwardRef<VoiceRecorderHandle, {
       const vadResult = vad.evaluate(rms);
       setIsSpeaking(vadResult.isSpeaking);
       const utteranceState = utterance.update(rms);
+      // speech_detected fires once, on the first speech onset of this recording. speech_end is not
+      // marked here — a mid-answer pause would flip isSpeaking false and then true again, and only
+      // the *last* such transition (right before the recording actually stops) is the real one — so
+      // we just remember the timestamp here and let mr.onstop commit whichever was most recent.
+      if (!wasSpeakingRef.current && utteranceState.isSpeaking) {
+        latencyRef.current?.mark("speech_detected");
+      } else if (wasSpeakingRef.current && !utteranceState.isSpeaking) {
+        lastSpeechEndAtRef.current = Date.now();
+      }
+      wasSpeakingRef.current = utteranceState.isSpeaking;
       if (utteranceState.isFinal && onUtteranceEndRef.current) {
         onUtteranceEndRef.current("");
       }
@@ -266,6 +292,10 @@ const VoiceRecorder = forwardRef<VoiceRecorderHandle, {
       segmentsRef.current = [];
       keepGoingRef.current = true;
       startMsRef.current = performance.now();
+      latencyRef.current = new VoiceLatencyTracker();
+      latencyRef.current.mark("mic_start");
+      wasSpeakingRef.current = false;
+      lastSpeechEndAtRef.current = null;
       startSegment(stream);
       setupVad(stream);
       setLiveTranscript("");
