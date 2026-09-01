@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { sarvamTTS } from "@/lib/sarvam";
 import { TtsBody } from "@/lib/schemas";
 import { logger } from "@/lib/logger";
-import { traceChain } from "@/lib/tracing";
+import { traceChain, setVoiceLatencyMetrics } from "@/lib/tracing";
 import { newRequestId, errorResponse, enforceRateLimit, parseJsonBody, ValidationError } from "@/lib/http";
 
 export const runtime = "nodejs";
@@ -31,9 +31,17 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    return await traceChain("tts", { input: text, metadata: { language: language || "en-IN" } }, async () => {
+    return await traceChain("tts", { input: text, metadata: { language: language || "en-IN" } }, async (span) => {
+      // Bulbul returns the whole clip in one response (not streamed), so `tts_first_audio` lands at
+      // the same instant as `tts_end` — ttsTimeToFirstAudioMs will equal the full call time until
+      // Sarvam (or a switch to a streaming TTS provider) supports incremental audio.
+      const ttsStart = Date.now();
       const audio = await sarvamTTS(text, language || "en-IN");
-      return NextResponse.json({ audio, source: "sarvam" });
+      const ttsEnd = Date.now();
+      const timing = { tts_start: ttsStart, tts_first_audio: ttsEnd, tts_end: ttsEnd };
+      setVoiceLatencyMetrics(span, {}, timing);
+      log.info("tts complete", { chars: text.length, ttsMs: ttsEnd - ttsStart });
+      return NextResponse.json({ audio, source: "sarvam", timing });
     });
   } catch (e) {
     const reason = (e as Error).message;

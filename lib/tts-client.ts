@@ -9,6 +9,8 @@
  * play), and whose `stop()` cancels playback.
  */
 
+import type { VoiceLatencyTracker } from "./voice-latency";
+
 export interface SpeechController {
   /** Resolves when playback finishes, errors, or is stopped. Never rejects. */
   done: Promise<void>;
@@ -65,7 +67,12 @@ function pickVoice(voices: SpeechSynthesisVoice[], language: string): SpeechSynt
   return ranked[0].v;
 }
 
-async function browserSpeak(text: string, language: string, isStopped: () => boolean): Promise<void> {
+async function browserSpeak(
+  text: string,
+  language: string,
+  isStopped: () => boolean,
+  onStart?: () => void
+): Promise<void> {
   if (typeof window === "undefined" || !window.speechSynthesis || isStopped()) return;
   const synth = window.speechSynthesis;
   const voices = await loadVoices(synth);
@@ -79,6 +86,7 @@ async function browserSpeak(text: string, language: string, isStopped: () => boo
     // which most engines otherwise render slightly fast and flat.
     u.rate = 0.97;
     u.pitch = 1.0;
+    u.onstart = () => onStart?.();
     u.onend = () => resolve();
     u.onerror = () => resolve();
     synth.cancel();
@@ -86,7 +94,13 @@ async function browserSpeak(text: string, language: string, isStopped: () => boo
   });
 }
 
-export function speak(text: string, language = "en-IN"): SpeechController {
+/**
+ * Speak `text` aloud. When `latency` is supplied, this stamps the voice-latency stages owned by
+ * the TTS/playback leg of a turn: `tts_start` right before the /api/tts call, `tts_first_audio` /
+ * `tts_end` merged in from the server's response timing, and `audio_playback_start` at the instant
+ * audio actually starts coming out of the speakers (whichever engine ends up producing it).
+ */
+export function speak(text: string, language = "en-IN", latency?: VoiceLatencyTracker): SpeechController {
   let audioEl: HTMLAudioElement | null = null;
   let stopped = false;
   let finishPlayback: (() => void) | null = null;
@@ -94,6 +108,7 @@ export function speak(text: string, language = "en-IN"): SpeechController {
   const done = (async () => {
     if (!text || !text.trim()) return;
     try {
+      latency?.mark("tts_start");
       const res = await fetch("/api/tts", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -102,6 +117,7 @@ export function speak(text: string, language = "en-IN"): SpeechController {
       if (stopped) return;
       const data = await res.json().catch(() => null);
       if (stopped) return;
+      latency?.merge(data?.timing);
       if (data?.audio) {
         await new Promise<void>((resolve) => {
           finishPlayback = resolve;
@@ -115,11 +131,15 @@ export function speak(text: string, language = "en-IN"): SpeechController {
               if (stopped) {
                 audio.pause();
                 resolve();
+                return;
               }
+              latency?.mark("audio_playback_start");
             })
             .catch(() => {
               // Autoplay blocked (no user gesture) -> fall back to browser speech.
-              browserSpeak(text, language, () => stopped).finally(() => resolve());
+              browserSpeak(text, language, () => stopped, () => latency?.mark("audio_playback_start")).finally(() =>
+                resolve()
+              );
             });
         });
         return;
@@ -128,7 +148,7 @@ export function speak(text: string, language = "en-IN"): SpeechController {
       /* fall through to browser speech */
     }
     if (stopped) return;
-    await browserSpeak(text, language, () => stopped);
+    await browserSpeak(text, language, () => stopped, () => latency?.mark("audio_playback_start"));
   })();
 
   return {

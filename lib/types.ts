@@ -40,6 +40,9 @@ export interface Transcript {
   language: string;
   languagesDetected: string[];
   source: "sarvam" | "fallback";
+  /** Server-side voice-latency stage timestamps (epoch ms), for the client to merge into its
+   *  per-turn VoiceLatencyTracker. Absent on the demo/error fallback paths. */
+  timing?: Partial<Record<"audio_upload_end" | "stt_start" | "stt_end", number>>;
 }
 
 export interface CommunicationMetrics {

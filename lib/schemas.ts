@@ -133,3 +133,17 @@ export const MetricsBody = z.object({
   transcript: z.string().min(1).max(40000),
   durationSec: z.coerce.number().min(0).max(86400).optional(),
 });
+
+// ---------------------------------------------------------------------------
+// Voice latency telemetry (see lib/voice-latency.ts).
+// ---------------------------------------------------------------------------
+
+export const VoiceLatencyReportBody = z.object({
+  turnId: z.string().min(1).max(120),
+  // Stage -> epoch ms. Keys are loosely typed (not the VoiceLatencyStage union) so an older client
+  // build sending an extra/renamed stage never 400s the whole report.
+  timestamps: z.record(z.string(), z.coerce.number()).optional(),
+  // JSON has no NaN: the client serializes an unreached stage's derived metric as `null` rather
+  // than throwing or coercing to 0.
+  metrics: z.record(z.string(), z.number().nullable()).optional(),
+});
