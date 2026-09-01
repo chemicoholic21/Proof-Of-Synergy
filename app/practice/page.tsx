@@ -485,7 +485,13 @@ export default function Practice() {
       <main className="mx-auto w-full max-w-5xl px-6 sm:px-10 py-10 relative z-10">
         <Header />
 
-        {busy && (
+        {/* During a live conversation the TypingBubble below already shows a busy state inline in
+            the transcript — showing this banner at the same time doubled up on the same "busy" flag
+            and, because it churns through several labels a second during an auto-submitted answer
+            (Transcribing… -> Listening… -> replying… -> Coaching…), read as flickery/buggy rather
+            than informative. Keep this banner for the other steps (intake, summarising, etc.) where
+            there's no transcript to show a status inline. */}
+        {busy && step !== "conversation" && (
           <div className="mb-6 flex items-center gap-4 rounded-2xl border border-accent/25 bg-accent/5 px-6 py-4 text-[15px] text-ink pulse-glow-active">
             <span className="relative flex h-4.5 w-4.5">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75" />
@@ -823,7 +829,13 @@ function InterviewIntake({
   );
 }
 
-/** ChatGPT/Claude-style "AI is processing" indicator: a Partner bubble with three bouncing dots. */
+/**
+ * ChatGPT/Claude-style "AI is processing" indicator: a Partner bubble with three bouncing dots.
+ * Deliberately just the dots, not a running commentary of internal state ("Transcribing your
+ * answer…", "Your partner is replying…", …) — during a fast auto-submitted turn those labels
+ * flash past in quick succession and read as glitchy rather than informative. `label` is still
+ * exposed to screen readers via aria-label.
+ */
 function TypingBubble({ label }: { label?: string }) {
   return (
     <div className="flex justify-start">
@@ -831,14 +843,11 @@ function TypingBubble({ label }: { label?: string }) {
         <div className="mb-1.5 flex items-center gap-2">
           <span className="text-[10px] uppercase tracking-widest font-bold text-accent">Partner</span>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="flex items-center gap-1">
-            <span className="typing-dot" style={{ animationDelay: "0ms" }} />
-            <span className="typing-dot" style={{ animationDelay: "150ms" }} />
-            <span className="typing-dot" style={{ animationDelay: "300ms" }} />
-          </span>
-          {label && <span className="text-[12px] text-ink-soft">{label}</span>}
-        </div>
+        <span className="flex items-center gap-1" role="status" aria-label={label || "Working"}>
+          <span className="typing-dot" style={{ animationDelay: "0ms" }} />
+          <span className="typing-dot" style={{ animationDelay: "150ms" }} />
+          <span className="typing-dot" style={{ animationDelay: "300ms" }} />
+        </span>
       </div>
     </div>
   );
