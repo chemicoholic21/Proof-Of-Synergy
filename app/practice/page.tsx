@@ -609,6 +609,9 @@ function Header() {
           <Link href="/knowledge-graph" className="text-ink-soft border-b border-transparent hover:border-accent pb-0.5 transition-colors">
             Skill Graph <span className="text-ink-soft">→</span>
           </Link>
+          <Link href="/practice/realtime" className="text-ink-soft border-b border-transparent hover:border-accent pb-0.5 transition-colors">
+            Realtime (experimental) <span className="text-ink-soft">→</span>
+          </Link>
         </nav>
       </div>
     </header>
