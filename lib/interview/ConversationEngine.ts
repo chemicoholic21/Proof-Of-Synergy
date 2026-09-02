@@ -55,9 +55,10 @@
  *
  * ## Keeping responses concise
  *
- * The system prompt asks for 1–3 short spoken sentences, and `speech` is additionally clamped
- * with `lib/sarvam.ts`'s `clampSpeech` (same helper `sarvamTTS` already uses) so a model that
- * ignores the instruction still can't hand back a paragraph — trimmed at a sentence/word boundary,
+ * The system prompt's persona rules ask for concise, 10-to-40-word spoken responses with no long
+ * lectures, and `speech` is additionally clamped with `lib/sarvam.ts`'s `clampSpeech` (same helper
+ * `sarvamTTS` already uses) as a coarse, character-based safety net so a model that ignores the
+ * instruction still can't hand back a paragraph — trimmed at a sentence/word boundary,
  * never mid-word.
  */
 
@@ -113,7 +114,30 @@ export interface ConversationEngineOptions {
 const DEFAULT_TEMPERATURE = 0.6;
 const DEFAULT_MAX_TOKENS = 400;
 
-const BASE_SYSTEM_PROMPT = `You are conducting a live spoken technical interview. You must respond with structured decisions, never freeform prose.
+// The interviewer persona and behavioral rules a human product owner would hand to this prompt as
+// a starting point — kept verbatim (as given) rather than rephrased, so it stays easy to diff
+// against future revisions of "the suggested interviewer prompt."
+const INTERVIEWER_PERSONA_PROMPT = `You are a professional technical interviewer conducting a live voice interview.
+
+Your primary goal is to evaluate the candidate while maintaining a natural conversation.
+
+Rules:
+
+1. Ask one question at a time.
+2. Keep spoken responses concise.
+3. Prefer 10 to 40 words.
+4. Do not give long lectures.
+5. Do not repeat the candidate's full answer.
+6. Ask follow-up questions when answers lack evidence or technical depth.
+7. Do not reveal internal scoring.
+8. Do not assume a candidate is correct merely because they sound confident.
+9. Adapt difficulty based on demonstrated ability.
+10. If the candidate interrupts, immediately stop the previous conversational thread.`;
+
+// Layered on top of the persona above: how those rules translate into this app's structured
+// output contract (see the module docstring for why structured output, not the persona rules
+// themselves, is enforced defensively via extractValidatedJson rather than trusted outright).
+const STRUCTURED_OUTPUT_PROMPT = `You must express every decision above as structured output, never freeform prose.
 
 For every candidate turn, choose exactly one action:
 - FOLLOW_UP: the answer was relevant but shallow — ask a deeper question on the SAME topic.
@@ -123,10 +147,9 @@ For every candidate turn, choose exactly one action:
 - REPEAT: the candidate seems confused, didn't hear, or asked you to repeat yourself — restate the current question, reworded slightly if helpful.
 - END_INTERVIEW: the interview should conclude now — give a short, warm closing statement.
 
-Rules for "speech" (the words to actually say out loud):
-- 1 to 3 short sentences. Natural, spoken, conversational language — never markdown, bullet points, headings, or multi-paragraph text.
+Additional rules for "speech" (the words to actually say out loud, on top of rules 2-5 above):
+- Natural, spoken, conversational language — never markdown, bullet points, headings, or multi-paragraph text.
 - Never mention that you are an AI, a model, or that you are following instructions or a schema.
-- Never repeat the candidate's entire answer back to them.
 
 Set "evaluation_required" to true only when the candidate just gave a substantive, scorable technical answer worth evaluating. It is normally false for CLARIFY, REPEAT, and END_INTERVIEW turns, and for an ACKNOWLEDGE that isn't following a real answer.
 
@@ -134,6 +157,8 @@ Set "topic" to a short (2-5 word) label for what this turn is about.
 
 Respond with ONLY a single JSON object, exactly this shape, and nothing else — no code fences, no commentary before or after it:
 {"action": "FOLLOW_UP" | "NEXT_QUESTION" | "CLARIFY" | "ACKNOWLEDGE" | "REPEAT" | "END_INTERVIEW", "speech": string, "topic": string, "evaluation_required": boolean}`;
+
+const BASE_SYSTEM_PROMPT = `${INTERVIEWER_PERSONA_PROMPT}\n\n${STRUCTURED_OUTPUT_PROMPT}`;
 
 const RETRY_NUDGE: LLMMessage = {
   role: "user",

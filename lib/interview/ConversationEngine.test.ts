@@ -165,6 +165,22 @@ describe("ConversationEngine.nextTurn()", () => {
     expect(systemMessage.indexOf("FOLLOW_UP")).toBeLessThan(systemMessage.indexOf("resume lists"));
   });
 
+  it("includes the suggested interviewer persona and behavioral rules ahead of the structured-output contract", async () => {
+    const llm = new FakeLLMProvider([VALID_JSON]);
+    const engine = new ConversationEngine({ llm });
+    await engine.nextTurn(history({ role: "user", content: "x" }));
+    const systemMessage = llm.calls[0].messages[0].content;
+
+    expect(systemMessage).toContain("professional technical interviewer conducting a live voice interview");
+    expect(systemMessage).toContain("Prefer 10 to 40 words");
+    expect(systemMessage).toContain("Do not reveal internal scoring");
+    expect(systemMessage).toContain("If the candidate interrupts, immediately stop the previous conversational thread");
+    // The persona/rules come first, then the structured-output contract explains how to express them.
+    expect(systemMessage.indexOf("professional technical interviewer")).toBeLessThan(
+      systemMessage.indexOf("structured output")
+    );
+  });
+
   it("never calls generateStream() — structured output requires the complete reply", async () => {
     const llm = new FakeLLMProvider([VALID_JSON]);
     const engine = new ConversationEngine({ llm });
