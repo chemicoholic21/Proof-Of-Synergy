@@ -370,7 +370,9 @@ describe("VoiceSession — cancellation / interruption", () => {
 
     expect(turnManager.state).toBe("AGENT_THINKING");
     expect(session.interrupt()).toBe(true);
-    expect(turnManager.state).toBe("INTERRUPTED");
+    // INTERRUPTED is a transient pass-through — interrupt() resumes LISTENING immediately per the
+    // barge-in flow (stop audio -> cancel TTS -> cancel LLM if safe -> INTERRUPTED -> LISTENING).
+    expect(turnManager.state).toBe("LISTENING");
     expect(captured.signal?.aborted).toBe(true);
 
     const interrupted = seen.find((e) => e.type === "AGENT_INTERRUPTED");
@@ -405,7 +407,8 @@ describe("VoiceSession — cancellation / interruption", () => {
     tts.resolve(toArrayBuffer("late audio"));
     await new Promise((r) => setTimeout(r, 10));
     expect(audioCalls).toHaveLength(0);
-    expect(turnManager.state).toBe("INTERRUPTED");
+    // INTERRUPTED is transient — interrupt() resumes LISTENING right away.
+    expect(turnManager.state).toBe("LISTENING");
   });
 
   it("interrupt() is a no-op outside AGENT_THINKING/AGENT_SPEAKING", async () => {
@@ -435,5 +438,135 @@ describe("VoiceSession — cancellation / interruption", () => {
 
     await session.end();
     expect(captured.signal?.aborted).toBe(true);
+  });
+});
+
+describe("VoiceSession — barge-in (AGENT_SPEAKING -> speech detected -> ... -> LISTENING)", () => {
+  it("notifySpeechStarted() during AGENT_SPEAKING runs the full barge-in flow and ends at LISTENING", async () => {
+    const tts = deferred<ArrayBuffer>();
+    const captured: { signal: AbortSignal | null } = { signal: null };
+    const { session, sttProvider, events, turnManager } = harness({
+      synthesizeSpeech: (_t, signal) => {
+        captured.signal = signal;
+        return tts.promise;
+      },
+    });
+    const audioCalls: unknown[] = [];
+    session.onAudio((a) => audioCalls.push(a));
+    const seen: InterviewEvent["type"][] = [];
+    events.subscribeAll((e) => seen.push(e.type));
+
+    await session.start();
+    session.notifySpeechStarted();
+    sttProvider.emitFinal("tell me about yourself");
+    await waitForEvent(events, (e) => e.type === "TTS_PLAYBACK_STARTED");
+    expect(turnManager.state).toBe("AGENT_SPEAKING"); // AGENT SPEAKING
+
+    // USER SPEECH DETECTED
+    const bargeIn = session.notifySpeechStarted();
+
+    // STOP AUDIO (the AGENT_INTERRUPTED event is the signal a client must react to) / CANCEL TTS
+    expect(bargeIn).toBe(true);
+    expect(captured.signal?.aborted).toBe(true);
+    expect(seen).toContain("AGENT_INTERRUPTED");
+
+    // -> LISTENING (through the transient INTERRUPTED state)
+    expect(turnManager.state).toBe("LISTENING");
+
+    // Prevent stale audio chunks from playing after interruption: even if the abandoned TTS call
+    // resolves later, it must never reach onAudio().
+    tts.resolve(toArrayBuffer("stale reply audio"));
+    await new Promise((r) => setTimeout(r, 10));
+    expect(audioCalls).toHaveLength(0);
+    expect(seen).not.toContain("TTS_PLAYBACK_COMPLETED");
+  });
+
+  it("notifySpeechStarted() during AGENT_THINKING also barges in (before TTS ever starts)", async () => {
+    const gen = deferred<string>();
+    const { session, sttProvider, events, turnManager } = harness({
+      generateReply: () => gen.promise,
+    });
+    const seen: Array<{ type: string; interruptedStage?: string }> = [];
+    events.subscribeAll((e) => seen.push(e as { type: string; interruptedStage?: string }));
+
+    await session.start();
+    session.notifySpeechStarted();
+    sttProvider.emitFinal("hello");
+    expect(turnManager.state).toBe("AGENT_THINKING");
+
+    expect(session.notifySpeechStarted()).toBe(true);
+    expect(turnManager.state).toBe("LISTENING");
+    expect(seen).toContainEqual(
+      expect.objectContaining({ type: "AGENT_INTERRUPTED", interruptedStage: "AGENT_GENERATION" })
+    );
+  });
+
+  it("publishes AGENT_INTERRUPTED with interruptedStage TTS_PLAYBACK for a barge-in during AGENT_SPEAKING", async () => {
+    const tts = deferred<ArrayBuffer>();
+    const { session, sttProvider, events } = harness({ synthesizeSpeech: () => tts.promise });
+    const interrupted: Array<{ interruptedStage?: string }> = [];
+    events.subscribe("AGENT_INTERRUPTED", (e) => interrupted.push(e));
+
+    await session.start();
+    session.notifySpeechStarted();
+    sttProvider.emitFinal("hello");
+    await waitForEvent(events, (e) => e.type === "TTS_PLAYBACK_STARTED");
+
+    session.notifySpeechStarted();
+    expect(interrupted).toEqual([
+      { type: "AGENT_INTERRUPTED", interruptedStage: "TTS_PLAYBACK", timestamp: expect.any(Number) },
+    ]);
+  });
+
+  it("the learner's continued speech after a barge-in starts a normal new turn", async () => {
+    const tts = deferred<ArrayBuffer>();
+    const { session, sttProvider, turnManager, events } = harness({ synthesizeSpeech: () => tts.promise });
+    await session.start();
+    session.notifySpeechStarted();
+    sttProvider.emitFinal("first question's answer");
+    await waitForEvent(events, (e) => e.type === "TTS_PLAYBACK_STARTED");
+
+    session.notifySpeechStarted(); // barge-in -> LISTENING
+    expect(turnManager.state).toBe("LISTENING");
+
+    // The caller's VAD confirms the learner really is still talking -> a normal turn this time.
+    expect(session.notifySpeechStarted()).toBe(true);
+    expect(turnManager.state).toBe("USER_SPEAKING");
+
+    session.pushAudio(toArrayBuffer("continuing my answer"));
+    expect(sttProvider.sentAudio).toHaveLength(1);
+  });
+
+  it("does not resurrect a barged-in turn's audio even after a second, independent turn completes", async () => {
+    const firstTts = deferred<ArrayBuffer>();
+    let synthesizeCall = 0;
+    const { session, sttProvider, events, turnManager } = harness({
+      synthesizeSpeech: async (text) => {
+        synthesizeCall++;
+        if (synthesizeCall === 1) return firstTts.promise;
+        return toArrayBuffer(`audio(${text})`);
+      },
+    });
+    const audioCalls: string[] = [];
+    session.onAudio((_audio, text) => audioCalls.push(text));
+
+    await session.start();
+    session.notifySpeechStarted();
+    sttProvider.emitFinal("first"); // turn 1 - will be barged in on
+    await waitForEvent(events, (e) => e.type === "TTS_PLAYBACK_STARTED");
+    session.notifySpeechStarted(); // barge-in
+    expect(turnManager.state).toBe("LISTENING");
+
+    session.notifySpeechStarted(); // real start of turn 2
+    const turn2Done = waitForEvent(events, (e) => e.type === "TTS_PLAYBACK_COMPLETED");
+    sttProvider.emitFinal("second");
+    await turn2Done;
+
+    // Now let turn 1's abandoned, slow TTS call finally resolve.
+    firstTts.resolve(toArrayBuffer("audio(first)"));
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(audioCalls).toEqual(["reply to: second"]); // only the real, non-interrupted turn's audio
+    expect(turnManager.state).toBe("LISTENING");
   });
 });

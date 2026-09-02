@@ -32,8 +32,15 @@
  *   browser's *playback* of audio — this class fires them at the *generation* boundary instead,
  *   since actual playback happens downstream, outside anything this class can observe. See that
  *   module's docstring; this is a deliberate, documented reuse, not a mismatch.)
- * - **Cancellation**: `interrupt()` aborts whichever of the two calls above is in flight (via
- *   `AbortController`), transitions to `INTERRUPTED`, and publishes `AGENT_INTERRUPTED`. `end()`
+ * - **Cancellation / barge-in**: `interrupt()` implements the full barge-in flow —
+ *   AGENT_SPEAKING/AGENT_THINKING -> stop audio -> cancel TTS -> cancel the LLM call if one is
+ *   still in flight -> `INTERRUPTED` -> back to `LISTENING` — aborting whichever of the two legs
+ *   above is running (via `AbortController`) and publishing `AGENT_INTERRUPTED` as the signal a
+ *   downstream consumer must react to by actually stopping local playback. Every caller needs to
+ *   know is `notifySpeechStarted()`: called while the agent is thinking or speaking, it *is* a
+ *   barge-in and delegates here automatically — no separate call is required to detect one.
+ *   `runAgentTurn()`'s `signal.aborted` checks guarantee a call that resolves late (ignoring the
+ *   abort) can never play stale audio or publish a completion event for an abandoned turn. `end()`
  *   also cancels any in-flight call as part of tearing the session down.
  * - **Session lifecycle**: `start()` / `end()` bookend the conversation — connecting/disconnecting
  *   the STT provider, seeding `TurnManager` at `LISTENING`, and (if this instance created its own
@@ -202,9 +209,26 @@ export class VoiceSession {
 
   // -- STT connection / audio streaming -------------------------------------------------------------
 
-  /** The learner started talking (or resumed after a pause). Valid from `LISTENING`, `USER_PAUSED`,
-   *  or `INTERRUPTED` (a barge-in); a no-op from anywhere else. */
+  /**
+   * The learner started talking (or resumed after a pause) — the single entry point a caller's
+   * VAD should call every time it detects speech onset, regardless of what the session is doing
+   * right now. Two distinct things can happen, and this method picks the right one from the
+   * current `TurnManager` state alone, so the caller never has to special-case a barge-in itself:
+   *
+   *   - From `LISTENING`, `USER_PAUSED`, or `INTERRUPTED`: a normal turn-start (or resume), moving
+   *     to `USER_SPEAKING` and publishing `SPEECH_STARTED`.
+   *   - From `AGENT_THINKING` or `AGENT_SPEAKING`: a **barge-in** — see `interrupt()`, which this
+   *     delegates to. The agent is stopped/cancelled and the session returns to `LISTENING` (not
+   *     `USER_SPEAKING`); the caller's very next `notifySpeechStarted()` call, once its VAD
+   *     confirms the learner is still talking, is what actually starts capturing their new answer.
+   *
+   * A no-op (returns `false`) from `PROCESSING` or `IDLE`, where neither interpretation applies.
+   */
   notifySpeechStarted(): boolean {
+    const state = this.turnManager.state;
+    if (state === "AGENT_THINKING" || state === "AGENT_SPEAKING") {
+      return this.interrupt();
+    }
     const ok = this.turnManager.tryTransition("USER_SPEAKING", "speech_started");
     if (ok) this.events.publish({ type: "SPEECH_STARTED", timestamp: Date.now() });
     return ok;
@@ -270,19 +294,41 @@ export class VoiceSession {
   // -- Cancellation ---------------------------------------------------------------------------------
 
   /**
-   * The learner interrupted the agent while it was thinking or speaking. Aborts whichever call is
-   * in flight, transitions to `INTERRUPTED`, and publishes `AGENT_INTERRUPTED`. Returns `false`
-   * (and does nothing) if the agent wasn't actually thinking or speaking — e.g. it's already
-   * finished, or the learner is still mid-answer themselves.
+   * Full barge-in handling: the learner interrupted the agent while it was thinking or speaking.
+   *
+   *   AGENT_SPEAKING/AGENT_THINKING -> stop audio + cancel TTS/cancel the LLM call (whichever is
+   *   in flight) -> INTERRUPTED -> LISTENING
+   *
+   * "Stop audio" happens downstream, in whatever client is actually playing the agent's speech —
+   * this class can't reach into that directly (see the module docstring), so publishing
+   * `AGENT_INTERRUPTED` (below) *is* the stop-audio signal a consumer must react to. "Cancel TTS"/
+   * "cancel the LLM call" is the `AbortController.abort()` below; it's always safe to call
+   * regardless of which of the two is actually in flight, since `runAgentTurn()`'s `signal.aborted`
+   * checks guarantee a call that ignores the abort and resolves anyway can never publish a
+   * completion event or reach an `onAudio()` callback with stale audio for a turn we've already
+   * abandoned. Ends by resuming `LISTENING` immediately — the barge-in itself isn't the start of
+   * the learner's new answer; `notifySpeechStarted()` picks that up on the caller's next VAD signal.
+   *
+   * Returns `false` (and does nothing) if the agent wasn't actually thinking or speaking — e.g.
+   * it's already finished, or the learner is still mid-answer themselves.
    */
   interrupt(): boolean {
     const stage = interruptedStageFor(this.turnManager.state);
     const ok = this.turnManager.tryTransition("INTERRUPTED", "barge_in");
     if (!ok) return false;
 
+    // CANCEL TTS / CANCEL LLM STREAM IF SAFE — see the docstring above for why this is always
+    // safe to do unconditionally, whichever leg (or neither) is actually in flight.
     this.activeAbortController?.abort();
     this.activeAbortController = null;
+
+    // STOP AUDIO — the signal a downstream playback consumer must react to; see the docstring above.
     this.events.publish({ type: "AGENT_INTERRUPTED", interruptedStage: stage, timestamp: Date.now() });
+
+    // -> LISTENING. Always a legal edge from INTERRUPTED, so this can't fail — tryTransition() is
+    // used anyway to stay consistent with this class's "never throw from a state-driven method"
+    // style elsewhere.
+    this.turnManager.tryTransition("LISTENING", "resume_after_interrupt");
     return true;
   }
 
