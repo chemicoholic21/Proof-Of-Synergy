@@ -228,3 +228,275 @@ describe("TurnManager", () => {
     expect(tm.state).toBe("LISTENING");
   });
 });
+
+// Exhaustively checks every one of the 8x8 (from, to) pairs against TURN_TRANSITIONS, so "every
+// valid state transition" and "invalid transition handling" are both covered without relying on
+// hand-picked spot checks to happen to hit every edge (and every non-edge) in the graph.
+describe("TurnManager - exhaustive transition matrix", () => {
+  for (const from of TURN_STATES) {
+    for (const to of TURN_STATES) {
+      const isLegal = from !== to && TURN_TRANSITIONS[from].includes(to);
+
+      it(`${from} -> ${to} is ${isLegal ? "accepted" : "rejected"}`, () => {
+        const tm = new TurnManager(from);
+        const events: TurnManagerEvent[] = [];
+        tm.subscribeAll((e) => events.push(e));
+
+        const accepted = tm.tryTransition(to);
+
+        expect(accepted).toBe(isLegal);
+        if (isLegal) {
+          expect(tm.state).toBe(to);
+          expect(events).toEqual([
+            { type: "TURN_STATE_CHANGED", from, to, timestamp: expect.any(Number) },
+          ]);
+        } else {
+          expect(tm.state).toBe(from); // state must never change on a rejected attempt
+          expect(events).toEqual([
+            { type: "TURN_TRANSITION_REJECTED", from, attempted: to, timestamp: expect.any(Number) },
+          ]);
+        }
+      });
+    }
+  }
+
+  it("transition() (the throwing form) agrees with tryTransition() on every pair", () => {
+    for (const from of TURN_STATES) {
+      for (const to of TURN_STATES) {
+        const isLegal = from !== to && TURN_TRANSITIONS[from].includes(to);
+        const tm = new TurnManager(from);
+        if (isLegal) {
+          expect(() => tm.transition(to)).not.toThrow();
+          expect(tm.state).toBe(to);
+        } else {
+          expect(() => tm.transition(to)).toThrow(InvalidTurnTransitionError);
+          expect(tm.state).toBe(from);
+        }
+      }
+    }
+  });
+});
+
+describe("TurnManager - named transition specs", () => {
+  it("LISTENING -> USER_SPEAKING: VAD reports the learner started talking", () => {
+    const tm = new TurnManager("LISTENING");
+    const events: TurnManagerEvent[] = [];
+    tm.subscribe("TURN_STATE_CHANGED", (e) => events.push(e));
+
+    expect(tm.userStartedSpeaking("vad_speech_start")).toBe("USER_SPEAKING");
+
+    expect(tm.state).toBe("USER_SPEAKING");
+    expect(events).toEqual([
+      {
+        type: "TURN_STATE_CHANGED",
+        from: "LISTENING",
+        to: "USER_SPEAKING",
+        reason: "vad_speech_start",
+        timestamp: expect.any(Number),
+      },
+    ]);
+  });
+
+  it("USER_SPEAKING -> USER_PAUSED: VAD reports a mid-answer silence below the auto-stop threshold", () => {
+    const tm = new TurnManager("USER_SPEAKING");
+    const events: TurnManagerEvent[] = [];
+    tm.subscribe("TURN_STATE_CHANGED", (e) => events.push(e));
+
+    expect(tm.userPaused("vad_silence_below_autostop")).toBe("USER_PAUSED");
+
+    expect(tm.state).toBe("USER_PAUSED");
+    expect(events).toEqual([
+      {
+        type: "TURN_STATE_CHANGED",
+        from: "USER_SPEAKING",
+        to: "USER_PAUSED",
+        reason: "vad_silence_below_autostop",
+        timestamp: expect.any(Number),
+      },
+    ]);
+  });
+
+  it("AGENT_SPEAKING -> INTERRUPTED: the learner barges in while the agent is talking", () => {
+    const tm = new TurnManager("AGENT_SPEAKING");
+    const events: TurnManagerEvent[] = [];
+    tm.subscribe("TURN_STATE_CHANGED", (e) => events.push(e));
+
+    expect(tm.interrupt("barge_in")).toBe("INTERRUPTED");
+
+    expect(tm.state).toBe("INTERRUPTED");
+    expect(events).toEqual([
+      {
+        type: "TURN_STATE_CHANGED",
+        from: "AGENT_SPEAKING",
+        to: "INTERRUPTED",
+        reason: "barge_in",
+        timestamp: expect.any(Number),
+      },
+    ]);
+  });
+});
+
+describe("TurnManager - interruption while the agent is speaking/thinking", () => {
+  it("can be interrupted mid-reply (AGENT_THINKING) and mid-playback (AGENT_SPEAKING)", () => {
+    for (const from of ["AGENT_THINKING", "AGENT_SPEAKING"] as const) {
+      const tm = new TurnManager(from);
+      expect(tm.tryTransition("INTERRUPTED")).toBe(true);
+      expect(tm.state).toBe("INTERRUPTED");
+    }
+  });
+
+  it("cannot be interrupted from any state where the agent isn't generating or speaking", () => {
+    for (const from of TURN_STATES) {
+      if (from === "AGENT_THINKING" || from === "AGENT_SPEAKING" || from === "INTERRUPTED") continue;
+      const tm = new TurnManager(from);
+      expect(tm.tryTransition("INTERRUPTED")).toBe(false);
+      expect(tm.state).toBe(from);
+    }
+  });
+
+  it("after being interrupted mid-playback, the mic can reopen for the learner's follow-up", () => {
+    const tm = new TurnManager("AGENT_SPEAKING");
+    tm.interrupt();
+    expect(tm.startListening()).toBe("LISTENING");
+  });
+
+  it("after being interrupted mid-reply, the learner's speech (already underway) is reflected directly", () => {
+    const tm = new TurnManager("AGENT_THINKING");
+    tm.interrupt();
+    expect(tm.userStartedSpeaking()).toBe("USER_SPEAKING");
+  });
+
+  it("an interruption can also be abandoned back to IDLE (session ended mid-barge-in)", () => {
+    const tm = new TurnManager("AGENT_SPEAKING");
+    tm.interrupt();
+    expect(tm.reset()).toBe("IDLE");
+  });
+
+  it("INTERRUPTED cannot jump straight back into agent activity - the agent must restart via PROCESSING", () => {
+    const tm = new TurnManager("AGENT_SPEAKING");
+    tm.interrupt();
+    expect(tm.tryTransition("AGENT_THINKING")).toBe(false);
+    expect(tm.tryTransition("AGENT_SPEAKING")).toBe(false);
+    expect(tm.tryTransition("PROCESSING")).toBe(false);
+    expect(tm.state).toBe("INTERRUPTED");
+  });
+});
+
+describe("TurnManager - user pause behavior", () => {
+  it("supports repeated pause/resume cycles within a single answer", () => {
+    const tm = new TurnManager("USER_SPEAKING");
+    for (let i = 0; i < 3; i++) {
+      expect(tm.userPaused()).toBe("USER_PAUSED");
+      expect(tm.userStartedSpeaking()).toBe("USER_SPEAKING");
+    }
+    expect(tm.state).toBe("USER_SPEAKING");
+  });
+
+  it("a pause can be finalized as the end of the turn (-> PROCESSING) instead of resuming", () => {
+    const tm = new TurnManager("USER_SPEAKING");
+    tm.userPaused("vad_silence_below_autostop");
+    expect(tm.beginProcessing("autostop_silence_elapsed")).toBe("PROCESSING");
+    expect(tm.state).toBe("PROCESSING");
+  });
+
+  it("a pause can be abandoned back to IDLE without ever finishing the turn", () => {
+    const tm = new TurnManager("USER_SPEAKING");
+    tm.userPaused();
+    expect(tm.reset()).toBe("IDLE");
+  });
+
+  it("a paused turn cannot skip straight into agent activity, bypassing STT", () => {
+    const tm = new TurnManager("USER_PAUSED");
+    expect(tm.tryTransition("AGENT_THINKING")).toBe(false);
+    expect(tm.tryTransition("AGENT_SPEAKING")).toBe(false);
+    expect(tm.state).toBe("USER_PAUSED");
+  });
+
+  it("pausing is only legal while the learner is actually speaking", () => {
+    for (const from of TURN_STATES) {
+      if (from === "USER_SPEAKING") continue;
+      const tm = new TurnManager(from);
+      expect(tm.tryTransition("USER_PAUSED")).toBe(false);
+    }
+  });
+});
+
+describe("TurnManager - cleanup and reset behavior", () => {
+  it("reset() clears back to IDLE from every reachable state and emits exactly one event each time", () => {
+    for (const from of TURN_STATES) {
+      if (from === "IDLE") continue;
+      const tm = new TurnManager(from);
+      const events: TurnManagerEvent[] = [];
+      tm.subscribeAll((e) => events.push(e));
+      expect(tm.reset("cleanup")).toBe("IDLE");
+      expect(tm.state).toBe("IDLE");
+      expect(events).toEqual([
+        { type: "TURN_STATE_CHANGED", from, to: "IDLE", reason: "cleanup", timestamp: expect.any(Number) },
+      ]);
+    }
+  });
+
+  it("reset() is idempotent: calling it again from IDLE never emits a second event", () => {
+    const tm = new TurnManager("AGENT_SPEAKING");
+    let count = 0;
+    tm.subscribeAll(() => count++);
+    tm.reset();
+    expect(count).toBe(1);
+    tm.reset();
+    tm.reset();
+    expect(count).toBe(1);
+  });
+
+  it("dispose() can be called more than once without throwing", () => {
+    const tm = new TurnManager();
+    expect(() => {
+      tm.dispose();
+      tm.dispose();
+    }).not.toThrow();
+  });
+
+  it("dispose() only silences event delivery - transition()/tryTransition()/reset() keep working", () => {
+    const tm = new TurnManager("IDLE");
+    tm.dispose();
+    tm.transition("LISTENING");
+    tm.userStartedSpeaking();
+    expect(tm.tryTransition("PROCESSING")).toBe(true);
+    expect(tm.reset()).toBe("IDLE");
+  });
+
+  it("subscribing after dispose() returns a disposer that never fires and is itself safe to call", () => {
+    const tm = new TurnManager("IDLE");
+    tm.dispose();
+    let count = 0;
+    const unsubscribe = tm.subscribeAll(() => count++);
+    tm.transition("LISTENING");
+    expect(count).toBe(0);
+    expect(() => unsubscribe()).not.toThrow();
+  });
+
+  it("unsubscribing one listener leaves other independent listeners receiving events (no over-broad cleanup)", () => {
+    const tm = new TurnManager("IDLE");
+    let a = 0;
+    let b = 0;
+    const unsubscribeA = tm.subscribeAll(() => a++);
+    tm.subscribeAll(() => b++);
+
+    tm.transition("LISTENING");
+    unsubscribeA();
+    tm.transition("USER_SPEAKING");
+
+    expect(a).toBe(1);
+    expect(b).toBe(2);
+  });
+
+  it("a fresh TurnManager after cleanup starts clean: no leftover listeners fire on it", () => {
+    const first = new TurnManager("IDLE");
+    let calls = 0;
+    first.subscribeAll(() => calls++);
+    first.dispose();
+
+    const second = new TurnManager("IDLE");
+    second.transition("LISTENING");
+    expect(calls).toBe(0); // the disposed instance's listeners must never leak onto a new instance
+  });
+});
