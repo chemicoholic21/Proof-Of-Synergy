@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GeminiChatBody } from "@/lib/schemas";
 import { resolvedGeminiModel } from "@/lib/gemini";
-import { SCENARIO_SYSTEM, scenarioUserPrompt, generatePartnerReply, anyChatConfigured } from "@/lib/prompts";
+import { SCENARIO_SYSTEM, INTERVIEW_SYSTEM, scenarioUserPrompt, generatePartnerReply, anyChatConfigured } from "@/lib/prompts";
 import { getScenario } from "@/lib/scenarios";
 import { logger } from "@/lib/logger";
 import { traceChain, setSpanOutput, setVoiceLatencyMetrics } from "@/lib/tracing";
@@ -40,6 +40,13 @@ export async function POST(req: NextRequest) {
   }
   const scenarioContext = body.systemPrompt ?? scenario?.systemPrompt ?? "";
   const userPrompt = scenarioUserPrompt(body.messages, scenarioContext);
+  // Resume-based interviews send their resume/JD context as `body.systemPrompt` (see
+  // buildInterviewContext) and must be governed by the interviewer persona + boundary-enforcement
+  // rules in INTERVIEW_SYSTEM — sending the generic warm-conversation-partner SCENARIO_SYSTEM here
+  // instead meant an off-topic or non-answer response from the candidate was never caught or
+  // redirected; the interviewer just kept the conversation moving.
+  const isInterview = Boolean(body.systemPrompt) || scenario?.intake === "resume";
+  const baseSystem = isInterview ? INTERVIEW_SYSTEM : SCENARIO_SYSTEM;
 
   // One conversation turn = one chain span; the backing sarvam.chat / gemini.chat LLM span nests
   // under it, so an interview shows up as a sequence of end-to-end turn traces in Phoenix.
@@ -51,7 +58,7 @@ export async function POST(req: NextRequest) {
       // `llm_end` — llmTimeToFirstTokenMs and llmTotalMs will read identical until it is.
       const llmStart = Date.now();
       try {
-        const reply = await generatePartnerReply(SCENARIO_SYSTEM, userPrompt, { temperature: 0.7, maxTokens: 800 });
+        const reply = await generatePartnerReply(baseSystem, userPrompt, { temperature: 0.7, maxTokens: 800 });
         const llmEnd = Date.now();
         const timing = { llm_start: llmStart, llm_first_token: llmEnd, llm_end: llmEnd };
         const model = resolvedGeminiModel() ?? "sarvam";
