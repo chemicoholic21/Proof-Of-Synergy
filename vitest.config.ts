@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 export default defineConfig({
   test: {
     environment: "node",
-    include: ["lib/**/*.test.ts", "test/**/*.test.ts"],
+    include: ["lib/**/*.test.ts", "test/**/*.test.ts", "benchmarks/**/*.test.ts"],
     env: {
       NODE_ENV: "test",
     },
