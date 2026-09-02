@@ -72,6 +72,8 @@ import { WebSocketServer, WebSocket, type RawData } from "ws";
 import type { Server as HTTPServer } from "node:http";
 import { randomUUID } from "node:crypto";
 import { InterviewPipeline, type InterviewPipelineOptions } from "../lib/voice/InterviewPipeline";
+import { REALTIME_AUDIO_SAMPLE_RATE, REALTIME_AUDIO_CODEC } from "../lib/voice/realtimeAudioFormat";
+import { BulbulV3TTSProvider } from "../lib/providers/tts/BulbulV3TTSProvider";
 import type { InterviewEvent } from "../lib/events/interviewEvents";
 import { logger } from "../lib/logger";
 
@@ -118,7 +120,15 @@ export interface VoiceGateway {
 }
 
 function defaultPipelineFactory(sessionId: string): InterviewPipeline {
-  const opts: InterviewPipelineOptions = { sessionId };
+  // linear16 @ REALTIME_AUDIO_SAMPLE_RATE, not BulbulV3TTSProvider's own mp3 default — see
+  // ../lib/voice/realtimeAudioFormat.ts for why a realtime client needs raw PCM specifically.
+  const opts: InterviewPipelineOptions = {
+    sessionId,
+    ttsProvider: new BulbulV3TTSProvider({
+      outputAudioCodec: REALTIME_AUDIO_CODEC,
+      sampleRate: REALTIME_AUDIO_SAMPLE_RATE,
+    }),
+  };
   return new InterviewPipeline(opts);
 }
 
