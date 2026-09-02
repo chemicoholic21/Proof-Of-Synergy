@@ -25,13 +25,16 @@
  * - **LLM generation**: once a final transcript lands, `AGENT_GENERATION_STARTED` is published and
  *   the injected `generateReply` is called; success publishes `AGENT_GENERATION_COMPLETED` with the
  *   reply text and moves on to TTS; failure publishes an `ERROR` event and returns to `LISTENING`.
- * - **TTS generation**: `TTS_PLAYBACK_STARTED` is published and the injected `synthesizeSpeech` is
- *   called with the reply text; success publishes `TTS_PLAYBACK_COMPLETED`, hands the synthesized
- *   audio to every `onAudio()` callback, and returns to `LISTENING`. (These two event names are
- *   inherited from lib/events/interviewEvents.ts, where they were written to describe the
- *   browser's *playback* of audio — this class fires them at the *generation* boundary instead,
- *   since actual playback happens downstream, outside anything this class can observe. See that
- *   module's docstring; this is a deliberate, documented reuse, not a mismatch.)
+ * - **TTS generation**: `TTS_PLAYBACK_STARTED` is published and the injected `synthesizeSpeech` (or,
+ *   if configured, the streaming `synthesizeSpeechStream` — see `VoiceSessionOptions`) is called
+ *   with the reply text; success publishes `TTS_PLAYBACK_COMPLETED`, hands the synthesized audio to
+ *   every `onAudio()` callback (once per turn for the single-shot form, once per chunk — each
+ *   guarded against post-abort delivery individually — for the streaming form), and returns to
+ *   `LISTENING`. (These two event names are inherited from lib/events/interviewEvents.ts, where
+ *   they were written to describe the browser's *playback* of audio — this class fires them at the
+ *   *generation* boundary instead, since actual playback happens downstream, outside anything this
+ *   class can observe. See that module's docstring; this is a deliberate, documented reuse, not a
+ *   mismatch.)
  * - **Cancellation / barge-in**: `interrupt()` implements the full barge-in flow —
  *   AGENT_SPEAKING/AGENT_THINKING -> stop audio -> cancel TTS -> cancel the LLM call if one is
  *   still in flight -> `INTERRUPTED` -> back to `LISTENING` — aborting whichever of the two legs
@@ -96,6 +99,19 @@ export type GenerateReply = (transcript: string, signal: AbortSignal) => Promise
 export type SynthesizeSpeech = (text: string, signal: AbortSignal) => Promise<ArrayBuffer>;
 export type AudioCallback = (audio: ArrayBuffer, text: string) => void;
 
+/**
+ * Streaming counterpart to `SynthesizeSpeech`: instead of resolving once with the whole clip,
+ * calls `onChunk` for each ordered piece of audio as it's produced (e.g. `SpeechChunker`
+ * (./SpeechChunker.ts) feeding a streaming `TTSProvider` (lib/providers/tts/TTSProvider.ts)), and
+ * resolves once the utterance's audio is fully delivered. Takes priority over `SynthesizeSpeech`
+ * when both are configured — see `VoiceSessionOptions.synthesizeSpeechStream`.
+ */
+export type SynthesizeSpeechStream = (
+  text: string,
+  onChunk: (audio: ArrayBuffer) => void,
+  signal: AbortSignal
+) => Promise<void>;
+
 export interface VoiceSessionOptions {
   /** The STT vendor this session talks to — any conforming `STTProvider` works interchangeably. */
   sttProvider: STTProvider;
@@ -116,8 +132,16 @@ export interface VoiceSessionOptions {
    *  the default implementation's known limitations (no history, no true cancellation). */
   generateReply?: GenerateReply;
   /** Synthesizes speech audio for the agent's reply text. Same known limitations as
-   *  `generateReply` above. */
+   *  `generateReply` above. Ignored if `synthesizeSpeechStream` is supplied. */
   synthesizeSpeech?: SynthesizeSpeech;
+  /** Streams speech audio for the agent's reply text as multiple ordered chunks instead of one
+   *  blob. When supplied, this is used instead of `synthesizeSpeech`/its default, and `onAudio()`
+   *  fires once per chunk (still with the full reply `text` alongside each one) rather than once
+   *  per turn. There is no default streaming implementation — inject one (e.g. wiring
+   *  `lib/voice/SpeechChunker.ts` to `lib/providers/tts/BulbulV3TTSProvider.ts`, as
+   *  `lib/voice/InterviewPipeline.ts` does) to get progressive, lower-latency playback instead of
+   *  waiting for the whole reply to be synthesized. */
+  synthesizeSpeechStream?: SynthesizeSpeechStream;
 }
 
 function isAbortError(e: unknown): boolean {
@@ -154,7 +178,8 @@ export class VoiceSession {
   private readonly sttProvider: STTProvider;
   private readonly ownsEventBus: boolean;
   private readonly generateReply: GenerateReply;
-  private readonly synthesizeSpeech: SynthesizeSpeech;
+  private readonly synthesizeSpeech: SynthesizeSpeech | undefined;
+  private readonly synthesizeSpeechStream: SynthesizeSpeechStream | undefined;
 
   private readonly audioCallbacks: AudioCallback[] = [];
 
@@ -169,7 +194,12 @@ export class VoiceSession {
     this.ownsEventBus = !opts.eventBus;
     this.events = opts.eventBus ?? createInterviewEventBus();
     this.generateReply = opts.generateReply ?? defaultGenerateReply(opts.systemPrompt ?? SCENARIO_SYSTEM);
-    this.synthesizeSpeech = opts.synthesizeSpeech ?? defaultSynthesizeSpeech(opts.language ?? "en-IN");
+    this.synthesizeSpeechStream = opts.synthesizeSpeechStream;
+    // The streaming path takes priority — don't even construct the (possibly real, network-backed)
+    // default single-shot synthesizer if it'll never be used.
+    this.synthesizeSpeech = opts.synthesizeSpeechStream
+      ? undefined
+      : (opts.synthesizeSpeech ?? defaultSynthesizeSpeech(opts.language ?? "en-IN"));
   }
 
   // -- Session lifecycle --------------------------------------------------------------------------
@@ -395,9 +425,24 @@ export class VoiceSession {
 
     const ttsController = new AbortController();
     this.activeAbortController = ttsController;
-    let audio: ArrayBuffer;
     try {
-      audio = await this.synthesizeSpeech(replyText, ttsController.signal);
+      if (this.synthesizeSpeechStream) {
+        await this.synthesizeSpeechStream(
+          replyText,
+          (audio) => {
+            // Per-chunk staleness guard: unlike a single Promise (checked once, after it resolves),
+            // a stream can keep calling this for a while after interrupt() aborts it — never let a
+            // non-cooperative synthesizer hand more stale audio to onAudio() once aborted.
+            if (ttsController.signal.aborted) return;
+            for (const callback of this.audioCallbacks) callback(audio, replyText);
+          },
+          ttsController.signal
+        );
+      } else {
+        const audio = await this.synthesizeSpeech!(replyText, ttsController.signal);
+        if (ttsController.signal.aborted) return;
+        for (const callback of this.audioCallbacks) callback(audio, replyText);
+      }
     } catch (e) {
       if (ttsController.signal.aborted || isAbortError(e)) return;
       this.publishError("TTS_PLAYBACK", (e as Error).message);
@@ -409,8 +454,6 @@ export class VoiceSession {
     // Same non-cooperative-abort guard as the generation leg above.
     if (ttsController.signal.aborted) return;
     this.events.publish({ type: "TTS_PLAYBACK_COMPLETED", timestamp: Date.now() });
-
-    for (const callback of this.audioCallbacks) callback(audio, replyText);
     this.turnManager.tryTransition("LISTENING", "turn_complete");
   }
 

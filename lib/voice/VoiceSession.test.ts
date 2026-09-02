@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { VoiceSession, type GenerateReply, type SynthesizeSpeech } from "./VoiceSession";
+import { VoiceSession, type GenerateReply, type SynthesizeSpeech, type SynthesizeSpeechStream } from "./VoiceSession";
 import { TurnManager } from "./TurnManager";
 import { createInterviewEventBus } from "../events/EventBus";
 import type { InterviewEvent } from "../events/interviewEvents";
@@ -85,13 +85,26 @@ function waitForEvent(
   });
 }
 
-function harness(overrides: { generateReply?: GenerateReply; synthesizeSpeech?: SynthesizeSpeech } = {}) {
+function harness(
+  overrides: {
+    generateReply?: GenerateReply;
+    synthesizeSpeech?: SynthesizeSpeech;
+    synthesizeSpeechStream?: SynthesizeSpeechStream;
+  } = {}
+) {
   const sttProvider = new FakeSTTProvider();
   const events = createInterviewEventBus();
   const turnManager = new TurnManager();
   const generateReply: GenerateReply = overrides.generateReply ?? (async (t) => `reply to: ${t}`);
   const synthesizeSpeech: SynthesizeSpeech = overrides.synthesizeSpeech ?? (async (t) => toArrayBuffer(`audio(${t})`));
-  const session = new VoiceSession({ sttProvider, turnManager, eventBus: events, generateReply, synthesizeSpeech });
+  const session = new VoiceSession({
+    sttProvider,
+    turnManager,
+    eventBus: events,
+    generateReply,
+    synthesizeSpeech,
+    ...(overrides.synthesizeSpeechStream ? { synthesizeSpeechStream: overrides.synthesizeSpeechStream } : {}),
+  });
   return { session, sttProvider, events, turnManager };
 }
 
@@ -346,6 +359,133 @@ describe("VoiceSession — LLM/TTS failure handling", () => {
     expect(err.stage).toBe("TTS_PLAYBACK");
     expect(audioCalls).toHaveLength(0);
     expect(turnManager.state).toBe("LISTENING");
+  });
+});
+
+describe("VoiceSession — streaming TTS (synthesizeSpeechStream)", () => {
+  it("uses synthesizeSpeechStream instead of synthesizeSpeech when both are configured", async () => {
+    let singleShotCalls = 0;
+    const stream: SynthesizeSpeechStream = async (text, onChunk) => {
+      onChunk(toArrayBuffer(`chunk-a(${text})`));
+      onChunk(toArrayBuffer(`chunk-b(${text})`));
+    };
+    const { session, sttProvider, events } = harness({
+      synthesizeSpeech: async (t) => {
+        singleShotCalls++;
+        return toArrayBuffer(t);
+      },
+      synthesizeSpeechStream: stream,
+    });
+    const audioCalls: string[] = [];
+    session.onAudio((audio) => audioCalls.push(Buffer.from(audio).toString("utf-8")));
+
+    await session.start();
+    session.notifySpeechStarted();
+    const done = waitForEvent(events, (e) => e.type === "TTS_PLAYBACK_COMPLETED");
+    sttProvider.emitFinal("hello");
+    await done;
+
+    expect(singleShotCalls).toBe(0); // the single-shot synthesizer must never be called
+    expect(audioCalls).toEqual(["chunk-a(reply to: hello)", "chunk-b(reply to: hello)"]);
+  });
+
+  it("calls onAudio once per chunk, each with the full reply text", async () => {
+    const stream: SynthesizeSpeechStream = async (_text, onChunk) => {
+      onChunk(toArrayBuffer("chunk-1"));
+      onChunk(toArrayBuffer("chunk-2"));
+      onChunk(toArrayBuffer("chunk-3"));
+    };
+    const { session, sttProvider, events } = harness({ synthesizeSpeechStream: stream });
+    const received: Array<{ audio: string; text: string }> = [];
+    session.onAudio((audio, text) => received.push({ audio: Buffer.from(audio).toString("utf-8"), text }));
+
+    await session.start();
+    session.notifySpeechStarted();
+    const done = waitForEvent(events, (e) => e.type === "TTS_PLAYBACK_COMPLETED");
+    sttProvider.emitFinal("hello");
+    await done;
+
+    expect(received).toEqual([
+      { audio: "chunk-1", text: "reply to: hello" },
+      { audio: "chunk-2", text: "reply to: hello" },
+      { audio: "chunk-3", text: "reply to: hello" },
+    ]);
+  });
+
+  it("publishes TTS_PLAYBACK_COMPLETED exactly once, after every chunk has been delivered", async () => {
+    const stream: SynthesizeSpeechStream = async (_text, onChunk) => {
+      onChunk(toArrayBuffer("a"));
+      await Promise.resolve();
+      onChunk(toArrayBuffer("b"));
+    };
+    const { session, sttProvider, events } = harness({ synthesizeSpeechStream: stream });
+    const seen: string[] = [];
+    events.subscribeAll((e) => seen.push(e.type));
+    session.onAudio(() => seen.push("AUDIO_CHUNK"));
+
+    await session.start();
+    session.notifySpeechStarted();
+    const done = waitForEvent(events, (e) => e.type === "TTS_PLAYBACK_COMPLETED");
+    sttProvider.emitFinal("hello");
+    await done;
+
+    const completedCount = seen.filter((t) => t === "TTS_PLAYBACK_COMPLETED").length;
+    expect(completedCount).toBe(1);
+    expect(seen.indexOf("AUDIO_CHUNK")).toBeLessThan(seen.lastIndexOf("TTS_PLAYBACK_COMPLETED"));
+  });
+
+  it("a rejecting synthesizeSpeechStream publishes a TTS_PLAYBACK error and never completes", async () => {
+    const stream: SynthesizeSpeechStream = async () => {
+      throw new Error("bulbul stream down");
+    };
+    const { session, sttProvider, events, turnManager } = harness({ synthesizeSpeechStream: stream });
+    const audioCalls: unknown[] = [];
+    session.onAudio((a) => audioCalls.push(a));
+
+    await session.start();
+    session.notifySpeechStarted();
+    const errorEvent = waitForEvent(events, (e) => e.type === "ERROR") as Promise<
+      Extract<InterviewEvent, { type: "ERROR" }>
+    >;
+    sttProvider.emitFinal("hello");
+    const err = await errorEvent;
+
+    expect(err.stage).toBe("TTS_PLAYBACK");
+    expect(audioCalls).toHaveLength(0);
+    expect(turnManager.state).toBe("LISTENING");
+  });
+
+  it("stops delivering chunks to onAudio the moment interrupt() fires, even if the stream keeps calling onChunk afterward", async () => {
+    const late: { deliver: (() => void) | null } = { deliver: null };
+    const stream: SynthesizeSpeechStream = async (_text, onChunk, signal) => {
+      onChunk(toArrayBuffer("before-interrupt"));
+      await new Promise<void>((resolve) => {
+        late.deliver = () => {
+          // A non-cooperative synthesizer: keeps producing chunks even though `signal` was
+          // already aborted by the time this fires.
+          onChunk(toArrayBuffer("after-interrupt"));
+          resolve();
+        };
+      });
+      void signal; // the fake doesn't actually check it — VoiceSession's own per-chunk guard must do the work
+    };
+    const { session, sttProvider, events, turnManager } = harness({ synthesizeSpeechStream: stream });
+    const received: string[] = [];
+    session.onAudio((audio) => received.push(Buffer.from(audio).toString("utf-8")));
+
+    await session.start();
+    session.notifySpeechStarted();
+    sttProvider.emitFinal("hello");
+    await waitForEvent(events, (e) => e.type === "TTS_PLAYBACK_STARTED");
+    await new Promise((r) => setTimeout(r, 0)); // let the first onChunk("before-interrupt") land
+
+    expect(session.interrupt()).toBe(true);
+    expect(turnManager.state).toBe("LISTENING");
+
+    late.deliver?.();
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(received).toEqual(["before-interrupt"]); // the post-interrupt chunk never arrived
   });
 });
 

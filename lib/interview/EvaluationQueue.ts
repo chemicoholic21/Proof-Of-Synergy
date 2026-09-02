@@ -26,8 +26,8 @@
  *     await queue.enqueue({ id: `${sessionId}:${turnIndex}`, sessionId, transcript, topic });
  *   }
  *
- * Nothing in this module is wired into `VoiceSession` yet — it's an independent, fully-tested
- * subsystem a caller opts into.
+ * `lib/voice/InterviewPipeline.ts` is that caller: it enqueues a job exactly like this whenever
+ * `ResponsePlan.requiresEvaluation` is `true`, without ever awaiting the result on the reply path.
  *
  * ## Persistence
  *
@@ -75,6 +75,7 @@ import path from "node:path";
 import type { CoachingEvent } from "../coaching";
 import type { CommunicationMetrics } from "../types";
 import { logger } from "../logger";
+import type { EvidenceEvaluation } from "./EvidenceEvaluator";
 
 const log = logger.child({ module: "evaluation-queue" });
 
@@ -85,6 +86,11 @@ export interface EvaluationResult {
   summary: string;
   metrics: CommunicationMetrics;
   coachingEvents: CoachingEvent[];
+  /** Optional evidence-grounded technical scoring (./EvidenceEvaluator.ts), set by an `evaluate()`
+   *  implementation that composes it with the heuristic summary above — e.g.
+   *  `lib/voice/InterviewPipeline.ts`'s default `evaluate`. `defaultEvaluate()` in
+   *  ./EvaluationWorker.ts never sets this itself. */
+  evidence?: EvidenceEvaluation;
 }
 
 /** Everything a caller supplies when enqueuing one finished answer for evaluation. */
