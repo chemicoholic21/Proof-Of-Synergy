@@ -72,13 +72,22 @@ function getCoachingSuggestion(events: CoachingEvent[]): string {
   return "Keep going. Try to slow down slightly and structure your answer with a clear opening.";
 }
 
-// Interview length: wrap up at the next natural turn after the soft limit; a hard backstop ends it
-// even if the candidate goes idle. (A truly "interesting → extend" call would need a model judgment;
-// the soft→hard window approximates that.)
-const INTERVIEW_SOFT_LIMIT_MS = 15 * 60 * 1000;
-const INTERVIEW_HARD_LIMIT_MS = 20 * 60 * 1000;
-const INTERVIEW_CLOSING =
-  "That's all the time we have for today — thank you for interviewing. You did really well. I'll pull your feedback together now, and your full analysis and results will be waiting in your session summary in just a moment. Take care and have a great day!";
+// Session length applies to every scenario, not just resume-based interviews: wrap up at the next
+// natural turn after the soft limit; a hard backstop ends it even if the learner goes idle. (A
+// truly "interesting → extend" call would need a model judgment; the soft→hard window approximates
+// that.) The visible countdown (top-right of the conversation view) counts down to the soft limit.
+const SESSION_SOFT_LIMIT_MS = 15 * 60 * 1000;
+const SESSION_HARD_LIMIT_MS = 20 * 60 * 1000;
+const SESSION_CLOSING =
+  "That's all the time we have for today — thank you for practising. You did really well. I'll pull your feedback together now, and your full analysis and results will be waiting in your session summary in just a moment. Take care and have a great day!";
+
+/** mm:ss, always rounding up so the display never flashes "0:00" a second early. */
+function formatCountdown(ms: number): string {
+  const totalSec = Math.max(0, Math.ceil(ms / 1000));
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
 
 export default function Practice() {
   const [step, setStep] = useState<Step>("select");
@@ -102,12 +111,19 @@ export default function Practice() {
   const speechRef = useRef<SpeechController | null>(null);
   const autoHandledIdxRef = useRef(-1);
   const autoConverse = selected?.intake === "resume";
-  // Interview timing: when the conversation started, a hard-limit timer, and a flag marking that
-  // the interviewer's closing line has been delivered (after which we auto-end the session).
+  // Session timing (every scenario, not just resume-based interviews): when the conversation
+  // started, a hard-limit timer, and a flag marking that the closing line has been delivered
+  // (after which we auto-end the session). `sessionTick` exists only to force the countdown
+  // display to re-render once a second — the actual elapsed time is always read fresh from
+  // `interviewStartRef.current` (a ref, so updating it alone wouldn't trigger a re-render).
   const interviewStartRef = useRef(0);
   const hardTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const closingRef = useRef(false);
   const endSessionRef = useRef<() => void>(() => {});
+  const [sessionTick, setSessionTick] = useState(0);
+  // Mirrors closingRef in state so the render (disabling input, showing the timer) can react to it —
+  // closingRef itself is a ref precisely so the hands-free effect can read it synchronously.
+  const [sessionClosing, setSessionClosing] = useState(false);
   // Latency instrumentation for the current voice turn (mic -> STT -> LLM -> TTS -> playback). Set
   // by handleRecorded when a voice answer comes in; null for a typed answer (TypedInput calls
   // handleUserInput directly, with no mic/STT leg to measure). Cleared once a turn is reported so a
@@ -146,14 +162,28 @@ export default function Practice() {
     }
   }, []);
 
-  // Deliver the interviewer's closing line, then let the hands-free effect speak it and auto-end.
+  // Deliver the closing line, then let the hands-free effect (interviews) speak it and auto-end;
+  // other scenarios show it in the transcript and disable further input until "End session".
   const closeInterview = useCallback(() => {
     if (closingRef.current) return;
     closingRef.current = true;
+    setSessionClosing(true);
     clearInterviewTimer();
     recorderRef.current?.stop();
-    setMessages((prev) => [...prev, { role: "assistant", content: INTERVIEW_CLOSING, timestamp: Date.now() }]);
+    setMessages((prev) => [...prev, { role: "assistant", content: SESSION_CLOSING, timestamp: Date.now() }]);
   }, [clearInterviewTimer]);
+
+  // Starts (or restarts) the countdown for any scenario — resume-based interview or otherwise —
+  // the moment the first message appears, so the top-right timer and the soft/hard wrap-up limits
+  // apply consistently regardless of scenario type.
+  const beginSessionTimer = useCallback(() => {
+    closingRef.current = false;
+    setSessionClosing(false);
+    interviewStartRef.current = Date.now();
+    setSessionTick(0);
+    clearInterviewTimer();
+    hardTimerRef.current = setTimeout(() => closeInterview(), SESSION_HARD_LIMIT_MS);
+  }, [clearInterviewTimer, closeInterview]);
 
   const allUserText = useMemo(
     () => messages.filter((m) => m.role === "user").map((m) => m.content).join(" "),
@@ -226,6 +256,22 @@ export default function Practice() {
     []
   );
 
+  // Drives the top-right countdown: interviewStartRef is a ref (updating it doesn't re-render), so
+  // tick a counter once a second while a session is running and recompute the display from it.
+  useEffect(() => {
+    if (step !== "conversation" || interviewStartRef.current <= 0) return;
+    const id = setInterval(() => setSessionTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, [step]);
+
+  // Counts down to the soft limit (when the session wraps up at the next natural turn boundary) —
+  // null when there's no running timer to show. Recomputed every `sessionTick` and on entry/exit.
+  const remainingMs = useMemo(() => {
+    if (step !== "conversation" || interviewStartRef.current <= 0) return null;
+    void sessionTick; // recompute on each tick even though it isn't read directly
+    return Math.max(0, SESSION_SOFT_LIMIT_MS - (Date.now() - interviewStartRef.current));
+  }, [step, sessionTick]);
+
   const resetSession = useCallback(() => {
     setError(null);
     setSummary(null);
@@ -244,9 +290,10 @@ export default function Practice() {
       setStep("intake");
       return;
     }
+    beginSessionTimer();
     setMessages([{ role: "assistant", content: selected.openingMessage, timestamp: Date.now() }]);
     setStep("conversation");
-  }, [selected, resetSession]);
+  }, [selected, resetSession, beginSessionTimer]);
 
   // Called by the interview intake form once the resume/JD are parsed server-side.
   const prepareInterview = useCallback(async (fd: FormData) => {
@@ -260,11 +307,7 @@ export default function Practice() {
       }
       setInterviewContext(d.systemPrompt);
       autoHandledIdxRef.current = -1; // fresh conversation → the opening question should be read
-      // Start the interview clock: a hard backstop ends it even if the candidate later goes idle.
-      closingRef.current = false;
-      interviewStartRef.current = Date.now();
-      clearInterviewTimer();
-      hardTimerRef.current = setTimeout(() => closeInterview(), INTERVIEW_HARD_LIMIT_MS);
+      beginSessionTimer(); // a hard backstop ends it even if the candidate later goes idle
       setMessages([{ role: "assistant", content: d.openingMessage, timestamp: Date.now() }]);
       setStep("conversation");
     } catch (e) {
@@ -272,7 +315,7 @@ export default function Practice() {
     } finally {
       setBusy(null);
     }
-  }, [clearInterviewTimer, closeInterview]);
+  }, [beginSessionTimer]);
 
   const partnerReply = useCallback(
     async (history: ConversationMessage[]): Promise<string | null> => {
@@ -312,19 +355,21 @@ export default function Practice() {
     async (text: string) => {
       const trimmed = text.trim();
       if (!trimmed || !selected) return;
+      // The closing line has already been delivered — the session only advances via "End session"
+      // from here (this matters most outside hands-free mode, where nothing auto-ends the session).
+      if (closingRef.current) return;
       setError(null);
       setBusy("Listening to you…");
       const userMsg: ConversationMessage = { role: "user", content: trimmed, timestamp: Date.now() };
       const history = [...messages, userMsg];
       setMessages(history);
 
-      // Interview time's up: after the soft limit, wrap up at this natural turn boundary (the
-      // candidate's answer is kept) with the interviewer's closing line instead of a new question.
+      // Time's up: after the soft limit, wrap up at this natural turn boundary (the learner's
+      // answer is kept) with the closing line instead of a new question. Applies to every
+      // scenario, not just resume-based interviews.
       if (
-        autoConverse &&
-        !closingRef.current &&
         interviewStartRef.current > 0 &&
-        Date.now() - interviewStartRef.current >= INTERVIEW_SOFT_LIMIT_MS
+        Date.now() - interviewStartRef.current >= SESSION_SOFT_LIMIT_MS
       ) {
         setBusy(null);
         closeInterview();
@@ -529,9 +574,12 @@ export default function Practice() {
                 <div className="text-[11px] uppercase tracking-[0.2em] text-ink-soft">Practising</div>
                 <h2 className="heading-font mt-1 text-2xl font-bold text-ink">{selected.title}</h2>
               </div>
-              <button onClick={endSession} disabled={!!busy} className="btn-ghost text-sm px-5 py-2.5">
-                End session
-              </button>
+              <div className="flex items-center gap-3">
+                {remainingMs !== null && <SessionCountdown remainingMs={remainingMs} closing={sessionClosing} />}
+                <button onClick={endSession} disabled={!!busy} className="btn-ghost text-sm px-5 py-2.5">
+                  End session
+                </button>
+              </div>
             </div>
 
             {/* Coaching overlay */}
@@ -557,7 +605,7 @@ export default function Practice() {
             <div className="glass-card p-5 flex flex-col gap-4">
               <VoiceRecorder
                 ref={recorderRef}
-                disabled={!!busy}
+                disabled={!!busy || sessionClosing}
                 onRecorded={handleRecorded}
                 onUtteranceEnd={handleUtteranceEnd}
                 onRecordingStart={stopSpeaking}
@@ -574,7 +622,7 @@ export default function Practice() {
                 <span className="text-[11px] uppercase tracking-wider text-ink-soft">or type</span>
                 <span className="h-px flex-1 bg-line" />
               </div>
-              <TypedInput disabled={!!busy} onSend={handleUserInput} />
+              <TypedInput disabled={!!busy || sessionClosing} onSend={handleUserInput} />
             </div>
           </div>
         )}
@@ -593,6 +641,28 @@ export default function Practice() {
           />
         )}
       </main>
+    </div>
+  );
+}
+
+/** Top-right reverse countdown for the running session — ticks down to 0:00 at the soft time
+ *  limit, then holds at 0:00 (the closing line lands at the next turn boundary, not exactly at
+ *  zero) and switches to a "wrapping up" state once the closing line has actually been delivered. */
+function SessionCountdown({ remainingMs, closing }: { remainingMs: number; closing: boolean }) {
+  const low = !closing && remainingMs <= 60_000;
+  return (
+    <div
+      className={`flex items-center gap-2 rounded-full border px-3 py-1.5 font-mono text-sm tabular-nums transition-colors ${
+        closing
+          ? "border-accent/40 text-accent"
+          : low
+            ? "border-red-500/40 text-red-300"
+            : "border-line text-ink-soft"
+      }`}
+      title="Time remaining in this session"
+    >
+      <span className="text-[10px] uppercase tracking-wider">{closing ? "Wrapping up" : "Time left"}</span>
+      <span>{formatCountdown(remainingMs)}</span>
     </div>
   );
 }
