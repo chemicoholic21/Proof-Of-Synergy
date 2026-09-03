@@ -33,19 +33,35 @@ export async function POST(req: NextRequest) {
     wordCount: body.wordCount,
     scenarioTitle: body.scenarioTitle,
     coachingEvents: body.coachingEvents,
+    transcript: body.transcript,
+    interviewContext: body.interviewContext,
   });
 
   const useSarvam = sarvamConfigured();
+  const jdProvided = Boolean(body.interviewContext);
   return traceChain(
     "coaching.summary",
-    { input: prompt, metadata: { scenarioTitle: body.scenarioTitle, confidence: body.confidence } },
+    {
+      input: prompt,
+      metadata: {
+        scenarioTitle: body.scenarioTitle,
+        confidence: body.confidence,
+        jdProvided,
+        transcriptTurns: body.transcript?.length ?? 0,
+      },
+    },
     async (span) => {
       try {
         const summary = useSarvam
           ? await generateWithSarvam(SUMMARY_SYSTEM, prompt, { temperature: 0.5, maxTokens: 600 })
           : await generateWithGemini(SUMMARY_SYSTEM, prompt, { temperature: 0.5, maxTokens: 600 });
         setSpanOutput(span, summary);
-        log.info("session summary generated", { scenarioTitle: body.scenarioTitle, model: useSarvam ? "sarvam" : "gemini" });
+        log.info("session summary generated", {
+          scenarioTitle: body.scenarioTitle,
+          model: useSarvam ? "sarvam" : "gemini",
+          jdProvided,
+          transcriptTurns: body.transcript?.length ?? 0,
+        });
         return NextResponse.json({ summary, model: useSarvam ? "sarvam" : "gemini" });
       } catch (e) {
         log.error("summary generation failed, using heuristic fallback", { error: e });

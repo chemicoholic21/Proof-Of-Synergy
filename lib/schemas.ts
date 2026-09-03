@@ -127,6 +127,13 @@ export const CoachingSummaryBody = z.object({
     .array(z.object({ type: z.string(), text: z.string() }))
     .max(50)
     .default([]),
+  // The actual conversation, so feedback can cite specific questions/answers instead of only
+  // summarizing aggregate metrics. Optional for backward compatibility with older clients.
+  transcript: z.array(ConversationMessageSchema).max(100).optional(),
+  // Resume-based interviews' role/JD/resume context (the same string built by buildInterviewContext
+  // and sent to /api/gemini as `systemPrompt`) — lets feedback be scored against what this specific
+  // role/JD actually asks for, instead of generic communication advice.
+  interviewContext: z.string().max(20000).optional(),
 });
 
 export const MetricsBody = z.object({

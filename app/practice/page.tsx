@@ -478,6 +478,11 @@ export default function Practice() {
           confidence: m.confidence,
           fillerCount: m.fillerCount,
           coachingEvents: sessionEvents.map((e) => ({ type: e.type, text: e.text })),
+          // So feedback can cite real moments instead of only summarizing aggregate metrics, and —
+          // for resume-based interviews — score answers against the actual role/JD they were asked
+          // for rather than giving generic communication advice.
+          transcript: messages.map((msg) => ({ role: msg.role, content: msg.content, timestamp: msg.timestamp })),
+          ...(interviewContext ? { interviewContext } : {}),
         }),
       });
       const d = await readJsonOrThrow(res);
@@ -519,7 +524,7 @@ export default function Practice() {
       setBusy(null);
       setStep("summary");
     }
-  }, [selected, allUserText, sessionEvents, messages, stopSpeaking, clearInterviewTimer]);
+  }, [selected, allUserText, sessionEvents, messages, interviewContext, stopSpeaking, clearInterviewTimer]);
 
   // Keep a stable ref to the latest endSession so the hands-free effect can call it after the
   // interviewer's closing line without re-subscribing every render.

@@ -105,8 +105,26 @@ export function fallbackInterviewOpening(role?: string | null): string {
   return `Thanks for sharing your resume — let's get started${roleBit}. To begin, walk me through the project you're most proud of: what was your specific role, and what was the hardest technical problem you had to solve?`;
 }
 
+// What "good feedback" means here (the fix for "feedback is generic and not targeted to the JD"):
+//   1. Specific   - grounded in what the person actually said, quoting/paraphrasing real moments
+//                   from the transcript, never a platitude that could apply to any session.
+//   2. Targeted   - when a target role/JD is on file, strengths and gaps are measured against what
+//                   THAT role/JD actually asks for (required skills, seniority signals, must-haves),
+//                   not just generic delivery/communication style.
+//   3. Actionable - 2-3 concrete strengths and 2-3 concrete, doable improvements, each tied to a
+//                   specific moment or requirement rather than vague advice.
+//   4. Honest     - a shallow or off-target answer is named as a gap, not inflated into praise;
+//                   warmth in tone and honesty about gaps are not in tension.
 export const SUMMARY_SYSTEM =
-  "You are a communication coach summarizing a practice session. Be warm, specific, and growth-oriented. Highlight 2-3 strengths and 2-3 actionable improvements. Keep it under 200 words.";
+  "You are an expert interview/communication coach writing a post-session feedback summary. Good feedback is " +
+  "specific (grounded in what the person actually said - quote or closely paraphrase real moments from the " +
+  "transcript, never a generic platitude that could apply to any session), targeted (when a target role or " +
+  "job description is provided below, judge the candidate's actual answers against what THAT role/JD " +
+  "specifically needs - required skills, seniority signals, must-haves - not just generic delivery/communication " +
+  "advice), actionable (2-3 concrete strengths and 2-3 concrete, doable improvements, each tied to a specific " +
+  "transcript moment or role requirement), and honest (never inflate a shallow, evasive, or off-target answer " +
+  "into praise just to be encouraging - name the gap plainly; warmth and honesty are not in conflict here). " +
+  "Keep it under 220 words.";
 
 export function summaryUserPrompt(metrics: {
   fillerCount: number;
@@ -114,19 +132,46 @@ export function summaryUserPrompt(metrics: {
   wordCount: number;
   scenarioTitle: string;
   coachingEvents: { type: string; text: string }[];
+  /** The actual conversation, so feedback can cite real moments instead of only aggregate stats. */
+  transcript?: { role: string; content: string }[];
+  /** Resume/JD/role context for resume-based interviews (buildInterviewContext's output) - when
+   *  present, feedback is scored against what this specific role/JD needs, not just delivery. */
+  interviewContext?: string | null;
 }): string {
-  return `Summarize this communication practice session:
+  // Capped so a long session can't grow the prompt unbounded; the most recent turns matter most for
+  // "did they answer the last few questions well," and Sarvam/Gemini calls already run at fixed
+  // temperature/maxTokens budgets that assume a bounded prompt size.
+  const transcriptBlock = metrics.transcript?.length
+    ? metrics.transcript
+        .slice(-40)
+        .map((m) => `${m.role === "user" ? "Candidate" : "Interviewer/Partner"}: ${m.content}`)
+        .join("\n")
+    : "(transcript unavailable - base feedback on the metrics below only, and say so rather than inventing specifics.)";
+
+  const jdBlock = metrics.interviewContext
+    ? `\nThis is a resume/role-targeted interview. Below is the target role, job description, and resume context ` +
+      `the interviewer's questions were built from - use it to judge whether the candidate's actual answers ` +
+      `demonstrate what THIS role/JD needs, and call out specific alignment or gaps against it (not generic advice):\n` +
+      `<<<ROLE_CONTEXT>>>\n${clampChars(metrics.interviewContext, 4000)}\n<<<END ROLE_CONTEXT>>>\n`
+    : "";
+
+  return `Write feedback for this practice session:
 
 Scenario: ${metrics.scenarioTitle}
 Duration: ~${Math.max(1, Math.round(metrics.wordCount / 130))} min
 Words spoken: ${metrics.wordCount}
 Confidence score: ${metrics.confidence}/100
 Filler words detected: ${metrics.fillerCount}
-
-Coaching moments:
+${jdBlock}
+Coaching moments (communication-style signals detected live):
 ${metrics.coachingEvents.slice(0, 8).map((e) => `- ${e.type}: "${e.text}"`).join("\n") || "None"}
 
-Write a warm, specific summary with 2-3 strengths and 2-3 improvements.`;
+Conversation transcript:
+${transcriptBlock}
+
+Write specific, evidence-based feedback: 2-3 strengths and 2-3 improvements, each citing an actual moment from the transcript${
+    metrics.interviewContext ? " and how it does or doesn't match the role/JD above" : ""
+  }. Do not give generic advice that could apply to any session.`;
 }
 
 export async function generateWithSarvam(system: string, user: string, opts?: { temperature?: number; maxTokens?: number }): Promise<string> {
