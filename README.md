@@ -13,7 +13,9 @@ npm install
 npm run dev        # http://localhost:3000
 ```
 
-Other scripts: `npm run build`, `npm start`, `npm test`, `npm run typecheck`.
+Other scripts: `npm run build`, `npm start`, `npm test`, `npm run test:watch`, `npm run typecheck`,
+`npm run check` (typecheck + test), `npm run voice-gateway` (standalone WebSocket signaling server
+for realtime voice sessions, see `server/voice-gateway.ts`).
 
 ## Config
 
@@ -47,7 +49,12 @@ Cloud setup and the full span map.
 
 ## Layout
 
-- `app/` pages and API routes
-- `components/` UI
-- `lib/` core logic (skill graph, prompts, Sarvam/Gemini clients, resume parsing)
-- `server/` WebSocket signaling server for voice sessions
+- `app/` pages (`practice`, `practice/realtime`, `knowledge-graph`) and API routes (`app/api/*`:
+  coaching, gemini, health, interview, scenarios, skill-graph, telemetry, transcribe, tts, voice)
+- `components/` UI, including the knowledge-graph explorer and realtime voice recorder
+- `lib/` core logic — skill graph, prompts, Sarvam/Gemini clients, resume parsing, the
+  `lib/interview/` conversation pipeline, and `lib/voice-client/` browser-side realtime audio
+- `server/` WebSocket signaling server for voice sessions (`voice-gateway.ts`)
+- `benchmarks/` deterministic benchmark harness for the voice interview pipeline — see
+  [`benchmarks/README.md`](benchmarks/README.md)
+- `docs/` observability and voice architecture notes
